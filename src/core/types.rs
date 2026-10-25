@@ -216,7 +216,7 @@ impl ModelPaths {
 /// `oar-ocr` recorta las cajas de detección a nivel subpíxel, así que la
 /// coordenada es flotante.
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[pyclass(frozen)]
+#[pyclass(frozen, from_py_object)]
 pub struct BoundingBox {
     #[pyo3(get)]
     pub x1: f32,
@@ -230,6 +230,11 @@ pub struct BoundingBox {
 
 #[pymethods]
 impl BoundingBox {
+    #[new]
+    pub fn new(x1: f32, y1: f32, x2: f32, y2: f32) -> Self {
+        Self { x1, y1, x2, y2 }
+    }
+
     /// Ancho de la caja; nunca negativo.
     #[getter]
     pub fn width(&self) -> f32 {
@@ -252,7 +257,7 @@ impl BoundingBox {
 
 /// Región de texto reconocida (`DESIGN.md` §3.1: texto, confianza y caja).
 #[derive(Debug, Clone, PartialEq)]
-#[pyclass(frozen)]
+#[pyclass(frozen, from_py_object)]
 pub struct TextRegion {
     /// Texto reconocido. Una cadena vacía significa que el reconocimiento
     /// falló o se filtró por confianza baja.
@@ -269,6 +274,16 @@ pub struct TextRegion {
 
 #[pymethods]
 impl TextRegion {
+    #[new]
+    #[pyo3(signature = (text, confidence, box_))]
+    pub fn new(text: String, confidence: f32, box_: BoundingBox) -> Self {
+        Self {
+            text,
+            confidence,
+            box_,
+        }
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "TextRegion(text={:?}, confidence={:.3}, box={})",
@@ -281,7 +296,7 @@ impl TextRegion {
 
 /// Resultado del pipeline de texto: una imagen, muchas regiones.
 #[derive(Debug, Clone, PartialEq, Default)]
-#[pyclass(frozen)]
+#[pyclass(frozen, from_py_object)]
 pub struct OcrResult {
     /// Regiones reconocidas, en el orden en que el backend las devuelve.
     #[pyo3(get)]
@@ -290,7 +305,13 @@ pub struct OcrResult {
 
 #[pymethods]
 impl OcrResult {
+    #[new]
+    pub fn new(regions: Vec<TextRegion>) -> Self {
+        Self { regions }
+    }
+
     /// Texto de todas las regiones, concatenado en orden.
+    #[getter]
     pub fn text(&self) -> String {
         self.regions
             .iter()
@@ -382,5 +403,36 @@ mod tests {
             paths.table_structure_dict,
             Some(PathBuf::from("/models/table_structure_dict_ch.txt"))
         );
+    }
+
+    #[test]
+    fn ocr_result_exposes_text_and_mean_confidence() {
+        let box_ = BoundingBox {
+            x1: 0.0,
+            y1: 0.0,
+            x2: 10.0,
+            y2: 10.0,
+        };
+        let result = OcrResult {
+            regions: vec![
+                TextRegion {
+                    text: "hola".into(),
+                    confidence: 0.8,
+                    box_,
+                },
+                TextRegion {
+                    text: "mundo".into(),
+                    confidence: 0.6,
+                    box_,
+                },
+            ],
+        };
+        assert_eq!(result.text(), "hola\nmundo");
+        assert_eq!(result.regions.len(), 2);
+        assert!((result.confidence() - 0.7).abs() < 1e-6);
+
+        let empty = OcrResult::default();
+        assert_eq!(empty.text(), "");
+        assert_eq!(empty.confidence(), 0.0);
     }
 }
