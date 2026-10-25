@@ -93,10 +93,7 @@ impl std::fmt::Display for OcrError {
                 write!(f, "model load failed for '{model_path}': {reason}")
             }
             Self::Inference { message, .. } => write!(f, "inference failed: {message}"),
-            Self::Preprocess { message, source } => match source {
-                Some(source) => write!(f, "preprocessing failed: {message} ({source})"),
-                None => write!(f, "preprocessing failed: {message}"),
-            },
+            Self::Preprocess { message, .. } => write!(f, "preprocessing failed: {message}"),
             Self::InvalidInput { message } => write!(f, "invalid input: {message}"),
             Self::Io(error) => write!(f, "io error: {error}"),
         }
