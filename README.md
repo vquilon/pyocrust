@@ -10,9 +10,11 @@ la raíz del crate `pyocrust_core` y el directorio del paquete importable
 
 ## Estado
 
-Esqueleto del paquete (fase 1 del `PLANNING.md`). `cargo check` compila y
-`import pyocrust` funciona; las capas `core/`, `storage/` y `engines/` llegan en
-las fases 2 a 4.
+Implementación de las fases 0-5 del `PLANNING.md`: `cargo check` compila,
+`import pyocrust` funciona y la suite de integración pasa (31 pasados, 2 `skip`,
+1 `xfail`). **Sin embargo, el sign-off final `S1` es `RECHAZADO`** con 7
+condiciones abiertas, dos de ellas bloqueantes; ver `DESIGN.md` §9 y
+`PLANNING.md` §7.
 
 ## Estructura
 
