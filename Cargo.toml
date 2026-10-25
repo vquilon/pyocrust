@@ -1,0 +1,44 @@
+[package]
+name = "pyocrust_core"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license = "Apache-2.0"
+description = "Native Rust core of pyocrust: OCR and document structure analysis over oar-ocr."
+
+[lib]
+name = "pyocrust_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+# PyO3 con abi3-py310 (PEP 384): el binario sirve para CPython >= 3.10.
+pyo3 = { version = "0.30", features = ["extension-module", "abi3-py310"] }
+
+# Backend OCR. ADR-010: por defecto `simd` + `auto-download` (descarga de modelos
+# registrados desde ModelScope hacia $OAR_HOME, DESIGN.md §3.2). `cuda`/`directml`
+# quedan como features opcionales de este crate.
+oar-ocr = { version = "0.10.1", features = ["simd", "auto-download"] }
+
+# Tipos de imagen compartidos con el preprocesamiento nativo (ADR-009, tarjeta I2).
+image = "0.25"
+
+# Paralelismo solo para preprocesamiento intensivo de CPU (ADR-008).
+rayon = "1.8"
+
+# Descargador Hugging Face resiliente (ADR-007, tarjeta I3).
+# rustls evita depender del OpenSSL del sistema en Windows.
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "stream", "rustls-tls"] }
+
+[features]
+# GPU: se activa compilando con --features cuda o --features directml (ADR-010).
+cuda = ["oar-ocr/cuda"]
+directml = ["oar-ocr/directml"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+# ADR-004 / ADR-010: con `unwind` un pánico de Rust se traduce a PyErr y no
+# abate el proceso Python. Prohibido `panic = "abort"` (ver xycutppy/Cargo.toml:33).
+panic = "unwind"
