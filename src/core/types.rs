@@ -1,14 +1,16 @@
 //! Tipos del core (`DESIGN.md` §2 y §3.1).
 //!
-//! `TextRegion` y `OcrResult` son `#[pyclass]`: son la salida del pipeline que
-//! cruza el límite Rust→Python. `OcrTask`, `OcrSize`, `ModelSpec` y
-//! `ModelPaths` son tipos **Rust** a propósito: `DESIGN.md` §2 los lista como
-//! enums, separados de los `Pyclasses` (`TextRegion`, `OcrResult`,
-//! `StructureResult`), así que la selección de preset llega a Python como
+//! `TextRegion`, `OcrResult`, `LayoutRegion` y `StructureResult` son
+//! `#[pyclass]`: son la salida del pipeline que cruza el límite Rust→Python.
+//! `OcrTask`, `OcrSize`, `ModelSpec` y `ModelPaths` son tipos **Rust** a
+//! propósito: `DESIGN.md` §2 los lista como enums, separados de los
+//! `Pyclasses`, así que la selección de preset llega a Python como
 //! cadena desde la fachada (tarjeta `I4`).
 //!
-//! `StructureResult` (ADR-003) se define en `I4`: definirlo aquí acoplaría el
-//! core a un backend concreto.
+//! `StructureResult` (ADR-003) se define aquí y **no** conoce `oar-ocr`: el
+//! backend de estructura (`engines::oar_structure`) lo rellena a partir de la
+//! estructura nativa del crate (Markdown ya renderizado, elementos de layout y
+//! regiones de texto). Así el core sigue sin depender del backend.
 //!
 //! Los nombres de artefacto son los del registro de `oar-ocr` `0.10.1`
 //! (`oar-ocr/src/oarocr/ocr.rs:113-133` y
@@ -28,6 +30,8 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<BoundingBox>()?;
     m.add_class::<TextRegion>()?;
     m.add_class::<OcrResult>()?;
+    m.add_class::<LayoutRegion>()?;
+    m.add_class::<StructureResult>()?;
     Ok(())
 }
 
@@ -336,6 +340,106 @@ impl OcrResult {
     fn __len__(&self) -> usize {
         self.regions.len()
     }
+}
+
+/// Elemento de layout detectado por PP-StructureV3 (ADR-003).
+///
+/// `kind` es la etiqueta estable de `oar-ocr` (`doc_title`, `text`, `table`,
+/// `formula`, `figure_title`...) tal como la devuelve el modelo de layout. En
+/// los elementos `formula`, `text` lleva el **LaTeX**; en los `table`, el HTML
+/// de la tabla viaja en el Markdown de [`StructureResult`].
+#[derive(Debug, Clone, PartialEq)]
+#[pyclass(frozen, from_py_object)]
+pub struct LayoutRegion {
+    /// Etiqueta del elemento de layout (`doc_title`, `text`, `table`...).
+    #[pyo3(get)]
+    pub kind: String,
+    /// Texto del elemento; en `formula`, su representación LaTeX.
+    #[pyo3(get)]
+    pub text: String,
+    /// Confianza de la detección de layout, en `[0.0, 1.0]`.
+    #[pyo3(get)]
+    pub confidence: f32,
+    /// Caja envolvente del elemento. `box` en Python.
+    #[pyo3(get, name = "box")]
+    pub box_: BoundingBox,
+}
+
+#[pymethods]
+impl LayoutRegion {
+    #[new]
+    #[pyo3(signature = (kind, text, confidence, box_))]
+    pub fn new(kind: String, text: String, confidence: f32, box_: BoundingBox) -> Self {
+        Self {
+            kind,
+            text,
+            confidence,
+            box_,
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "LayoutRegion(kind={:?}, text={:?}, confidence={:.3}, box={})",
+            self.kind,
+            self.text,
+            self.confidence,
+            self.box_.__repr__()
+        )
+    }
+}
+
+/// Salida de PP-StructureV3 (ADR-003): estructura documental **sin aplanar**.
+///
+/// `markdown` se renderiza una sola vez, en la inferencia, con el
+/// `to_markdown()` de `oar-ocr`: incluye títulos jerárquicos, tablas en HTML y
+/// fórmulas en LaTeX (`$$...$$`). `elements` y `regions` son el acceso
+/// estructurado a lo detectado.
+#[derive(Debug, Clone, PartialEq, Default)]
+#[pyclass(frozen, from_py_object)]
+pub struct StructureResult {
+    /// Markdown del documento completo, ya renderizado por el backend.
+    pub markdown: String,
+    /// Elementos de layout en orden de lectura.
+    #[pyo3(get)]
+    pub elements: Vec<LayoutRegion>,
+    /// Regiones de texto OCR del documento.
+    #[pyo3(get)]
+    pub regions: Vec<TextRegion>,
+}
+
+#[pymethods]
+impl StructureResult {
+    /// Representación en Markdown del documento (tablas HTML y LaTeX incluidos).
+    pub fn to_markdown(&self) -> String {
+        self.markdown.clone()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "StructureResult(elements={}, regions={}, markdown_chars={})",
+            self.elements.len(),
+            self.regions.len(),
+            self.markdown.len()
+        )
+    }
+
+    fn __len__(&self) -> usize {
+        self.elements.len()
+    }
+}
+
+/// Salida de un backend: texto plano o estructura documental (ADR-003).
+///
+/// Es el tipo de retorno del trait `OcrEngineBackend`; la fachada PyO3 lo
+/// deshace en `OcrResult` o `StructureResult` según la variante. No cruza a
+/// Python: no es `#[pyclass]`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum OcrOutput {
+    /// Presets de texto (`pp_ocrv6*`).
+    Text(OcrResult),
+    /// Preset de estructura (`pp_structurev3`).
+    Structure(StructureResult),
 }
 
 #[cfg(test)]

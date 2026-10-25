@@ -11,9 +11,10 @@ texto. Necesitan los 3 artefactos del preset en disco: si el host no los tiene,
 los tests se marcan `skip` con el motivo (la suite no descarga nada por su
 cuenta).
 
-El escenario de LaTeX (`tarea == Formula`) y el de PP-StructureV3 se marcan
-`skip` con el motivo cuando el contrato/entorno no lo permiten; ver el resumen
-de la tarjeta `V1`.
+El escenario de PP-StructureV3 (ADR-003: `StructureResult` con `to_markdown()`)
+se ejecuta cuando el host tiene sus 9 artefactos y se marca `skip` con el motivo
+cuando no. El detalle de tablas HTML y LaTeX dentro del Markdown lo cubre el
+test unitario de `src/engines/oar_structure.rs`, que no descarga modelos.
 
 Ejecución: `python -m pytest tests/test_recognize.py -q`
 """
@@ -25,7 +26,13 @@ from pathlib import Path
 
 import pytest
 
-from pyocrust import PyOcrRuntimeError, PyOcrValueError, VeloceOCR
+from pyocrust import (
+    OcrResult,
+    PyOcrRuntimeError,
+    PyOcrValueError,
+    StructureResult,
+    VeloceOCR,
+)
 
 from conftest import (
     PP_OCRV6_TINY,
@@ -53,6 +60,8 @@ def _afirmar_reconocimiento(ocr: VeloceOCR) -> None:
 
     resultado = ocr.recognize(str(IMAGEN))
 
+    # Un preset de texto devuelve `OcrResult`, nunca `StructureResult`.
+    assert isinstance(resultado, OcrResult)
     assert len(resultado.regions) >= len(LINEAS_ESPERADAS)
     for linea in LINEAS_ESPERADAS:
         assert linea in resultado.text
@@ -141,38 +150,49 @@ def test_llamar_dos_veces_no_recarga_el_pipeline(modelos_tiny):
     assert primero.text == segundo.text
 
 
-def test_el_latex_de_una_formula_no_es_accesible_desde_python():
-    """Escenario de `Formula` de `DESIGN.md` §3.1: no ejecutable con este contrato.
+def _directorio_structurev3() -> Path:
+    """Directorio con los 9 artefactos de PP-StructureV3, o `skip` con el motivo."""
+    for directorio in directorios_candidatos():
+        if all((directorio / nombre).is_file() for nombre in PP_STRUCTUREV3):
+            return directorio
 
-    Faltan las dos piezas que harían falta para validar la integridad del LaTeX
-    devuelto: `OcrTask` (`src/core/types.rs`) no tiene variante `Formula` y
-    `StructureResult::to_markdown` (ADR-003) no cruza el límite a Python, donde
-    `VeloceOCR.recognize` devuelve siempre `OcrResult` (texto/confianza/caja).
-    """
+    faltan = [
+        nombre
+        for nombre in PP_STRUCTUREV3
+        if not any((directorio / nombre).is_file() for directorio in directorios_candidatos())
+    ]
     pytest.skip(
-        "el contrato Python de I4 no expone la tarea Formula ni el LaTeX: "
-        "OcrTask solo tiene Text/Structure y recognize devuelve OcrResult"
+        f"faltan {len(faltan)} de {len(PP_STRUCTUREV3)} artefactos de PP-StructureV3 "
+        f"(~600 MB, p. ej. pp-doclayoutv3 y slanext_wired): {faltan}"
     )
 
 
-def test_pp_structurev3_end_to_end():
-    """PP-StructureV3 de punta a punta, si el host tiene sus 9 artefactos."""
-    disponibles = [
-        directorio
-        for directorio in directorios_candidatos()
-        if all((directorio / nombre).is_file() for nombre in PP_STRUCTUREV3)
-    ]
-    if not disponibles:
-        faltan = [
-            nombre
-            for nombre in PP_STRUCTUREV3
-            if not any((directorio / nombre).is_file() for directorio in directorios_candidatos())
-        ]
-        pytest.skip(
-            f"faltan {len(faltan)} de {len(PP_STRUCTUREV3)} artefactos de PP-StructureV3 "
-            f"(~600 MB, p. ej. pp-doclayoutv3 y slanext_wired): {faltan}"
-        )
+def test_pp_structurev3_devuelve_structure_result_con_markdown():
+    """ADR-003: la estructura no se aplana; `to_markdown()` cruza a Python.
 
-    ocr = VeloceOCR("pp_structurev3", custom_path=str(disponibles[0]))
+    Es la condición `S1.2` del sign-off: con el preset `pp_structurev3` la salida
+    es `StructureResult` (Markdown + elementos de layout), no un `OcrResult`
+    plano. El LaTeX de una fórmula y el HTML de una tabla dentro de ese Markdown
+    los cubre el test unitario de `src/engines/oar_structure.rs`, porque el
+    fixture de imagen de esta suite no contiene ni tablas ni fórmulas.
+    """
+    ocr = VeloceOCR("pp_structurev3", custom_path=str(_directorio_structurev3()))
 
-    assert LINEAS_ESPERADAS[0] in ocr.recognize(str(IMAGEN)).text
+    resultado = ocr.recognize(str(IMAGEN))
+
+    assert isinstance(resultado, StructureResult)
+    assert not isinstance(resultado, OcrResult)
+
+    markdown = resultado.to_markdown()
+    assert isinstance(markdown, str)
+    assert markdown.strip(), "el Markdown del documento no puede venir vacío"
+    assert LINEAS_ESPERADAS[0] in markdown
+
+    assert resultado.elements, "debe exponer los elementos de layout detectados"
+    for elemento in resultado.elements:
+        assert elemento.kind, "cada elemento lleva su etiqueta de layout"
+        assert 0.0 <= elemento.confidence <= 1.0
+        assert elemento.box.width >= 0 and elemento.box.height >= 0
+
+    # Segunda llamada: el pipeline sigue residente y devuelve el mismo tipo.
+    assert isinstance(ocr.recognize(IMAGEN), StructureResult)

@@ -4,9 +4,10 @@ La implementación vive en Rust (crate ``pyocrust_core``, backend ``oar-ocr``)
 y se expone a Python mediante el módulo nativo ``pyocrust._pyocrust_core``,
 construido con Maturin. Este paquete es solo la fachada pública de alto nivel.
 
-Fases del proyecto (ver ``PLANNING.md``): la fachada definitiva con
-``VeloceOCR``, ``OcrResult`` y ``StructureResult`` llega con las tarjetas
-``I2`` (core), ``I3`` (storage) e ``I4`` (engines).
+Fases del proyecto (ver ``PLANNING.md``): ``VeloceOCR`` devuelve ``OcrResult``
+en los presets de texto (``pp_ocrv6*``) y ``StructureResult`` —con
+``to_markdown()``, tablas HTML y fórmulas LaTeX— en ``pp_structurev3``
+(ADR-003).
 """
 
 from __future__ import annotations
@@ -16,10 +17,12 @@ from typing import Final
 try:
     from pyocrust._pyocrust_core import (
         BoundingBox,
+        LayoutRegion,
         OcrResult,
         PyOcrError,
         PyOcrRuntimeError,
         PyOcrValueError,
+        StructureResult,
         TextRegion,
         VeloceOCR,
         native_version as _native_version,
@@ -36,10 +39,12 @@ __version__: Final[str] = _native_version()
 __all__: Final[list[str]] = [
     "__version__",
     "BoundingBox",
+    "LayoutRegion",
     "OcrResult",
     "PyOcrError",
     "PyOcrRuntimeError",
     "PyOcrValueError",
+    "StructureResult",
     "TextRegion",
     "VeloceOCR",
     "resolve_models_dir",
