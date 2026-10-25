@@ -6,7 +6,7 @@
 //! mensaje que ve Python sea siempre el `Display` del error, sin `unwrap()`.
 
 use pyo3::create_exception;
-use pyo3::exceptions::{PyException, PyRuntimeError, PyValueError};
+use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
 
 /// Error del pipeline, con contexto y sin `unwrap()`.
@@ -145,8 +145,8 @@ impl From<image::ImageError> for OcrError {
 // `PyOcrError`, así que `except pyocrust.PyOcrError` captura cualquier error
 // del crate sin depender de los tipos built-in.
 create_exception!(_pyocrust_core, PyOcrError, PyException);
-create_exception!(_pyocrust_core, PyOcrValueError, PyValueError);
-create_exception!(_pyocrust_core, PyOcrRuntimeError, PyRuntimeError);
+create_exception!(_pyocrust_core, PyOcrValueError, PyOcrError);
+create_exception!(_pyocrust_core, PyOcrRuntimeError, PyOcrError);
 
 /// Traduce `OcrError` a `PyErr` con la excepción tipada correspondiente.
 impl From<OcrError> for PyErr {

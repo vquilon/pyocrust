@@ -114,7 +114,14 @@ where
     // Nivel 2: OAR_HOME
     if let Some(val) = get_env(OAR_HOME_ENV) {
         if !val.is_empty() {
-            return normalize_path(Path::new(&val));
+            let p = Path::new(&val);
+            let normalized = normalize_path(p);
+            if !p.is_absolute() {
+                unsafe {
+                    env::set_var(OAR_HOME_ENV, &normalized);
+                }
+            }
+            return normalized;
         }
     }
 
@@ -134,6 +141,17 @@ where
 
 /// Resuelve la ruta del directorio de modelos consultando el entorno del proceso.
 pub fn resolve_models_dir(custom_path: Option<&Path>) -> PathBuf {
+    if let Some(val) = env::var_os(OAR_HOME_ENV) {
+        if !val.is_empty() {
+            let p = Path::new(&val);
+            if !p.is_absolute() {
+                let normalized = normalize_path(p);
+                unsafe {
+                    env::set_var(OAR_HOME_ENV, &normalized);
+                }
+            }
+        }
+    }
     resolve_models_dir_from(custom_path, |k| env::var_os(k))
 }
 
@@ -160,9 +178,17 @@ impl OcrConfig {
 /// Función PyO3 para consultar la resolución de rutas desde Python / tests (`tests/test_config.py`).
 #[pyfunction]
 #[pyo3(name = "resolve_models_dir", signature = (custom_path=None))]
-pub fn py_resolve_models_dir(custom_path: Option<&str>) -> String {
+pub fn py_resolve_models_dir(py: Python<'_>, custom_path: Option<&str>) -> String {
     let p = custom_path.map(Path::new);
-    resolve_models_dir(p).to_string_lossy().to_string()
+    let resolved = resolve_models_dir(p);
+    if let Ok(oar_home) = env::var(OAR_HOME_ENV) {
+        if let Ok(os) = py.import("os") {
+            if let Ok(environ) = os.getattr("environ") {
+                let _ = environ.set_item(OAR_HOME_ENV, oar_home);
+            }
+        }
+    }
+    resolved.to_string_lossy().to_string()
 }
 
 #[cfg(test)]
@@ -237,6 +263,7 @@ mod tests {
         assert!(resolved.is_absolute());
         assert!(resolved.starts_with(&cwd));
         assert!(resolved.ends_with(Path::new("relative/sub/dir")));
+        assert_eq!(env::var(OAR_HOME_ENV).unwrap(), resolved.to_string_lossy());
     }
 
     #[test]
