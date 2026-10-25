@@ -7,7 +7,7 @@ Este documento detalla la hoja de ruta secuencial para la implementación del pa
 > Cada entrada lleva identificador, tarjeta del board (`pyocrust`), estado y criterio de aceptación.
 > Estados: `Pendiente` / `En curso` / `Hecho` / `Bloqueado` / `Descartado`. Todo cambio de estado va fechado.
 >
-> **Estado global (D1, 2026-10-25; actualizado en `D2`):** las fases 0-5 están **Hechas** y `S1.2` quedó **cerrada** (`b128566`, `D2`), pero el sign-off `S1` sigue **RECHAZADO**, con 6 condiciones abiertas y 2 parciales (§7). El proyecto **no** está aprobado: `D1`/`D2` reconcilian la documentación, no la implementación.
+> **Estado global (D1, 2026-10-25; actualizado en `D2`):** las fases 0-5 están **Hechas**; `S1.2` (`b128566`), `S1.3` y `S1.5` (`c30a3a9`) quedaron **cerradas**, pero el sign-off `S1` sigue **RECHAZADO**, con `S1.1` pendiente y `S1.4`/`S1.6` parciales (§7). El proyecto **no** está aprobado: `D1`/`D2` reconcilian la documentación, no la implementación.
 
 ## 0. Mapa de tareas a tarjetas del board
 
@@ -141,7 +141,7 @@ Los 8 puntos del dictamen consolidado (`A1`, comentario del 2026-10-25) y dónde
 | Punto | Estado | Motivo | Cómo se documenta |
 | :--- | :--- | :--- | :--- |
 | `StructureResult` / `to_markdown()` (ADR-003) | **Implementado (`D2`, `b128566`)** | `I4` lo aplanó y `S1` lo marcó bloqueante; lo implementó `t_ab6ff8d0` | `DESIGN.md` ADR-003 y §9.1; `S1.2` cerrada en §7 |
-| Preflight conectado al constructor | No implementado | `VeloceOCR::new` no invoca `preflight_paths` | `DESIGN.md` §7.2; condición `S1.4` en §7 |
+| Preflight conectado al constructor | **Implementado (`b128566`)** | `VeloceOCR::new` invoca `preflight_paths(...).ensure_ready()` (`src/lib.rs:60`) | `DESIGN.md` §7.2; mitad preflight de `S1.4` resuelta en §7 |
 | Descargador HF conectado al pipeline | No implementado | el módulo existe y se testea, pero nadie lo llama; descarga `oar-ocr` | `DESIGN.md` ADR-007 y §7.3 |
 | `rayon` en uso real | No implementado | no hay bucle de preprocesamiento que paralelizar | `DESIGN.md` ADR-008 y §9.1 |
 | Tarea `Formula` / LaTeX accesible desde Python | No implementado | `OcrTask` no tiene la variante y `recognize` devuelve `OcrResult` | `tests/test_recognize.py:144-155` (`skip` con motivo) |
@@ -154,13 +154,15 @@ Condiciones abiertas del dictamen `S1` (comentario de `t_d005409b`, 2026-10-25).
 | :--- | :--- | :--- | :--- | :--- |
 | S1.1 | `pyapi::full_page_tiling` materializa los mosaicos y los descarta (OOM con `overlap` alto) | Bloqueante | Pendiente | `src/core/image_processor.rs:229-249` |
 | S1.2 | `StructureResult` (ADR-003) no existía ni cruzaba a Python | Bloqueante | **Cerrada (`D2`, `b128566`)** | `src/core/types.rs:400-409`; `src/engines/oar_structure.rs:148-171` |
-| S1.3 | `PyOcrValueError`/`PyOcrRuntimeError` no heredan de `PyOcrError` | Mayor | Pendiente | `src/core/error.rs:147-149` |
+| S1.3 | `PyOcrValueError`/`PyOcrRuntimeError` no heredan de `PyOcrError` | Mayor | **Cerrada (`c30a3a9`)** | `src/core/error.rs:147-149` |
 | S1.4 | `VeloceOCR::new` no ejecuta el preflight (ni el descargador) | Mayor | Parcial (`D2`) | `src/lib.rs:58-62` (preflight sí, descargador no) |
-| S1.5 | `OAR_HOME` relativa rompe la autodescarga de `oar-ocr` | Mayor | Pendiente | `src/storage/config.rs:115-119` |
+| S1.5 | `OAR_HOME` relativa rompe la autodescarga de `oar-ocr` | Mayor | **Cerrada (`c30a3a9`)** | `src/storage/config.rs:115-126,144-155` |
 | S1.6 | `VeloceOCR::new` retiene el GIL durante la carga | Menor | Parcial (`D2`) | `src/lib.rs:35-65` |
 | S1.7 | Retirar de `DESIGN.md` las capacidades de VRAM inexistentes | Menor | **Hecho en `D1`** | `DESIGN.md` §3.3 y ADR-005 |
 
-`S1.2` la resolvió `arquitecto` por la opción A (implementar `StructureResult`) y la cerró `t_ab6ff8d0` (`b128566`, `D2`). Las demás son correcciones acotadas de código; `D2` no las cierra.
+`S1.2` la resolvió `arquitecto` por la opción A (implementar `StructureResult`) y la cerró `t_ab6ff8d0` (`b128566`, `D2`); `S1.3` y `S1.5` las cerró `c30a3a9`, que aterrizó mientras `D2` corría.
+
+> **Nota (`D2`).** Quedan `S1.1` (pendiente) y `S1.4`/`S1.6` (parciales): el descargador sigue sin conectar (`src/storage/models.rs`, `src/storage/download.rs`) y las rutas/preflight aún retienen el GIL (`src/lib.rs:35-60`). Debe re-verificarlas quien las posee.
 
 ## 8. Disciplina de commits (verificada en `D1`)
 

@@ -292,7 +292,7 @@ cumplimiento verificado; el cuadro completo está en §9.1.
 * **Contexto.** El primer dictamen de `A1` pedía eliminar `src/storage/download.rs` y `reqwest` porque `oar-ocr` ya trae `auto-download` con caché `$OAR_HOME`, verificación SHA-256 y escritura atómica (`oar-ocr-core/src/core/download/mod.rs:8-85`, cita `A1`). El dictamen consolidado, contrastado con `DECISIONS.md` §4, mantiene el descargador con otra justificación: `oar-ocr` solo baja de ModelScope, que sufre bloqueos de firewall y latencia alta en entornos corporativos y CI occidentales, y el producto exige Hugging Face.
 * **Decisión.** Se **mantiene** `src/storage/download.rs` con `reqwest`, pero **redefinido** y sujeto a contrato (ver §7.3): streaming a fichero temporal, reanudación por `Range`, verificación obligatoria de tamaño y SHA-256, errores tipados por `DownloadError`, y bypass total de red si el modelo ya está en disco. Se conserva `src/storage/config.rs` como resolución pura de rutas con la prioridad estricta de §3.2. Se elimina la descarga ad-hoc previa a la validación.
 * **Consecuencias.** La carga de `reqwest` + TLS en el binario es el precio de no depender de ModelScope. Queda prohibido `get(url).unwrap()`.
-* **Estado (D1, 2026-10-25).** **Parcial.** El módulo cumple el contrato y está cubierto por tests unitarios, pero **no se conecta a nada**: `fetch` no se llama desde `src/lib.rs` ni desde `src/engines/` (§9.1). El camino de descarga efectivo hoy es el `auto-download` de `oar-ocr`. Condición abierta (`S1.4`).
+* **Estado (D1, 2026-10-25).** **Parcial.** El módulo cumple el contrato y está cubierto por tests unitarios, pero **no se conecta a nada**: `fetch` no se llama desde `src/lib.rs` ni desde `src/engines/` (§9.1). El camino de descarga efectivo hoy es el `auto-download` de `oar-ocr`. Condición `S1.4`: el preflight se conectó (`b128566`, §7.2); el descargador sigue sin conectar.
 
 ### ADR-008: `rayon` restringido al preprocesamiento de CPU
 
@@ -341,7 +341,7 @@ cumplimiento verificado; el cuadro completo está en §9.1.
 | R4 | `maturin` no está instalado en el intérprete activo | No se puede construir el paquete | `pip install maturin` antes de `maturin develop` | **Cerrado.** `maturin` instalado en `.venv`; `maturin develop` ejecutado |
 | R5 | Acoplamiento circular entre `config.rs` (rutas) y `download.rs` (descarga) | Módulos difíciles de testear | `download.rs` recibe rutas ya resueltas; no consulta el entorno | Cumplido: `fetch(url, dest, sha256_hex)` no lee variables de entorno |
 | R6 | `pyapi::full_page_tiling` materializa y descarta los mosaicos | OOM con `overlap` alto | Reducir el adaptador a puro cálculo de geometría | **Abierto** (`S1.1`, bloqueante) |
-| R7 | `OAR_HOME` relativa no se reexporta absoluta | La autodescarga de `oar-ocr` falla | Rechazar la relativa o reexportar la normalizada | **Abierto** (`S1.5`) |
+| R7 | `OAR_HOME` relativa no se reexporta absoluta | La autodescarga de `oar-ocr` falla | Rechazar la relativa o reexportar la normalizada | **Cerrado (`c30a3a9`):** se reexporta absoluta (`src/storage/config.rs:115-126,144-155`) |
 
 ## 6. Estado Actual
 
@@ -354,7 +354,7 @@ Actualizado en `D1` (2026-10-25) leyendo el árbol real y el board `pyocrust`.
 | Crate `pyocrust_core` | Existe y compila | `Cargo.toml`, `src/**`; `cargo test` = **36/36 OK** (recuento de `S1`) |
 | Paquete `pyocrust` | Existe e importa | `pyocrust/__init__.py`; `maturin develop` ejecutado (`pyocrust/_pyocrust_core.pyd`) |
 | Suite de integración (Python) | **31 pasados, 2 `skip`, 1 `xfail`** | `pytest tests/ -q` — recuento de `S1` |
-| Sign-off `S1` | **RECHAZADO**, 7 condiciones | §9.2 |
+| Sign-off `S1` | **RECHAZADO**, 7 condiciones (`S1.2`/`S1.3`/`S1.5` cerradas) | §9.2 |
 | ADR cumplidos | **10 de 12** (uno con defecto), 2 parciales | §9.1 |
 
 Lo que este documento **no** sabe:
@@ -369,19 +369,21 @@ Lo que este documento **no** sabe:
 
 Orden estricto de §3.2: `custom_path` → `OAR_HOME` → `OCR_MODELS_CACHE_DIR` → `~/.oar`. Devuelve rutas absolutas normalizadas y no abre conexiones de red. Casos resueltos sin pánico: directorio inexistente, falta de permisos de lectura, tilde `~` y rutas relativas (normalizadas contra el directorio de trabajo actual). Implementado en `src/storage/config.rs:103-133`.
 
-> **Desviación (D1).** Una `OAR_HOME` **relativa** se normaliza contra el `cwd`
-> (`src/storage/config.rs:115-119`) pero **no** se reexporta como absoluta a la
-> variable de entorno, así que la autodescarga interna de `oar-ocr` —que lee
-> `OAR_HOME` por su cuenta— falla en vez de descargar. Condición `S1.5` abierta.
+> **Desviación (D1), corregida (`D2`, `c30a3a9`).** Una `OAR_HOME` **relativa** se
+> normaliza contra el `cwd` y, si no era absoluta, se reexporta ya normalizada con
+> `env::set_var` (`src/storage/config.rs:115-126,144-155`), así que la autodescarga
+> interna de `oar-ocr` —que lee `OAR_HOME` por su cuenta— la resuelve bien.
+> Condición `S1.5` **cerrada**.
 
 ### 7.2 `src/storage/models.rs` — preflight
 
 Dado un `ModelSpec`, devuelve la lista de ficheros esperados y cuáles faltan en disco (`PreflightReport`, `src/storage/models.rs:61-87`). Es la pieza que permite decir al usuario, antes de cargar nada, qué modelos necesita; no descarga ni toca la red.
 
-> **Desviación (D1).** El preflight está implementado y testeado, pero
-> **desconectado**: `VeloceOCR::new` no lo invoca (`src/lib.rs:50-53`), así que
-> ante modelos ausentes el usuario recibe el error críptico de `oar-ocr` en lugar
-> de `MissingModelArtifacts` con la lista de ficheros. Condición `S1.4` abierta.
+> **Desviación (D1), corregida (`D2`, `b128566`).** El preflight está implementado y
+> **conectado**: `VeloceOCR::new` invoca `preflight_paths(&paths).ensure_ready()`
+> (`src/lib.rs:60`) antes de crear el motor, así que ante modelos ausentes el usuario
+> recibe `MissingModelArtifacts` con la lista de ficheros. De `S1.4` queda abierta
+> solo la conexión del descargador (§7.3).
 
 ### 7.3 `src/storage/download.rs` — descargador resiliente (ADR-007)
 
@@ -397,10 +399,11 @@ Requisitos obligatorios y testeables, todos implementados:
 
 Interfaz implementada: `fn fetch(url: &str, dest: &Path, sha256_hex: &str) -> Result<(), DownloadError>` (`src/storage/download.rs:99`). **Decisión de `I3` (recogida en `D1`):** se usa el cliente **síncrono** `reqwest::blocking` con `timeout` de 1800 s y `connect_timeout` de 30 s (`:125-128`); no se monta un runtime asíncrono propio.
 
-> **Desviación (D1).** `fetch` no se llama desde ninguna ruta de ejecución
-> (`src/lib.rs`, `src/engines/`): el módulo es código muerto en runtime. El bypass
-> offline y la verificación no protegen hoy ninguna descarga real porque es
-> `oar-ocr` quien descarga. ADR-007 **parcial**; condición `S1.4` abierta.
+> **Desviación (D1), vigente en `D2`.** `fetch` no se llama desde ninguna ruta de
+> ejecución (`src/lib.rs`, `src/engines/`): el módulo es código muerto en runtime. El
+> bypass offline y la verificación no protegen hoy ninguna descarga real porque es
+> `oar-ocr` quien descarga. ADR-007 **parcial**; la mitad del descargador de `S1.4`
+> sigue abierta (el preflight sí se conectó, §7.2).
 
 ## 8. Notas de Evolución
 
@@ -408,7 +411,7 @@ Interfaz implementada: `fn fetch(url: &str, dest: &Path, sha256_hex: &str) -> Re
 * **v2 — paralelismo inter-página.** Solo si una medición lo justifica, y siempre con `intra_threads = 1` para no pelearse con el pool intra-op de ORT (ADR-008).
 * **Features de aceleración adicionales.** `tensorrt`, `openvino`, `coreml` y `webgpu` existen en `oar-ocr`; se añaden cuando haya un objetivo de despliegue que los pida, no antes.
 * **Gestión explícita de VRAM.** Si la liberación por RAII resulta insuficiente en producción, el camino es un `close()`/context manager que suelte el último `Arc`, **no** un `Drop` manual con llamadas a CUDA (ADR-005).
-* **Cierre de las condiciones de `S1`.** `S1.2` quedó cerrada por `b128566` (`t_ab6ff8d0`); las condiciones `S1.1` y `S1.3`-`S1.6` (§9.2) siguen abiertas: son código, no documentación, y necesitan tarjeta propia.
+* **Cierre de las condiciones de `S1`.** `S1.2` (`b128566`) y `S1.3` y `S1.5` (`c30a3a9`) quedaron cerradas; siguen abiertas `S1.1` (pendiente) y `S1.4`/`S1.6` (parciales). Son código, no documentación, y necesitan tarjeta propia.
 
 ## 9. Reconciliación `D1` (2026-10-25)
 
@@ -433,24 +436,26 @@ Verificado leyendo el árbol real de `src/` (no las intenciones).
 
 ### 9.2 Condiciones abiertas del sign-off `S1` (tarjeta `t_d005409b`, RECHAZADO)
 
-`S1` cerró como **RECHAZADO** con 7 condiciones (comentario del 2026-10-25). Estado a día de `D1`:
+`S1` cerró como **RECHAZADO** con 7 condiciones (comentario del 2026-10-25). Estado a día de `D2`:
 
 | Id | Condición | Gravedad | Estado | Evidencia |
 | :--- | :--- | :--- | :--- | :--- |
 | S1.1 | `pyapi::full_page_tiling` materializa los mosaicos y los descarta (OOM con `overlap` alto) | Bloqueante | **Pendiente** | `src/core/image_processor.rs:229-249` |
 | S1.2 | `StructureResult` (ADR-003) no existía ni cruzaba a Python | Bloqueante | **Cerrada (`D2`, `b128566`)** | `src/core/types.rs:400-409`; `src/engines/oar_structure.rs:148-171` |
-| S1.3 | `PyOcrValueError`/`PyOcrRuntimeError` no heredan de `PyOcrError` | Mayor | **Pendiente** | `src/core/error.rs:147-149` |
+| S1.3 | `PyOcrValueError`/`PyOcrRuntimeError` no heredan de `PyOcrError` | Mayor | **Cerrada (`c30a3a9`)** | `src/core/error.rs:147-149` (base `PyOcrError`) |
 | S1.4 | `VeloceOCR::new` no ejecuta el preflight (ni el descargador) | Mayor | **Parcial (`D2`)** | `src/lib.rs:58-62` (preflight sí, descargador no) |
-| S1.5 | `OAR_HOME` relativa rompe la autodescarga de `oar-ocr` | Mayor | **Pendiente** | `src/storage/config.rs:115-119` |
+| S1.5 | `OAR_HOME` relativa rompe la autodescarga de `oar-ocr` | Mayor | **Cerrada (`c30a3a9`)** | `src/storage/config.rs:115-126,144-155` |
 | S1.6 | `VeloceOCR::new` retiene el GIL durante la carga | Menor | **Parcial (`D2`)** | `src/lib.rs:35-65` (el motor se crea con `py.detach`, `:62`) |
 | S1.7 | Retirar de `DESIGN.md` las capacidades de VRAM inexistentes | Menor | **Hecho en `D1`** | §3.3 y ADR-005 corregidos |
 
-`S1.2` la cerró el código de `t_ab6ff8d0` (`b128566`). Las restantes (`S1.1`, `S1.3`-`S1.6`) son trabajo de código y **no** se abordan en esta tarjeta (`D2` no escribe código). Requieren tarjeta propia con el perfil que decida `arquitecto`.
+`S1.2` la cerró el código de `t_ab6ff8d0` (`b128566`) y `S1.3`/`S1.5`, el de `c30a3a9`. Las restantes (`S1.1`, `S1.4`, `S1.6`) son trabajo de código y **no** se abordan en esta tarjeta (`D2` no escribe código). Requieren tarjeta propia con el perfil que decida `arquitecto`.
 
-> **Nota de `D2` sobre `S1.4`-`S1.6`.** El commit `b128566` también tocó `VeloceOCR::new`: invoca el
-> preflight (`src/lib.rs:60`), reexporta `OAR_HOME` a `os.environ` (`src/lib.rs:51-57`) y libera el GIL
-> durante la creación del motor (`src/lib.rs:62`). `D2` **no** cierra esas condiciones: debe re-verificarlas
-> quien las posee, contra esas líneas y no contra las que citaba `D1`.
+> **Nota de `D2` sobre las demás condiciones.** Mientras `D2` corría aterrizó el commit `c30a3a9`
+> (`S1.3`-`S1.6`), que cierra la jerarquía de excepciones (`src/core/error.rs:147-149`) y la
+> reexportación absoluta de `OAR_HOME` (`src/storage/config.rs:115-126,144-155`); el mismo árbol trae ya
+> el preflight conectado (`src/lib.rs:60`, de `b128566`) y el GIL liberado al crear el motor
+> (`src/lib.rs:62`). `S1.4` y `S1.6` quedan **parciales** (descargador sin conectar; rutas y preflight
+> retienen el GIL) y debe re-verificarlas quien las posee.
 
 ### 9.3 Divergencias documentales cerradas en `D1`
 
