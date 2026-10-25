@@ -7,7 +7,7 @@ Este documento detalla la hoja de ruta secuencial para la implementación del pa
 > Cada entrada lleva identificador, tarjeta del board (`pyocrust`), estado y criterio de aceptación.
 > Estados: `Pendiente` / `En curso` / `Hecho` / `Bloqueado` / `Descartado`. Todo cambio de estado va fechado.
 >
-> **Estado global (D1, 2026-10-25):** las fases 0-5 están **Hechas**, pero el sign-off `S1` es **RECHAZADO** con 7 condiciones abiertas (§7). El proyecto **no** está aprobado: `D1` reconcilió la documentación, no la implementación.
+> **Estado global (D1, 2026-10-25; actualizado en `D2`):** las fases 0-5 están **Hechas** y `S1.2` quedó **cerrada** (`b128566`, `D2`), pero el sign-off `S1` sigue **RECHAZADO**, con 6 condiciones abiertas y 2 parciales (§7). El proyecto **no** está aprobado: `D1`/`D2` reconcilian la documentación, no la implementación.
 
 ## 0. Mapa de tareas a tarjetas del board
 
@@ -25,8 +25,9 @@ Board: `pyocrust` (`%LOCALAPPDATA%\hermes\kanban\boards\pyocrust\kanban.db`). Es
 | `C1` | 5 | Atacar la implementación antes del sign-off | `t_b674050d` | `critico` | Hecho | 2026-10-25 |
 | `S1` | 5 | Sign-off final contra `DESIGN.md` | `t_d005409b` | `arquitecto` | Hecho (**RECHAZADO**) | 2026-10-25 |
 | `D1` | 6 | Reconciliar `DESIGN.md` y `PLANNING.md` con lo implementado | `t_7449f60f` | `escriba` | Hecho | 2026-10-25 |
+| `D2` | 6 | Reconciliar `DESIGN.md` y `PLANNING.md` con ADR-003 cumplido | `t_bbf33ff6` | `escriba` | Hecho | 2026-10-25 |
 
-Dependencias: `A1` → `E1` → `I1` → `I2` → `I3` → `I4` → (`V1`, `C1`) → `S1` → `D1`. `C1` ataca lo verificado por `V1`; `D1` cierra la documentación después del sign-off.
+Dependencias: `A1` → `E1` → `I1` → `I2` → `I3` → `I4` → (`V1`, `C1`) → `S1` → `D1` → `D2`. `C1` ataca lo verificado por `V1`; `D1` cierra la documentación después del sign-off; `S1.2` se cerró después con `t_ab6ff8d0` (`b128566`) y `D2` reconcilia la documentación con ese cierre.
 
 > **Corrección de responsables (D1):** el board asigna `I2` e `I4` al perfil `coder`, no a `hefesto` como decía la versión previa de esta tabla. Se corrige aquí contra el estado real del board.
 
@@ -99,7 +100,7 @@ Los 8 puntos del dictamen consolidado (`A1`, comentario del 2026-10-25) y dónde
 * **Contenido:** `src/engines/oar_text.rs` (adaptador sobre `OAROCRBuilder`, PP-OCRv6); `src/engines/oar_structure.rs` (adaptador sobre `OARStructureBuilder`, PP-StructureV3); `src/engines/mod.rs` (factoría por nombre); `src/lib.rs` (clase pública `VeloceOCR` en el `#[pymodule]`, constructor parametrizado y `recognize` liberando el GIL).
 * **Criterio de aceptación:** (1) `cargo check` sin errores; (2) con modelos en disco, un `recognize` end-to-end devuelve un `OcrResult` con texto no vacío; (3) sin modelos, **no** dar la tarea por buena: documentar el comando exacto que la verificaría y qué modelos harían falta.
 * **Riesgo principal:** R1 de `DESIGN.md` §5 (firma exacta de `OARStructureBuilder` en `0.10.1`). **Resuelto (D1):** el adaptador usa la API real del crate (`oar_structure.rs:128-135`); `DESIGN.md` §3.1 y §5 lo registran.
-* **Desviación de alcance (D1):** `StructureResult` (ADR-003) **no** se implementó. `VeloceOCR.recognize` devuelve siempre `OcrResult`, incluso para `pp_structurev3`, aplanando layout, tablas y fórmulas (`src/engines/oar_structure.rs:168-194`). Condición `S1.2`, **bloqueante** (§7).
+* **Desviación de alcance (D1, cerrada en `D2`):** `StructureResult` (ADR-003) **no** se implementó en `I4`: `VeloceOCR.recognize` devolvía siempre `OcrResult`, incluso para `pp_structurev3`, aplanando layout, tablas y fórmulas. Lo corrigió la tarjeta `t_ab6ff8d0` (commit `b128566`): el trait devuelve `OcrOutput` y `convert_structure` conserva Markdown, layout y regiones (`src/engines/oar_structure.rs:148-171,185-215`). Condición `S1.2`, **cerrada** (§7).
 
 ## Fase 5: Exposición PyO3 y Pruebas de Integración
 
@@ -108,7 +109,7 @@ Los 8 puntos del dictamen consolidado (`A1`, comentario del 2026-10-25) y dónde
 * **Tarjeta:** `t_523ca1e7`. **Responsable:** `probador`. **Estado:** Hecho (2026-10-25, commit `d2e445c`).
 * **Contenido:** `tests/conftest.py`, `tests/test_config.py`, `tests/test_tiling.py`, `tests/test_recognize.py` y `tests/data/sample_text.png`.
 * **Criterio de aceptación:** `python -m pytest tests/ -q` en verde, con la salida **real** adjunta. Si un escenario no se puede ejecutar por falta de modelos o de GPU, se marca `skip` con el motivo, y el resumen distingue explícitamente entre "pasaron", "skipped" y "fallaron". No se cuenta como verde lo que no se ejecutó.
-* **Resultado (`S1`):** **31 pasados, 2 `skip`, 1 `xfail`**. Los dos `skip` son `test_pp_structurev3_end_to_end` (faltan los 9 artefactos en disco) y `test_el_latex_de_una_formula_no_es_accesible_desde_python` (el contrato no expone `Formula` ni el LaTeX). El `xfail` es `test_las_excepciones_del_crate_heredan_de_pyocrerror`, que documenta la condición `S1.3`.
+* **Resultado (`S1`):** **31 pasados, 2 `skip`, 1 `xfail`**. Los dos `skip` son `test_pp_structurev3_end_to_end` (faltan los 9 artefactos en disco) y `test_el_latex_de_una_formula_no_es_accesible_desde_python` (el contrato no expone `Formula` ni el LaTeX). El `xfail` es `test_las_excepciones_del_crate_heredan_de_pyocrerror`, que documenta la condición `S1.3`. **Actualización `D2` (`b128566`):** el `skip` de LaTeX se sustituyó por `test_pp_structurev3_devuelve_structure_result_con_markdown`; el recuento de arriba es el de `S1`.
 
 ### `C1` — Ataque a la implementación
 
@@ -139,7 +140,7 @@ Los 8 puntos del dictamen consolidado (`A1`, comentario del 2026-10-25) y dónde
 
 | Punto | Estado | Motivo | Cómo se documenta |
 | :--- | :--- | :--- | :--- |
-| `StructureResult` / `to_markdown()` (ADR-003) | No implementado | `I4` aplanó la salida de estructura a `OcrResult`; `S1` lo marcó bloqueante | `DESIGN.md` ADR-003 y §9.1; condición `S1.2` en §7 |
+| `StructureResult` / `to_markdown()` (ADR-003) | **Implementado (`D2`, `b128566`)** | `I4` lo aplanó y `S1` lo marcó bloqueante; lo implementó `t_ab6ff8d0` | `DESIGN.md` ADR-003 y §9.1; `S1.2` cerrada en §7 |
 | Preflight conectado al constructor | No implementado | `VeloceOCR::new` no invoca `preflight_paths` | `DESIGN.md` §7.2; condición `S1.4` en §7 |
 | Descargador HF conectado al pipeline | No implementado | el módulo existe y se testea, pero nadie lo llama; descarga `oar-ocr` | `DESIGN.md` ADR-007 y §7.3 |
 | `rayon` en uso real | No implementado | no hay bucle de preprocesamiento que paralelizar | `DESIGN.md` ADR-008 y §9.1 |
@@ -147,19 +148,19 @@ Los 8 puntos del dictamen consolidado (`A1`, comentario del 2026-10-25) y dónde
 
 ## 7. Trabajo pendiente tras `S1` (RECHAZADO)
 
-Condiciones abiertas del dictamen `S1` (comentario de `t_d005409b`, 2026-10-25). Copia fiel de `DESIGN.md` §9.2; son trabajo de **código** y no entran en `D1`.
+Condiciones abiertas del dictamen `S1` (comentario de `t_d005409b`, 2026-10-25). Copia fiel de `DESIGN.md` §9.2; son trabajo de **código** y no entran en `D1` ni en `D2`.
 
-| Id | Condición | Gravedad | Estado (D1) | Evidencia |
+| Id | Condición | Gravedad | Estado (D2) | Evidencia |
 | :--- | :--- | :--- | :--- | :--- |
 | S1.1 | `pyapi::full_page_tiling` materializa los mosaicos y los descarta (OOM con `overlap` alto) | Bloqueante | Pendiente | `src/core/image_processor.rs:229-249` |
-| S1.2 | `StructureResult` (ADR-003) no existe ni cruza a Python | Bloqueante | Pendiente | `src/engines/oar_structure.rs:168-194` |
+| S1.2 | `StructureResult` (ADR-003) no existía ni cruzaba a Python | Bloqueante | **Cerrada (`D2`, `b128566`)** | `src/core/types.rs:400-409`; `src/engines/oar_structure.rs:148-171` |
 | S1.3 | `PyOcrValueError`/`PyOcrRuntimeError` no heredan de `PyOcrError` | Mayor | Pendiente | `src/core/error.rs:147-149` |
-| S1.4 | `VeloceOCR::new` no ejecuta el preflight (ni el descargador) | Mayor | Pendiente | `src/lib.rs:50-53` |
+| S1.4 | `VeloceOCR::new` no ejecuta el preflight (ni el descargador) | Mayor | Parcial (`D2`) | `src/lib.rs:58-62` (preflight sí, descargador no) |
 | S1.5 | `OAR_HOME` relativa rompe la autodescarga de `oar-ocr` | Mayor | Pendiente | `src/storage/config.rs:115-119` |
-| S1.6 | `VeloceOCR::new` retiene el GIL durante la carga | Menor | Pendiente | `src/lib.rs:35-56` |
+| S1.6 | `VeloceOCR::new` retiene el GIL durante la carga | Menor | Parcial (`D2`) | `src/lib.rs:35-65` |
 | S1.7 | Retirar de `DESIGN.md` las capacidades de VRAM inexistentes | Menor | **Hecho en `D1`** | `DESIGN.md` §3.3 y ADR-005 |
 
-`S1.2` exige una decisión de arquitectura (implementar `StructureResult` o degradar formalmente el alcance de v1 a texto plano); corresponde a `arquitecto`. Las demás son correcciones acotadas de código.
+`S1.2` la resolvió `arquitecto` por la opción A (implementar `StructureResult`) y la cerró `t_ab6ff8d0` (`b128566`, `D2`). Las demás son correcciones acotadas de código; `D2` no las cierra.
 
 ## 8. Disciplina de commits (verificada en `D1`)
 
@@ -191,7 +192,7 @@ Puntos donde el cuerpo de una tarjeta del board y `DESIGN.md` no decían lo mism
 | Estructura de módulos | `I2`-`I4`: `core/`, `storage/`, `engines/` | `A1` propuso fusionar en `src/engine.rs` + `src/types.rs` | Manda el board. ADR-006 |
 | Trait `OcrEngineBackend` | `I2`: se implementa | `A1`: eliminar la jerarquía de traits | Se conserva **un** trait con dos implementaciones reales. ADR-006 |
 | Nombre del identificador de preset | `I2`: `OcrSize`, `ModelSpec` | `A1`: `PpOcrV6Size`, `PipelinePreset` | Manda `I2` (implementa). ADR-002 |
-| Salida de PP-StructureV3 | `I4` debía exponer `StructureResult` | ADR-003: la estructura no se aplana | **Sin resolver:** el código aplana a `OcrResult`. Decisión de `arquitecto` pendiente (`S1.2`) |
+| Salida de PP-StructureV3 | `I4` debía exponer `StructureResult` | ADR-003: la estructura no se aplana | **Resuelto (`D2`, `b128566`):** `recognize` devuelve `OcrOutput` y `VeloceOCR.recognize` entrega `StructureResult` con `pp_structurev3` (`S1.2` cerrada) |
 
 ## Anexo A: borrador inicial superado (`E1`)
 
@@ -200,5 +201,5 @@ Se conserva como rastro de lo que decía la primera versión de este documento a
 * **Fase 1 (tareas 1.1-1.4).** Superado en parte: `reqwest` entraba en las dependencias base de 1.2; ahora solo existe como dependencia del descargador HF (ADR-007). El esqueleto de carpetas de 1.4 (`src/core`, `src/storage`, `src/engines`) se mantiene. Tarea viva: `I1` (Hecha).
 * **Fase 2 (tareas 2.1-2.3).** Superado: 2.2 definía `load_model(&mut self, &str)` (inválido, ADR-002) y 2.3 exigía el tiling como etapa obligatoria del pipeline (ADR-009 lo deja opt-in). Tarea viva: `I2` (Hecha).
 * **Fase 3 (tareas 3.1-3.2).** Superado en parte: 3.2 desarrollaba la descarga con `reqwest::blocking` sin contrato de integridad; lo sustituye §7.3 de `DESIGN.md`. 3.1 (prioridad de rutas) se mantiene, con el nivel 3 cambiado de `~/.cache/ocr_rust_bridge/` a `~/.oar`. Tarea viva: `I3` (Hecha).
-* **Fase 4 (tareas 4.1-4.3).** Superado en parte: el adaptador único de 4.1 (`oar_engine.rs`) se dividió en `oar_text.rs` y `oar_structure.rs`; la factoría de 4.2 se mantiene sin placeholders; 4.3 (`Arc` para GPU) se mantiene (ADR-012). Tarea viva: `I4` (Hecha, con la desviación de ADR-003 registrada en §6).
+* **Fase 4 (tareas 4.1-4.3).** Superado en parte: el adaptador único de 4.1 (`oar_engine.rs`) se dividió en `oar_text.rs` y `oar_structure.rs`; la factoría de 4.2 se mantiene sin placeholders; 4.3 (`Arc` para GPU) se mantiene (ADR-012). Tarea viva: `I4` (Hecha); la desviación de ADR-003 que registraba §6 quedó **cerrada** en `D2` (`b128566`).
 * **Fase 5 (tareas 5.1-5.4).** Superado en parte: 5.1 exponía `UniversalOCR` (ahora `VeloceOCR`); 5.3 y 5.4 (compilar con `maturin develop` y probar los tres escenarios) siguen siendo válidos y pasan a `I1`, `V1` (Hechas).

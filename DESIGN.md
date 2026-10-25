@@ -2,17 +2,17 @@
 # Sistema: pyocrust (antes `ocr_rust_bridge`)
 
 > **Estado del documento:** contrato de diseño de la versión 1, **reconciliado con
-> el árbol real en `D1` (2026-10-25)**. Validado por el dictamen de arquitectura de
+> el árbol real en `D1` y `D2` (2026-10-25)**. Validado por el dictamen de arquitectura de
 > la tarjeta `A1` (veredicto: **CAMBIOS OBLIGATORIOS**) y contrastado con las
 > fuentes de `oar-ocr` `0.10.1` y con la intención de producto de `DECISIONS.md`.
 > Toda decisión impuesta por `A1` queda registrada como ADR numerado en §4.
 >
-> **Aviso de estado del proyecto (D1, 2026-10-25):** el sign-off final (`S1`,
-> tarjeta `t_d005409b`) es **RECHAZADO**. El código que describe este documento
-> existe, compila y pasa sus tests, pero `S1` impuso **7 condiciones** antes de
-> aprobarlo; las dos primeras son **bloqueantes** y siguen abiertas (§9.2). Este
-> documento describe el estado **real**, no el deseado: cada ADR lleva su estado
-> de cumplimiento verificado en §9.1.
+> **Aviso de estado del proyecto (D1, 2026-10-25; actualizado en `D2`, 2026-10-25):**
+> el sign-off final (`S1`, tarjeta `t_d005409b`) sigue **RECHAZADO**. El código que
+> describe este documento existe, compila y pasa sus tests; `S1` impuso **7
+> condiciones**, de las que quedan **6 abiertas** (§9.2): `S1.2` la cerró el commit
+> `b128566` (`t_ab6ff8d0`, ver §9.1). Este documento describe el estado **real**, no
+> el deseado: cada ADR lleva su estado de cumplimiento verificado en §9.1.
 
 ## 1. Objetivo General
 
@@ -23,7 +23,7 @@ Diseñar y desarrollar un wrapper nativo en Rust utilizando **PyO3** y **Maturin
 | Ámbito | Entra en v1 | Fuera de v1 (hito posterior) |
 | :--- | :--- | :--- |
 | Texto (OCR) | PP-OCRv6 en tamaños `Tiny`, `Small`, `Medium` vía `OAROCRBuilder` | PP-OCRv4 y PP-OCRv5 |
-| Estructura | PP-StructureV3 vía `OARStructureBuilder`: layout, tablas (HTML) y fórmulas (LaTeX). **Estado real (D1):** el backend carga los 9 artefactos, pero `recognize` **aplana** la salida a `OcrResult`; ni las tablas HTML ni el LaTeX cruzan a Python (ADR-003 incumplido, `S1.2`) | — |
+| Estructura | PP-StructureV3 vía `OARStructureBuilder`: layout, tablas (HTML) y fórmulas (LaTeX). **Estado real (`D2`, commit `b128566`):** el backend carga los 9 artefactos y `recognize` **no aplana**: devuelve el Markdown del documento (tablas HTML + fórmulas LaTeX), los elementos de layout (`LayoutRegion`) y las regiones OCR, y todo ello cruza a Python (ADR-003 **cumplido**) | — |
 | Motor de inferencia | **ONNX Runtime** exclusivamente | **Candle** y `oar-ocr-vl` (VLM ~0.9B), pospuestos a v2 (ADR-001) |
 | Distribución de modelos | `auto-download` (ModelScope → `$OAR_HOME`) + descargador Hugging Face resiliente (ADR-007). **Estado real (D1):** el descargador está implementado pero no conectado al pipeline (§9.1 ADR-007) | otros repositorios |
 | Plataforma de ejecución | CPU y GPU (features `cuda`, `directml`), Python 3.10+ (abi3) | `tensorrt`, `openvino`, `coreml`, `webgpu` |
@@ -69,8 +69,8 @@ pyocrust/
 │   ├── lib.rs                  # Registro del módulo PyO3 y clase pública VeloceOCR
 │   ├── core/
 │   │   ├── mod.rs              # Re-exports y trait OcrEngineBackend (ADR-002, ADR-006)
-│   │   ├── types.rs            # Pyclasses BoundingBox, TextRegion, OcrResult;
-│   │   │                       # enums OcrTask, OcrSize, ModelSpec; struct ModelPaths
+│   │   ├── types.rs            # Pyclasses BoundingBox, TextRegion, OcrResult, LayoutRegion, StructureResult;
+│   │   │                       # enums OcrTask, OcrSize, ModelSpec y el enum Rust OcrOutput; struct ModelPaths
 │   │   ├── error.rs            # OcrError y su traducción a excepciones Python
 │   │   └── image_processor.rs  # ScaleDown y FullPageTiling: funciones puras sobre RgbImage,
 │   │                           # sin I/O y sin conocer oar-ocr (ADR-009). Adaptador PyO3
@@ -99,7 +99,7 @@ pyocrust/
 
 | Ruta | Estado (D1, 2026-10-25) | Nota |
 | :--- | :--- | :--- |
-| `DECISIONS.md`, `DESIGN.md`, `PLANNING.md` | Existen | Documentación; `DESIGN.md` y `PLANNING.md` se reescribieron en `E1` y se reconcilian en `D1` |
+| `DECISIONS.md`, `DESIGN.md`, `PLANNING.md` | Existen | Documentación; `DESIGN.md` y `PLANNING.md` se reescribieron en `E1` y se reconcilian en `D1` y `D2` |
 | `Cargo.toml`, `pyproject.toml`, `LICENSE`, `README.md`, `.gitignore` | Existen | Introducidos en `I1` (commit `4ede5c7`) |
 | `src/**` | Existe | `core/` en `I2`, `storage/` en `I3`, `engines/` + `lib.rs` en `I4` |
 | `pyocrust/**` | Existe | Fachada y stubs en `I1`, ampliados en `I4` |
@@ -130,7 +130,7 @@ Por qué no es válido: ningún pipeline de `oar-ocr` `0.10.1` se inicializa con
 | :--- | :--- | :--- |
 | Texto básico (`OAROCRBuilder`) | detector ONNX + reconocedor ONNX + diccionario `.txt` | `oar-ocr/src/oarocr/ocr.rs:163-178` (cita `A1`) |
 | Preset PP-OCRv6 | los tres anteriores + umbrales oficiales | `oar-ocr/src/oarocr/ocr.rs:218-235` (cita `A1`) |
-| Preset PP-StructureV3 | **9** fuentes: 8 `.onnx` (layout det, OCR det, OCR rec, table classification, wired table structure, wireless table structure, wired cell detection) + `table_structure_dict_ch.txt` + el diccionario OCR del preset embebido | `oar-ocr/src/oarocr/structure.rs:345-361` (cita `A1`); el conteo se fijó contra el crate en `I4` (`src/core/types.rs:109-114`) y manda sobre la cifra "8 ficheros" de versiones anteriores de este documento |
+| Preset PP-StructureV3 | **9** fuentes: 8 `.onnx` (layout det, OCR det, OCR rec, table classification, wired table structure, wireless table structure, wired cell detection) + `table_structure_dict_ch.txt` + el diccionario OCR del preset embebido | `oar-ocr/src/oarocr/structure.rs:345-361` (cita `A1`); el conteo se fijó contra el crate en `I4` (`src/core/types.rs:113-118`) y manda sobre la cifra "8 ficheros" de versiones anteriores de este documento |
 
 Además, los builders consumen el builder y devuelven pipelines inmutables listos para inferencia (`OAROCR`, `OARStructure`): no existe un ciclo de vida con carga mutable tardía.
 
@@ -138,19 +138,19 @@ Contrato adoptado (nombres fijados por la tarjeta `I2`, que es la que implementa
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
-pub enum OcrSize { #[default] Tiny, Small, Medium }    // src/core/types.rs:39-47
+pub enum OcrSize { #[default] Tiny, Small, Medium }    // src/core/types.rs:43-51
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum ModelSpec { PpOcrV6(OcrSize), PpStructureV3 } // src/core/types.rs:106-115
+pub enum ModelSpec { PpOcrV6(OcrSize), PpStructureV3 } // src/core/types.rs:110-119
 
 /// Rutas locales ya resueltas por `storage::config` para un `ModelSpec`.
-pub struct ModelPaths { /* 9 campos de ruta + spec */ } // src/core/types.rs:140-152
+pub struct ModelPaths { /* 9 campos de ruta + spec */ } // src/core/types.rs:144-156
 
-pub trait OcrEngineBackend: Send + Sync {                // src/core/mod.rs:30-38
+pub trait OcrEngineBackend: Send + Sync {                // src/core/mod.rs:33-45
     /// Construye el pipeline desde rutas locales resueltas.
     /// 3 artefactos para PP-OCRv6; 9 fuentes para PP-StructureV3.
     fn load_model(&mut self, paths: &ModelPaths) -> Result<(), OcrError>;
-    fn recognize(&self, image: &[u8]) -> Result<OcrResult, OcrError>;
+    fn recognize(&self, image: &[u8]) -> Result<OcrOutput, OcrError>;
 }
 ```
 
@@ -158,11 +158,11 @@ Reglas del contrato:
 
 | Regla | Detalle | Verificado |
 | :--- | :--- | :--- |
-| Entrada | Ruta de fichero (`str`/`Path`) **y** buffer en memoria (`&[u8]`) | `src/lib.rs:67-79` (extrae `str`, `bytes` y `__fspath__`) |
+| Entrada | Ruta de fichero (`str`/`Path`) **y** buffer en memoria (`&[u8]`) | `src/lib.rs:79-91` (extrae `str`, `bytes` y `__fspath__`) |
 | Carga | Una sola vez, en el constructor. El modelo queda residente; no hay recarga por llamada | `src/engines/*::new_with_model`; test `test_llamar_dos_veces_no_recarga_el_pipeline` |
 | Errores | `Result<_, OcrError>` tipado. Prohibido `Result<_, String>` y prohibido `unwrap()` en rutas de datos | `src/core/error.rs`; sin `unwrap()` en rutas de datos |
-| Salida de texto | `OcrResult` con `TextRegion` (texto, confianza y caja) | `src/core/types.rs:258-339` |
-| Salida de estructura | **Diseño:** `StructureResult` con `to_markdown()` (tablas HTML, fórmulas LaTeX, jerarquía documental), **sin** aplanar a `OcrResult` (ADR-003). **Realidad (D1):** `StructureResult` **no existe** en el árbol y `OarStructureEngine::recognize` devuelve un `OcrResult` plano (`src/engines/oar_structure.rs:168-194`). ADR-003 **incumplido**; `S1` lo marcó bloqueante (`S1.2`) | §9.1, §9.2 |
+| Salida de texto | `OcrResult` con `TextRegion` (texto, confianza y caja) | `src/core/types.rs:265-343` |
+| Salida de estructura | `StructureResult` con `to_markdown()` (tablas HTML, fórmulas LaTeX, jerarquía documental) y acceso a `elements`/`regions`, **sin** aplanar a `OcrResult` (ADR-003). **Verificado (`D2`, `b128566`):** `convert_structure` conserva el Markdown del crate y los elementos de layout (`src/engines/oar_structure.rs:185-215`); el trait devuelve `OcrOutput::{Text(OcrResult), Structure(StructureResult)}` (`src/core/types.rs:438-443`, `src/core/mod.rs:45`) | §9.1, §9.2 |
 
 Firmas reales de estructura (cita `A1` sobre `0.10.1`):
 
@@ -182,7 +182,7 @@ Firmas reales de estructura (cita `A1` sobre `0.10.1`):
 > `OARStructureBuilder::new(layout)` + `.layout_model_name`, `.with_ocr`,
 > `.with_table_classification`, `.with_wired_table_structure`,
 > `.with_wireless_table_structure`, `.with_wired_table_cell_detection` y
-> `.table_structure_dict_path` (`src/engines/oar_structure.rs:128-135`). Manda la
+> `.table_structure_dict_path` (`src/engines/oar_structure.rs:130-137`). Manda la
 > API real del crate; el riesgo R1 queda cerrado (§5).
 
 ### 3.2 Estrategia de Resolución de Modelos (Paths) y Autodescarga
@@ -213,15 +213,15 @@ Verificado en `src/storage/config.rs:103-133` y por los tests `test_nivel_1..3` 
 
 ### 3.3 Gestión de Memoria y Concurrencia de Alto Rendimiento
 
-* **Liberación del GIL de Python:** el método `recognize` expuesto a Python invoca `py.detach()` antes de la inferencia. **Nota (D1):** en PyO3 0.30 la API es `py.detach()`; `py.allow_threads()` es su nombre anterior. Implementado en `src/lib.rs:81-83`.
-* **Seguridad en GPU:** las sesiones de inferencia pesadas (ONNX Runtime, CUDA, DirectML) se encapsulan en `Arc` para permitir llamadas concurrentes seguras entre hilos nativos sin recargas destructivas de contexto. Implementado: `pipeline: Option<Arc<OAROCR>>` (`src/engines/oar_text.rs:50`) y `Option<Arc<OARStructure>>` (`src/engines/oar_structure.rs:30`).
+* **Liberación del GIL de Python:** el método `recognize` expuesto a Python invoca `py.detach()` antes de la inferencia. **Nota (D1):** en PyO3 0.30 la API es `py.detach()`; `py.allow_threads()` es su nombre anterior. Implementado en `src/lib.rs:93-95`.
+* **Seguridad en GPU:** las sesiones de inferencia pesadas (ONNX Runtime, CUDA, DirectML) se encapsulan en `Arc` para permitir llamadas concurrentes seguras entre hilos nativos sin recargas destructivas de contexto. Implementado: `pipeline: Option<Arc<OAROCR>>` (`src/engines/oar_text.rs:50`) y `Option<Arc<OARStructure>>` (`src/engines/oar_structure.rs:32`).
 * **Ciclo de Vida Limpio (VRAM):** ~~Los motores deben implementar el trait nativo `Drop`...~~ **Corregido (ADR-005):** `oar-ocr` ya es dueño de las sesiones `ort::Session`, cuyo `Drop` invoca `OrtReleaseSession` mediante RAII. No se implementa `Drop` manual. **Corregido de nuevo en `D1` (condición `S1.7`):** la gobernanza de VRAM **no** se hace con `OrtSessionConfig` (`gpu_memory_budget`, `idle_memory_recovery`): esas opciones no existen ni se exponen en esa forma en `oar-ocr` `0.10.1` ni aparecen en el código. La VRAM se libera exclusivamente al caer el último `Arc` y el recolector de Python.
 * **Estabilidad del intérprete (ADR-004):** el perfil release declara `panic = "unwind"` (`Cargo.toml:45`).
-* **GIL en la construcción (`S1.6`, abierto):** `VeloceOCR::new` carga las sesiones ONNX y valida ficheros en disco **reteniendo** el GIL (`src/lib.rs:35-56`); solo `recognize` lo libera.
+* **GIL en la construcción (`S1.6`, re-verificado en `D2`):** `VeloceOCR::new` resuelve rutas y ejecuta el preflight **reteniendo** el GIL (`src/lib.rs:35-60`); la creación del motor ONNX se hace con `py.detach` (`src/lib.rs:62`), así que la parte pesada ya lo libera.
 
 | Decisión de concurrencia | Regla |
 | :--- | :--- |
-| GIL | `py.detach()` envuelve la inferencia de `recognize`; **no** la construcción (`S1.6`) |
+| GIL | `py.detach()` envuelve la inferencia de `recognize` (`src/lib.rs:93`) y la creación del motor (`src/lib.rs:62`); la resolución de rutas y el preflight retienen el GIL (`S1.6`) |
 | Sesiones | Envueltas en `Arc`; sin `Drop` manual (ADR-012) |
 | Hilos intra-op de ONNX | Por defecto los de ORT. Con `intra_threads = 1` se habilita paralelismo inter-página explícito |
 | `rayon` | Declarado en `Cargo.toml:26` pero **sin uso** en `src/`: aún no existe el bucle de preprocesamiento que paralelizar (ADR-008, parcial) |
@@ -263,7 +263,7 @@ cumplimiento verificado; el cuadro completo está en §9.1.
 * **Contexto.** El diseño inicial reducía toda inferencia a `recognize(&[u8]) -> OcrResult`, omitiendo `StructureResult` y `to_markdown()`. Eso mutila las tablas HTML, las fórmulas LaTeX y la jerarquía documental de PP-StructureV3.
 * **Decisión.** PP-StructureV3 expone `StructureResult` con `to_markdown()` (`oar-ocr-core-0.10.1/src/domain/structure.rs:471`, cita `A1`) y acceso a las regiones.
 * **Consecuencias.** La API Python debería devolver dos formas de resultado según el preset; un `OcrResult` plano seguiría disponible para PP-OCRv6.
-* **Estado (D1, 2026-10-25).** **Incumplido.** `StructureResult` no existe en el árbol y `OarStructureEngine::recognize` devuelve un `OcrResult` plano (`src/engines/oar_structure.rs:168-194`). `S1` lo declaró **bloqueante** (`S1.2`). **Brecha registrada, no resuelta:** `D1` documenta la contradicción; elegir entre implementar `StructureResult` (opción A de `S1`) o degradar formalmente el alcance de v1 a texto plano (opción B, con la consiguiente enmienda de este ADR y de `DECISIONS.md`) corresponde a `arquitecto`, no a este documento.
+* **Estado (`D2`, 2026-10-25, commit `b128566`).** **Cumplido.** `StructureResult` existe en `src/core/types.rs:400-409` con `to_markdown()` (`:414-416`) y datos propios (`markdown`, `elements`, `regions`); `OarStructureEngine::recognize` devuelve `OcrOutput::Structure` y no aplana (`src/engines/oar_structure.rs:148-171`; `convert_structure` en `:185-215`). La fachada `VeloceOCR.recognize` entrega `StructureResult` con `pp_structurev3` y `OcrResult` con `pp_ocrv6*` (`src/lib.rs:79-100`). La condición `S1.2` queda **cerrada** por la tarjeta `t_ab6ff8d0`; la alternativa B (degradar el alcance de v1 a texto plano) queda **descartada**.
 
 ### ADR-004: `panic = "unwind"` obligatorio en `[profile.release]`
 
@@ -285,7 +285,7 @@ cumplimiento verificado; el cuadro completo está en §9.1.
 * **Decisión.** Se elimina `src/engines/scipix_engine.rs` (YAGNI). Se mantiene un único trait del core (`OcrEngineBackend`) con **dos** implementaciones reales (`oar_text`, `oar_structure`) y una factoría por nombre. El código se organiza en `core/`, `storage/` y `engines/`.
 * **Consecuencias.** Cada módulo tiene un motivo verificable. Cualquier tercer motor futuro entra como una implementación más del trait, sin cambiar la API.
 * **Desviación registrada.** `A1` propuso además fusionar todo en `src/engine.rs` + `src/types.rs`. El orquestador fijó después la división `core/`/`storage/`/`engines/` en las tarjetas `I2`-`I4`, que son el contrato de implementación vigente. Lo sustantivo del dictamen (fuera el placeholder, fuera la factoría abstracta de un solo producto) se cumple igual.
-* **Estado (D1, 2026-10-25).** Cumplido: `src/{core,storage,engines}/`, sin `scipix_engine`, un solo trait con dos implementaciones reales. La factoría `engines::mod` ofrece **dos** entradas: `create_backend(name: &str)` y `create_engine(&ModelSpec, &ModelPaths)` (`src/engines/mod.rs:26,39`); la segunda es la que usa `VeloceOCR` (`src/lib.rs:53`).
+* **Estado (D1, 2026-10-25).** Cumplido: `src/{core,storage,engines}/`, sin `scipix_engine`, un solo trait con dos implementaciones reales. La factoría `engines::mod` ofrece **dos** entradas: `create_backend(name: &str)` y `create_engine(&ModelSpec, &ModelPaths)` (`src/engines/mod.rs:26,39`); la segunda es la que usa `VeloceOCR` (`src/lib.rs:62`).
 
 ### ADR-007: política de rutas y descargador HF resiliente; se mantiene `reqwest`
 
@@ -322,20 +322,20 @@ cumplimiento verificado; el cuadro completo está en §9.1.
 * **Contexto.** `A1` propuso crate `pyocrust_core` y módulo Python `pyocrust._core`. La tarjeta `I1` fijó después `module-name = "pyocrust._pyocrust_core"`, con el paquete Python en `pyocrust/`, compartiendo nombre con el repositorio.
 * **Decisión.** Crate Rust: `pyocrust_core`. Módulo nativo: `pyocrust._pyocrust_core`. Paquete Python: `pyocrust/` en la raíz. Licencia única Apache-2.0.
 * **Consecuencias.** Que el directorio del repositorio y el paquete importable compartan nombre obliga a que el módulo compilado no se llame igual que el paquete; de ahí el prefijo `_pyocrust_core` en lugar de `_core` (que además chocaría con un futuro paquete `core` de Python). Manda `I1`, por ser la decisión de orquestación más reciente y explícita.
-* **Estado (D1, 2026-10-25).** Cumplido: `Cargo.toml:2,10`, `pyproject.toml:23` y `src/lib.rs:91` (`#[pyo3(name = "_pyocrust_core")]`).
+* **Estado (D1, 2026-10-25).** Cumplido: `Cargo.toml:2,10`, `pyproject.toml:23` y `src/lib.rs:106` (`#[pyo3(name = "_pyocrust_core")]`).
 
 ### ADR-012: sesiones compartidas con `Arc`, sin `Drop` manual
 
 * **Contexto.** `DECISIONS.md` §3 exige `Arc` para que varios hilos interroguen el mismo modelo en GPU sin duplicar VRAM. Ese mismo documento pedía `Drop` manual, y ambas cosas juntas son incompatibles.
 * **Decisión.** Se mantiene el `Arc` para las sesiones (ORT es thread-safe) y se retira el `Drop` manual (ADR-005). El paralelismo inter-página exige `intra_threads = 1` (ADR-008).
 * **Consecuencias.** Compartir sesiones sin `Drop` propio es seguro: la liberación ocurre cuando cae el último `Arc`. Se elimina la condición de carrera que describía `A1`.
-* **Estado (D1, 2026-10-25).** Cumplido: el pipeline vive en `Arc` (`src/engines/oar_text.rs:50`, `src/engines/oar_structure.rs:30`) y no hay `impl Drop` en el árbol.
+* **Estado (D1, 2026-10-25).** Cumplido: el pipeline vive en `Arc` (`src/engines/oar_text.rs:50`, `src/engines/oar_structure.rs:32`) y no hay `impl Drop` en el árbol.
 
 ## 5. Riesgos Conocidos
 
 | Id | Riesgo | Impacto | Mitigación | Estado (D1) |
 | :--- | :--- | :--- | :--- | :--- |
-| R1 | La firma exacta de `OARStructureBuilder` en `0.10.1` difiere de la documentada (docstring antiguo con firmas de dos parámetros frente a métodos específicos) | `src/engines/oar_structure.rs` no compila | Contrastar la API real del crate antes de escribir el adaptador; documentar la desviación | **Cerrado.** API real contrastada y usada (`oar_structure.rs:128-135`, §3.1) |
+| R1 | La firma exacta de `OARStructureBuilder` en `0.10.1` difiere de la documentada (docstring antiguo con firmas de dos parámetros frente a métodos específicos) | `src/engines/oar_structure.rs` no compila | Contrastar la API real del crate antes de escribir el adaptador; documentar la desviación | **Cerrado.** API real contrastada y usada (`src/engines/oar_structure.rs:130-137`, §3.1) |
 | R2 | ModelScope inalcanzable (firewall corporativo, CI) | Sin modelos no hay inferencia | Descargador HF de ADR-007; bypass de red si el modelo ya está en disco | **Parcial.** El descargador HF existe pero no está conectado; hoy solo actúa `auto-download` |
 | R3 | Peso de PP-StructureV3 (9 artefactos) y VRAM en GPU de 16 GB | Fallo de carga o OOM | Caché en `$OAR_HOME`; presets `Tiny`/`Small` para texto | Abierto |
 | R4 | `maturin` no está instalado en el intérprete activo | No se puede construir el paquete | `pip install maturin` antes de `maturin develop` | **Cerrado.** `maturin` instalado en `.venv`; `maturin develop` ejecutado |
@@ -355,7 +355,7 @@ Actualizado en `D1` (2026-10-25) leyendo el árbol real y el board `pyocrust`.
 | Paquete `pyocrust` | Existe e importa | `pyocrust/__init__.py`; `maturin develop` ejecutado (`pyocrust/_pyocrust_core.pyd`) |
 | Suite de integración (Python) | **31 pasados, 2 `skip`, 1 `xfail`** | `pytest tests/ -q` — recuento de `S1` |
 | Sign-off `S1` | **RECHAZADO**, 7 condiciones | §9.2 |
-| ADR cumplidos | **9 de 12** (uno con defecto), 2 parciales, 1 incumplido | §9.1 |
+| ADR cumplidos | **10 de 12** (uno con defecto), 2 parciales | §9.1 |
 
 Lo que este documento **no** sabe:
 
@@ -408,7 +408,7 @@ Interfaz implementada: `fn fetch(url: &str, dest: &Path, sha256_hex: &str) -> Re
 * **v2 — paralelismo inter-página.** Solo si una medición lo justifica, y siempre con `intra_threads = 1` para no pelearse con el pool intra-op de ORT (ADR-008).
 * **Features de aceleración adicionales.** `tensorrt`, `openvino`, `coreml` y `webgpu` existen en `oar-ocr`; se añaden cuando haya un objetivo de despliegue que los pida, no antes.
 * **Gestión explícita de VRAM.** Si la liberación por RAII resulta insuficiente en producción, el camino es un `close()`/context manager que suelte el último `Arc`, **no** un `Drop` manual con llamadas a CUDA (ADR-005).
-* **Cierre de las condiciones de `S1`.** Las condiciones `S1.1`-`S1.6` (§9.2) siguen abiertas: son código, no documentación, y necesitan tarjeta propia.
+* **Cierre de las condiciones de `S1`.** `S1.2` quedó cerrada por `b128566` (`t_ab6ff8d0`); las condiciones `S1.1` y `S1.3`-`S1.6` (§9.2) siguen abiertas: son código, no documentación, y necesitan tarjeta propia.
 
 ## 9. Reconciliación `D1` (2026-10-25)
 
@@ -419,8 +419,8 @@ Verificado leyendo el árbol real de `src/` (no las intenciones).
 | ADR | Asunto | Estado | Evidencia |
 | :--- | :--- | :--- | :--- |
 | ADR-001 | v1 solo ONNX Runtime | Cumplido | `Cargo.toml:20`; no hay `candle` en el árbol |
-| ADR-002 | Contrato por presets | Cumplido | `src/core/mod.rs:30-38`; `ModelPaths` en `src/core/types.rs:140-152` |
-| ADR-003 | Estructura no aplanada | **Incumplido** | `src/engines/oar_structure.rs:168-194` devuelve `OcrResult`; `StructureResult` no existe |
+| ADR-002 | Contrato por presets | Cumplido | `src/core/mod.rs:33-45`; `ModelPaths` en `src/core/types.rs:144-156` |
+| ADR-003 | Estructura no aplanada | **Cumplido** | `OcrOutput::Structure` en `src/engines/oar_structure.rs:148-171`; `StructureResult` con `to_markdown()` en `src/core/types.rs:400-409` (commit `b128566`) |
 | ADR-004 | `panic = "unwind"` | Cumplido | `Cargo.toml:45` |
 | ADR-005 | Sin `Drop` manual | Cumplido | `Arc` en los motores; sin `impl Drop`; doc de VRAM corregida (`S1.7`) |
 | ADR-006 | Módulos sin placeholders | Cumplido | `src/{core,storage,engines}/`; sin `scipix_engine`; un trait, dos implementaciones |
@@ -428,8 +428,8 @@ Verificado leyendo el árbol real de `src/` (no las intenciones).
 | ADR-008 | `rayon` solo en preprocesamiento CPU | **Parcial** | `rayon` en `Cargo.toml:26`, sin uso en `src/` |
 | ADR-009 | Tiling opt-in | Cumplido con defecto | `src/core/image_processor.rs:147-185`; adaptador con defecto de memoria (`S1.1`) |
 | ADR-010 | Dependencias y features | Cumplido | `Cargo.toml:13-36,45` |
-| ADR-011 | Nomenclatura | Cumplido | `pyproject.toml:23`; `src/lib.rs:91` |
-| ADR-012 | Sesiones con `Arc`, sin `Drop` | Cumplido | `src/engines/oar_text.rs:50`; `src/engines/oar_structure.rs:30` |
+| ADR-011 | Nomenclatura | Cumplido | `pyproject.toml:23`; `src/lib.rs:106` |
+| ADR-012 | Sesiones con `Arc`, sin `Drop` | Cumplido | `src/engines/oar_text.rs:50`; `src/engines/oar_structure.rs:32` |
 
 ### 9.2 Condiciones abiertas del sign-off `S1` (tarjeta `t_d005409b`, RECHAZADO)
 
@@ -438,14 +438,19 @@ Verificado leyendo el árbol real de `src/` (no las intenciones).
 | Id | Condición | Gravedad | Estado | Evidencia |
 | :--- | :--- | :--- | :--- | :--- |
 | S1.1 | `pyapi::full_page_tiling` materializa los mosaicos y los descarta (OOM con `overlap` alto) | Bloqueante | **Pendiente** | `src/core/image_processor.rs:229-249` |
-| S1.2 | `StructureResult` (ADR-003) no existe ni cruza a Python | Bloqueante | **Pendiente** | `src/engines/oar_structure.rs:168-194` |
+| S1.2 | `StructureResult` (ADR-003) no existía ni cruzaba a Python | Bloqueante | **Cerrada (`D2`, `b128566`)** | `src/core/types.rs:400-409`; `src/engines/oar_structure.rs:148-171` |
 | S1.3 | `PyOcrValueError`/`PyOcrRuntimeError` no heredan de `PyOcrError` | Mayor | **Pendiente** | `src/core/error.rs:147-149` |
-| S1.4 | `VeloceOCR::new` no ejecuta el preflight (ni el descargador) | Mayor | **Pendiente** | `src/lib.rs:50-53` |
+| S1.4 | `VeloceOCR::new` no ejecuta el preflight (ni el descargador) | Mayor | **Parcial (`D2`)** | `src/lib.rs:58-62` (preflight sí, descargador no) |
 | S1.5 | `OAR_HOME` relativa rompe la autodescarga de `oar-ocr` | Mayor | **Pendiente** | `src/storage/config.rs:115-119` |
-| S1.6 | `VeloceOCR::new` retiene el GIL durante la carga | Menor | **Pendiente** | `src/lib.rs:35-56` |
+| S1.6 | `VeloceOCR::new` retiene el GIL durante la carga | Menor | **Parcial (`D2`)** | `src/lib.rs:35-65` (el motor se crea con `py.detach`, `:62`) |
 | S1.7 | Retirar de `DESIGN.md` las capacidades de VRAM inexistentes | Menor | **Hecho en `D1`** | §3.3 y ADR-005 corregidos |
 
-Las condiciones `S1.1`-`S1.6` son trabajo de código y **no** se abordan en esta tarjeta (`D1` no escribe código). Requieren tarjeta propia con el perfil que decida `arquitecto`.
+`S1.2` la cerró el código de `t_ab6ff8d0` (`b128566`). Las restantes (`S1.1`, `S1.3`-`S1.6`) son trabajo de código y **no** se abordan en esta tarjeta (`D2` no escribe código). Requieren tarjeta propia con el perfil que decida `arquitecto`.
+
+> **Nota de `D2` sobre `S1.4`-`S1.6`.** El commit `b128566` también tocó `VeloceOCR::new`: invoca el
+> preflight (`src/lib.rs:60`), reexporta `OAR_HOME` a `os.environ` (`src/lib.rs:51-57`) y libera el GIL
+> durante la creación del motor (`src/lib.rs:62`). `D2` **no** cierra esas condiciones: debe re-verificarlas
+> quien las posee, contra esas líneas y no contra las que citaba `D1`.
 
 ### 9.3 Divergencias documentales cerradas en `D1`
 
@@ -453,7 +458,7 @@ Las condiciones `S1.1`-`S1.6` son trabajo de código y **no** se abordan en esta
 | :--- | :--- | :--- | :--- |
 | Artefactos de PP-StructureV3 | §3.1 "8 ficheros" listando 9 | 9 fuentes (8 `.onnx` + `table_structure_dict_ch.txt` + diccionario OCR) | Manda el crate; §3.1 corregido |
 | `ModelPaths` | §2 lo listaba como "enum" | es una `struct` (`src/core/types.rs:140`) | §2 corregido |
-| Pyclasses del core | §2 nombraba `StructureResult` | `BoundingBox`, `TextRegion`, `OcrResult` (`src/core/types.rs:27-32`) | §2 corregido; `StructureResult` no existe (`S1.2`) |
+| Pyclasses del core | §2 nombraba `StructureResult` | `BoundingBox`, `TextRegion`, `OcrResult`, `LayoutRegion`, `StructureResult` y el enum Rust `OcrOutput` (`src/core/types.rs:30-34,353,400,438`) | §2 corregido en `D1`; `StructureResult` **reintroducido** en `b128566` (`D2`) y vuelve al árbol de §2 |
 | Liberación del GIL | §3.3 `py.allow_threads()` | `py.detach()` (PyO3 0.30) | §3.3 corregido |
 | Cliente de descarga | §7.3 "la decisión la fija `I3`" | `reqwest::blocking`, `timeout` 1800 s (`src/storage/download.rs:125-128`) | §7.3 actualizado |
 | Firma de `OARStructureBuilder` | R1 abierto, firmas de 2 parámetros | `OARStructureBuilder::new(layout)` + métodos específicos | §3.1 y §5: R1 cerrado |
