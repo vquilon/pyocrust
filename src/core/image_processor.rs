@@ -371,44 +371,34 @@ mod tests {
         }
     }
 
-    /// El mismo contrato con otros solapamientos: el mínimo pedido nunca baja.
+    /// El mismo contrato con otros solapamientos, comprobado sobre la geometría
+    /// (`offsets`) en lugar de materializar mosaicos: con `overlap` 511 un
+    /// barrido sobre 1200x900 reservaría cientos de GB de mosaicos.
     #[test]
     fn overlap_holds_for_every_configured_value() {
-        let image = synthetic(1200, 900);
-        for overlap in [1, 16, 64, 128, 511] {
-            let options = FullPageTilingOptions {
-                tile_size: 512,
-                overlap,
-            };
-            let tiles = full_page_tiling(&image, &options).unwrap();
-            let geom = |tile: &Tile| (tile.x, tile.y, tile.width, tile.height);
-            for pair in tiles.windows(2) {
-                let (a, b) = (&pair[0], &pair[1]);
-                if a.y == b.y && a.x < b.x {
-                    let actual = a.x + 512 - b.x;
+        let (width, height) = (1200u32, 900u32);
+        let tile_size = 512u32;
+        for overlap in [1u32, 16, 64, 128, 511] {
+            let step = tile_size - overlap;
+            for (side, offsets) in [
+                (width, offsets(width, tile_size, step)),
+                (height, offsets(height, tile_size, step)),
+            ] {
+                assert_eq!(offsets.first(), Some(&0), "overlap {overlap}: no empieza en 0");
+                assert_eq!(
+                    offsets.last().expect("siempre hay un offset") + tile_size,
+                    side,
+                    "overlap {overlap}: el ultimo mosaico no toca el borde de {side}px"
+                );
+                for window in offsets.windows(2) {
+                    let actual = tile_size - (window[1] - window[0]);
                     assert!(
                         actual >= overlap,
-                        "overlap {overlap}: solape horizontal de {actual}px entre {:?} y {:?}",
-                        geom(a),
-                        geom(b)
+                        "overlap {overlap}: solape de {actual}px entre {window:?}"
                     );
-                    assert!(b.x <= a.x + 512, "hueco entre {:?} y {:?}", geom(a), geom(b));
-                } else if a.x == b.x && a.y < b.y {
-                    let actual = a.y + 512 - b.y;
-                    assert!(
-                        actual >= overlap,
-                        "overlap {overlap}: solape vertical de {actual}px entre {:?} y {:?}",
-                        geom(a),
-                        geom(b)
-                    );
-                    assert!(b.y <= a.y + 512, "hueco entre {:?} y {:?}", geom(a), geom(b));
+                    assert!(window[1] <= window[0] + tile_size, "hueco entre {window:?}");
                 }
             }
-            let covered_x = tiles.iter().any(|tile| tile.x == 0)
-                && tiles.iter().any(|tile| tile.x + tile.width == 1200);
-            let covered_y = tiles.iter().any(|tile| tile.y == 0)
-                && tiles.iter().any(|tile| tile.y + tile.height == 900);
-            assert!(covered_x && covered_y, "overlap {overlap}: los mosaicos no cubren la imagen");
         }
     }
 
