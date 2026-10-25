@@ -1,0 +1,21 @@
+target/
+Cargo.lock
+
+.env
+
+__pycache__/
+*.py[cod]
+
+# Build de maturin y venv local
+.venv/
+venv/
+dist/
+*.egg-info/
+
+# Artefactos nativos que `maturin develop` deja junto al paquete Python
+*.pyd
+*.so
+*.dylib
+
+# Rust
+*.pdb

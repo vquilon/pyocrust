@@ -1,0 +1,27 @@
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "pyocrust"
+version = "0.1.0"
+description = "Unified native OCR and document-structure wrapper over oar-ocr (PyO3 + Maturin)."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+[tool.maturin]
+module-name = "pyocrust._pyocrust_core"
+# `extension-module` es la única feature de cargo que maturin necesita pasar;
+# `abi3-py310` es una feature de pyo3 y ya va declarada en Cargo.toml.
+features = ["pyo3/extension-module"]
+python-source = "."
