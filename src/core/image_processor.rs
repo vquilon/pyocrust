@@ -144,10 +144,14 @@ pub fn scale_down(image: &RgbImage, options: &ScaleDownOptions) -> Result<RgbIma
 /// mosaicos: offsets horizontales `0, 448, 688` (el último realineado con
 /// `1200 - 512`) y offsets verticales `0, 388` (`900 - 512`). Los solapamientos
 /// resultantes son 64px y 272px en horizontal y 124px en vertical.
-pub fn full_page_tiling(
-    image: &RgbImage,
+/// Calcula la geometría `(x, y, ancho, alto)` de cada mosaico a partir de las
+/// dimensiones `(width, height)` y las opciones de troceado, sin recortar ni clonar
+/// búferes de imagen.
+pub fn full_page_tiling_boxes(
+    width: u32,
+    height: u32,
     options: &FullPageTilingOptions,
-) -> Result<Vec<Tile>, ImageProcessError> {
+) -> Result<Vec<(u32, u32, u32, u32)>, ImageProcessError> {
     if options.tile_size == 0 {
         return Err(ImageProcessError::ZeroTileSize);
     }
@@ -158,7 +162,6 @@ pub fn full_page_tiling(
         });
     }
 
-    let (width, height) = image.dimensions();
     if width == 0 || height == 0 {
         return Err(ImageProcessError::EmptyImage);
     }
@@ -167,20 +170,33 @@ pub fn full_page_tiling(
     let xs = offsets(width, options.tile_size, step);
     let ys = offsets(height, options.tile_size, step);
 
-    let mut tiles = Vec::with_capacity(xs.len() * ys.len());
+    let mut boxes = Vec::with_capacity(xs.len() * ys.len());
     for &y in &ys {
         for &x in &xs {
             let tile_width = options.tile_size.min(width - x);
             let tile_height = options.tile_size.min(height - y);
-            tiles.push(Tile {
-                x,
-                y,
-                width: tile_width,
-                height: tile_height,
-                image: image::imageops::crop_imm(image, x, y, tile_width, tile_height).to_image(),
-            });
+            boxes.push((x, y, tile_width, tile_height));
         }
     }
+    Ok(boxes)
+}
+
+pub fn full_page_tiling(
+    image: &RgbImage,
+    options: &FullPageTilingOptions,
+) -> Result<Vec<Tile>, ImageProcessError> {
+    let (width, height) = image.dimensions();
+    let boxes = full_page_tiling_boxes(width, height, options)?;
+    let tiles = boxes
+        .into_iter()
+        .map(|(x, y, tile_width, tile_height)| Tile {
+            x,
+            y,
+            width: tile_width,
+            height: tile_height,
+            image: image::imageops::crop_imm(image, x, y, tile_width, tile_height).to_image(),
+        })
+        .collect();
     Ok(tiles)
 }
 
@@ -238,14 +254,24 @@ pub mod pyapi {
         if let Some(overlap) = overlap {
             options.overlap = overlap;
         }
-        let decoded = image::load_from_memory(image)
-            .map_err(OcrError::from)?
-            .to_rgb8();
-        let tiles = super::full_page_tiling(&decoded, &options).map_err(OcrError::from)?;
-        Ok(tiles
-            .into_iter()
-            .map(|tile| (tile.x, tile.y, tile.width, tile.height))
-            .collect())
+        let (width, height) = match image::ImageReader::new(std::io::Cursor::new(image))
+            .with_guessed_format()
+        {
+            Ok(reader) => match reader.into_dimensions() {
+                Ok(dims) => dims,
+                Err(_) => {
+                    let decoded = image::load_from_memory(image).map_err(OcrError::from)?;
+                    (decoded.width(), decoded.height())
+                }
+            },
+            Err(_) => {
+                let decoded = image::load_from_memory(image).map_err(OcrError::from)?;
+                (decoded.width(), decoded.height())
+            }
+        };
+        let boxes =
+            super::full_page_tiling_boxes(width, height, &options).map_err(OcrError::from)?;
+        Ok(boxes)
     }
 }
 
@@ -486,5 +512,30 @@ mod tests {
             },
         );
         assert!(matches!(result, Err(ImageProcessError::ZeroMaxSide)));
+    }
+
+    #[test]
+    fn tiling_boxes_matches_full_page_tiling_geometry() {
+        let image = synthetic(1200, 900);
+        let options = FullPageTilingOptions {
+            tile_size: 512,
+            overlap: 64,
+        };
+        let tiles = full_page_tiling(&image, &options).unwrap();
+        let boxes = full_page_tiling_boxes(1200, 900, &options).unwrap();
+        assert_eq!(tiles.len(), boxes.len());
+        for (tile, b) in tiles.iter().zip(boxes.iter()) {
+            assert_eq!((tile.x, tile.y, tile.width, tile.height), *b);
+        }
+    }
+
+    #[test]
+    fn high_overlap_calculates_boxes_without_materializing_buffers() {
+        let options = FullPageTilingOptions {
+            tile_size: 512,
+            overlap: 511,
+        };
+        let boxes = full_page_tiling_boxes(600, 600, &options).unwrap();
+        assert_eq!(boxes.len(), 7921);
     }
 }

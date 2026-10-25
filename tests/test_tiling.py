@@ -123,3 +123,19 @@ def test_un_mosaico_de_tamano_cero_se_rechaza(png_factory):
 def test_bytes_que_no_son_una_imagen_se_rechazan():
     with pytest.raises(PyOcrRuntimeError):
         full_page_tiling(b"esto no es un png", MOSAICO, SOLAPE)
+
+
+def test_solapamiento_alto_no_agota_memoria_y_resuelve_en_milisegundos(png_factory):
+    """Condición S1.1: overlap=511 con tile_size=512 no materializa búferes innecesarios."""
+    import time
+
+    imagen = png_factory(600, 600)
+    t0 = time.perf_counter()
+    mosaicos = full_page_tiling(imagen, 512, 511)
+    duracion = time.perf_counter() - t0
+
+    # 600x600 con tile_size 512 y avance 1 produce 89 offsets por eje = 7921 mosaicos
+    assert len(mosaicos) == 7921
+    assert duracion < 1.0, f"debe tardar milisegundos, tardó {duracion:.2f}s"
+    assert mosaicos[0] == (0, 0, 512, 512)
+    assert mosaicos[-1] == (88, 88, 512, 512)
