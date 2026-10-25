@@ -14,7 +14,17 @@ from __future__ import annotations
 from typing import Final
 
 try:
-    from pyocrust._pyocrust_core import native_version as _native_version
+    from pyocrust._pyocrust_core import (
+        BoundingBox,
+        OcrResult,
+        PyOcrError,
+        PyOcrRuntimeError,
+        PyOcrValueError,
+        TextRegion,
+        VeloceOCR,
+        native_version as _native_version,
+        resolve_models_dir,
+    )
 except ImportError as exc:  # pragma: no cover - solo si el binario no está construido
     raise ImportError(
         "El módulo nativo 'pyocrust._pyocrust_core' no está construido. "
@@ -23,4 +33,14 @@ except ImportError as exc:  # pragma: no cover - solo si el binario no está con
 
 __version__: Final[str] = _native_version()
 
-__all__: Final[list[str]] = ["__version__"]
+__all__: Final[list[str]] = [
+    "__version__",
+    "BoundingBox",
+    "OcrResult",
+    "PyOcrError",
+    "PyOcrRuntimeError",
+    "PyOcrValueError",
+    "TextRegion",
+    "VeloceOCR",
+    "resolve_models_dir",
+]
