@@ -10,6 +10,7 @@
 use pyo3::prelude::*;
 
 pub mod core;
+pub mod storage;
 
 /// Versión del módulo nativo. La fachada `pyocrust/__init__.py` la expone.
 #[pyfunction]
@@ -27,5 +28,7 @@ fn pyocrust_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Utilidad de troceado opt-in (ADR-009): existe para `tests/test_tiling.py`
     // (`V1`), no la aplica el pipeline general.
     core::image_processor::pyapi::register(m)?;
+    // Resolución de rutas de modelos (ADR-007, tarjeta I3) para `tests/test_config.py`.
+    m.add_function(wrap_pyfunction!(storage::config::py_resolve_models_dir, m)?)?;
     Ok(())
 }
