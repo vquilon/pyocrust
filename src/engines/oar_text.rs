@@ -22,7 +22,7 @@ use std::sync::Arc;
 
 use crate::core::{
     error::OcrError,
-    types::{BoundingBox, ModelPaths, ModelSpec, OcrResult, OcrSize, TextRegion},
+    types::{BoundingBox, ModelPaths, ModelSpec, OcrOutput, OcrResult, OcrSize, TextRegion},
     OcrEngineBackend,
 };
 
@@ -127,7 +127,7 @@ impl OcrEngineBackend for OarTextEngine {
         Ok(())
     }
 
-    fn recognize(&self, image_bytes: &[u8]) -> Result<OcrResult, OcrError> {
+    fn recognize(&self, image_bytes: &[u8]) -> Result<OcrOutput, OcrError> {
         let pipeline = self
             .pipeline
             .as_ref()
@@ -161,7 +161,7 @@ impl OcrEngineBackend for OarTextEngine {
             }
         }
 
-        Ok(OcrResult { regions })
+        Ok(OcrOutput::Text(OcrResult { regions }))
     }
 }
 

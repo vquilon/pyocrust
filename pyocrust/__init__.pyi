@@ -1,12 +1,13 @@
-"""Stubs de tipos de pyocrust (tarjeta `I1`).
+"""Stubs de tipos de pyocrust.
 
-El módulo nativo ``pyocrust._pyocrust_core`` se declara entero: el contrato
-PyO3 (clases ``OcrResult``, ``TextRegion``, ``VeloceOCR``...) llega con las
-tarjetas ``I2``-``I4`` y se documenta aquí cuando exista.
+Refleja el contrato PyO3 real: ``VeloceOCR.recognize`` devuelve ``OcrResult``
+en los presets de texto (``pp_ocrv6*``) y ``StructureResult`` en
+``pp_structurev3`` (ADR-003).
 """
 
 from __future__ import annotations
 
+from os import PathLike
 from typing import Sequence
 
 __version__: str
@@ -37,9 +38,28 @@ class OcrResult:
     def confidence(self) -> float: ...
     def __len__(self) -> int: ...
 
+class LayoutRegion:
+    """Elemento de layout de PP-StructureV3; en ``formula``, ``text`` es LaTeX."""
+
+    kind: str
+    text: str
+    confidence: float
+    box: BoundingBox
+    def __init__(
+        self, kind: str, text: str, confidence: float, box: BoundingBox
+    ) -> None: ...
+
+class StructureResult:
+    """Salida de PP-StructureV3: estructura documental sin aplanar (ADR-003)."""
+
+    elements: Sequence[LayoutRegion]
+    regions: Sequence[TextRegion]
+    def to_markdown(self) -> str: ...
+    def __len__(self) -> int: ...
+
 class PyOcrError(Exception): ...
-class PyOcrValueError(ValueError, PyOcrError): ...
-class PyOcrRuntimeError(RuntimeError, PyOcrError): ...
+class PyOcrValueError(PyOcrError): ...
+class PyOcrRuntimeError(PyOcrError): ...
 
 def resolve_models_dir(custom_path: str | None = None) -> str: ...
 
@@ -47,15 +67,19 @@ class VeloceOCR:
     def __init__(self, preset: str = "pp_ocrv6", custom_path: str | None = None) -> None: ...
     @property
     def models_dir(self) -> str: ...
-    def recognize(self, image: str | bytes) -> OcrResult: ...
+    def recognize(
+        self, image: str | bytes | PathLike[str]
+    ) -> OcrResult | StructureResult: ...
 
 __all__: list[str] = [
     "__version__",
     "BoundingBox",
+    "LayoutRegion",
     "OcrResult",
     "PyOcrError",
     "PyOcrRuntimeError",
     "PyOcrValueError",
+    "StructureResult",
     "TextRegion",
     "VeloceOCR",
     "resolve_models_dir",

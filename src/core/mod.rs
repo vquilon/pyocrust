@@ -12,10 +12,13 @@ pub mod types;
 
 pub use error::{ImageProcessError, OcrError, PyOcrError};
 pub use image_processor::{
-    full_page_tiling, scale_down, FullPageTilingOptions, ScaleDownOptions, Tile, DEFAULT_MAX_SIDE,
-    DEFAULT_OVERLAP, DEFAULT_TILE_SIZE,
+    full_page_tiling, full_page_tiling_boxes, scale_down, FullPageTilingOptions, ScaleDownOptions,
+    Tile, DEFAULT_MAX_SIDE, DEFAULT_OVERLAP, DEFAULT_TILE_SIZE,
 };
-pub use types::{BoundingBox, ModelPaths, ModelSpec, OcrResult, OcrSize, OcrTask, TextRegion};
+pub use types::{
+    BoundingBox, LayoutRegion, ModelPaths, ModelSpec, OcrOutput, OcrResult, OcrSize, OcrTask,
+    StructureResult, TextRegion,
+};
 
 /// Contrato del backend OCR (`DESIGN.md` §3.1, ADR-002, ADR-006).
 ///
@@ -35,5 +38,9 @@ pub trait OcrEngineBackend: Send + Sync {
     fn load_model(&mut self, paths: &ModelPaths) -> Result<(), OcrError>;
 
     /// Reconoce el texto de una imagen codificada en memoria.
-    fn recognize(&self, image: &[u8]) -> Result<OcrResult, OcrError>;
+    ///
+    /// Devuelve `OcrOutput::Text` en los backends de texto y
+    /// `OcrOutput::Structure` en PP-StructureV3: la estructura documental **no**
+    /// se aplana a `OcrResult` (ADR-003).
+    fn recognize(&self, image: &[u8]) -> Result<OcrOutput, OcrError>;
 }

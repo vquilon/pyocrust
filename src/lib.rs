@@ -32,7 +32,7 @@ struct VeloceOCR {
 impl VeloceOCR {
     #[new]
     #[pyo3(signature = (preset = "pp_ocrv6", custom_path = None))]
-    fn new(preset: &str, custom_path: Option<&str>) -> PyResult<Self> {
+    fn new(py: Python<'_>, preset: &str, custom_path: Option<&str>) -> PyResult<Self> {
         let spec = match preset {
             "pp_ocrv6" | "pp_ocrv6_tiny" => crate::core::ModelSpec::PpOcrV6(crate::core::OcrSize::Tiny),
             "pp_ocrv6_small" => crate::core::ModelSpec::PpOcrV6(crate::core::OcrSize::Small),
@@ -48,9 +48,18 @@ impl VeloceOCR {
         };
 
         let config = storage::config::OcrConfig::new(custom_path.map(std::path::Path::new));
+        if let Ok(oar_home) = std::env::var(storage::config::OAR_HOME_ENV) {
+            if let Ok(os) = py.import("os") {
+                if let Ok(environ) = os.getattr("environ") {
+                    let _ = environ.set_item(storage::config::OAR_HOME_ENV, oar_home);
+                }
+            }
+        }
         let paths = config.resolve_paths(&spec);
 
-        let engine = engines::create_engine(&spec, &paths)?;
+        storage::models::preflight_paths(&paths).ensure_ready()?;
+
+        let engine = py.detach(|| engines::create_engine(&spec, &paths))?;
 
         Ok(Self { engine, config })
     }
@@ -61,10 +70,13 @@ impl VeloceOCR {
         self.config.models_dir.to_string_lossy().to_string()
     }
 
-    /// Reconoce el texto de una imagen liberando el GIL.
+    /// Reconoce una imagen liberando el GIL.
     ///
     /// Admite una ruta (`str`, `Path`) o un buffer en memoria (`bytes`).
-    fn recognize(&self, py: Python<'_>, image: &Bound<'_, PyAny>) -> PyResult<crate::core::OcrResult> {
+    ///
+    /// El tipo de retorno depende del preset: `OcrResult` en los presets de
+    /// texto (`pp_ocrv6*`) y `StructureResult` en `pp_structurev3` (ADR-003).
+    fn recognize(&self, py: Python<'_>, image: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         let image_bytes: Vec<u8> = if let Ok(s) = image.extract::<&str>() {
             std::fs::read(s).map_err(OcrError::from)?
         } else if let Ok(b) = image.extract::<&[u8]>() {
@@ -78,11 +90,14 @@ impl VeloceOCR {
             }.into());
         };
 
-        let result = py.detach(|| {
+        let output = py.detach(|| {
             self.engine.recognize(&image_bytes)
         })?;
 
-        Ok(result)
+        match output {
+            crate::core::OcrOutput::Text(result) => Ok(Py::new(py, result)?.into_any()),
+            crate::core::OcrOutput::Structure(result) => Ok(Py::new(py, result)?.into_any()),
+        }
     }
 }
 
