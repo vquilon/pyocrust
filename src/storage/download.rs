@@ -14,6 +14,9 @@ use std::time::Duration;
 
 use sha2::{Digest, Sha256};
 
+use crate::core::error::OcrError;
+use crate::storage::registry::{Artifact, Source};
+
 /// Errores tipados de descarga (§7.3 requisito 4).
 #[derive(Debug)]
 pub enum DownloadError {
@@ -92,6 +95,58 @@ pub fn part_file_path(dest: &Path) -> PathBuf {
     dest.with_file_name(format!(".{filename}.{pid}.part"))
 }
 
+/// Construye la URL pública de descarga de un [`Artifact`] del registro.
+///
+/// * ModelScope: el mismo patrón que usa `oar-ocr` en
+///   `oar-ocr-core-0.10.1/src/core/download/mod.rs:252`.
+/// * HuggingFace: `https://huggingface.co/<repo>/resolve/<rev>/<path>`, con la
+///   revisión fijada a un commit SHA.
+pub fn artifact_url(artifact: &Artifact) -> Result<String, OcrError> {
+    match artifact.source {
+        Source::ModelScope => Ok(format!(
+            "https://www.modelscope.cn/api/v1/models/{}/repo?Revision={}&FilePath={}",
+            oar_ocr::download::MODELSCOPE_REPO,
+            oar_ocr::download::DEFAULT_REVISION,
+            artifact.name
+        )),
+        Source::HuggingFace { repo, revision } => Ok(format!(
+            "https://huggingface.co/{repo}/resolve/{revision}/{}",
+            artifact.name
+        )),
+    }
+}
+
+/// Ruta del sidecar `.<name>.sha256` que registra un hash ya verificado.
+pub fn sidecar_path(path: &Path) -> Option<PathBuf> {
+    let name = path.file_name()?.to_str()?;
+    Some(path.with_file_name(format!(".{name}.sha256")))
+}
+
+/// Escribe el sidecar con el hash ya verificado.
+///
+/// Es *best effort*: si falla, el siguiente arranque solo vuelve a hashear.
+pub fn write_sidecar(path: &Path, hash: &str) -> io::Result<()> {
+    match sidecar_path(path) {
+        Some(sidecar) => fs::write(&sidecar, hash),
+        None => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "no filename for sidecar",
+        )),
+    }
+}
+
+/// `true` si el sidecar registra exactamente `expected` (ignora mayúsculas).
+///
+/// Permite el arranque en caliente sin re-hashear ficheros de cientos de MB.
+pub fn sidecar_matches(path: &Path, expected: &str) -> bool {
+    match sidecar_path(path) {
+        Some(sidecar) => fs::read_to_string(&sidecar)
+            .map(|contents| contents.trim().eq_ignore_ascii_case(expected))
+            .unwrap_or(false),
+        None => false,
+    }
+}
+
 /// Descarga un fichero desde `url` hacia `dest` garantizando verificación de integridad y atomicidad.
 ///
 /// Si el fichero ya existe en `dest` y su SHA-256 coincide con `sha256_hex`, retorna `Ok(())`
@@ -99,8 +154,12 @@ pub fn part_file_path(dest: &Path) -> PathBuf {
 pub fn fetch(url: &str, dest: &Path, sha256_hex: &str) -> Result<(), DownloadError> {
     let expected_hash = sha256_hex.to_ascii_lowercase();
 
-    // 5. Bypass offline
+    // 5. Bypass offline. El sidecar de un arranque anterior ahorra el re-hash
+    //    (decisión `S2.0`: solo se hashea lo que se descarga).
     if dest.exists() {
+        if sidecar_matches(dest, &expected_hash) {
+            return Ok(());
+        }
         if let Ok(actual_hash) = compute_sha256(dest) {
             if actual_hash == expected_hash {
                 return Ok(());
@@ -122,9 +181,12 @@ pub fn fetch(url: &str, dest: &Path, sha256_hex: &str) -> Result<(), DownloadErr
         0
     };
 
+    // La CDN de ModelScope devuelve 403 a los clientes **sin** `User-Agent`
+    // (reqwest no lo envía por defecto); hay que declararlo explícitamente.
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(1800))
         .connect_timeout(Duration::from_secs(30))
+        .user_agent(format!("pyocrust/{}", env!("CARGO_PKG_VERSION")))
         .build()?;
 
     let mut request = client.get(url);
@@ -192,6 +254,9 @@ pub fn fetch(url: &str, dest: &Path, sha256_hex: &str) -> Result<(), DownloadErr
     // 1. Renombrado atómico a destino definitivo solo tras validar
     fs::rename(&part_path, dest)?;
 
+    // 5. Sidecar con el hash ya verificado: el próximo arranque se lo ahorra.
+    let _ = write_sidecar(dest, &expected_hash);
+
     Ok(())
 }
 
@@ -245,6 +310,25 @@ mod tests {
         // demostrando que se produjo bypass offline absoluto sin intentar petición HTTP.
         let result = fetch("http://invalid.domain.pyocrust.test/fail", &dest, &correct_hash);
         assert!(result.is_ok());
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn sidecar_records_the_hash_and_skips_the_rehash() {
+        let temp_dir = create_temp_dir("sidecar");
+        let dest = temp_dir.join("model.onnx");
+        fs::write(&dest, b"contenido verificado").unwrap();
+        let hash = compute_sha256(&dest).unwrap();
+
+        assert!(!sidecar_matches(&dest, &hash), "sin sidecar todavía no coincide");
+        write_sidecar(&dest, &hash).unwrap();
+        assert!(sidecar_matches(&dest, &hash));
+        assert!(!sidecar_matches(&dest, "deadbeef"));
+
+        // Un sidecar ajeno no valida el bypass.
+        fs::write(temp_dir.join(".model.onnx.sha256"), "otro-hash").unwrap();
+        assert!(!sidecar_matches(&dest, &hash));
 
         let _ = fs::remove_dir_all(&temp_dir);
     }

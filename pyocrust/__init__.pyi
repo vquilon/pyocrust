@@ -63,6 +63,11 @@ class PyOcrRuntimeError(PyOcrError): ...
 
 def resolve_models_dir(custom_path: str | None = None) -> str: ...
 
+def models_status(
+    custom_path: str | None = None,
+) -> dict[str, object]:
+    """Estado de los modelos en disco: `models_dir`, `offline`, `presets`, `indra`."""
+
 class VeloceOCR:
     def __init__(self, preset: str = "pp_ocrv6", custom_path: str | None = None) -> None: ...
     @property
@@ -83,4 +88,5 @@ __all__: list[str] = [
     "TextRegion",
     "VeloceOCR",
     "resolve_models_dir",
+    "models_status",
 ]

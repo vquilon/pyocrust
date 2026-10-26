@@ -27,6 +27,7 @@ try:
         VeloceOCR,
         native_version as _native_version,
         resolve_models_dir,
+        models_status,
     )
 except ImportError as exc:  # pragma: no cover - solo si el binario no está construido
     raise ImportError(
@@ -48,4 +49,5 @@ __all__: Final[list[str]] = [
     "TextRegion",
     "VeloceOCR",
     "resolve_models_dir",
+    "models_status",
 ]

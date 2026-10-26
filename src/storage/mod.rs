@@ -8,7 +8,14 @@
 pub mod config;
 pub mod download;
 pub mod models;
+pub mod registry;
 
 pub use config::{resolve_models_dir, OcrConfig};
-pub use download::{fetch, DownloadError};
-pub use models::{preflight, preflight_paths, PreflightReport};
+pub use download::{
+    artifact_url, fetch, sidecar_matches, sidecar_path, write_sidecar, DownloadError,
+};
+pub use models::{
+    ensure_models, offline_requested, preflight, preflight_paths, ArtifactStatus,
+    PreflightReport, OFFLINE_ENV,
+};
+pub use registry::{artifacts_for, indra_artifacts, presets, Artifact, ResolvedArtifact, Source};
