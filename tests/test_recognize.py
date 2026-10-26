@@ -196,3 +196,60 @@ def test_pp_structurev3_devuelve_structure_result_con_markdown():
 
     # Segunda llamada: el pipeline sigue residente y devuelve el mismo tipo.
     assert isinstance(ocr.recognize(IMAGEN), StructureResult)
+
+
+def test_el_latex_de_una_formula_es_accesible_desde_python():
+    """LaTeX de las fórmulas viaja al campo `formulas` de `StructureResult`.
+
+    Verifica el requisito `S2.1`: con el preset `pp_structurev3` y los artefactos
+    de reconocimiento de fórmulas en disco (`pp-formulanet-s.onnx` + 
+    `pp-formulanet-tokenizer.json`), el backend detecta fórmulas y expone su
+    representación LaTeX tanto en el Markdown (dentro de `$$...$$`) como en el
+    campo estructurado `formulas` de `StructureResult`, accesible desde Python
+    sin parsear el Markdown.
+
+    Requiere que el fixture de imagen `IMAGEN` contenga al menos una fórmula
+    detectable. Si no hay artefactos de fórmula en disco, el preset sigue
+    funcionando (sin fórmulas) y el test se salta.
+    """
+    try:
+        modelos = _directorio_structurev3()
+        # Verificar que los artefactos de fórmula están presentes
+        if not (modelos / "pp-formulanet-s.onnx").is_file():
+            pytest.skip("faltan artefactos de fórmula en disco (pp-formulanet-s.onnx)")
+        if not (modelos / "pp-formulanet-tokenizer.json").is_file():
+            pytest.skip("faltan artefactos de fórmula en disco (pp-formulanet-tokenizer.json)")
+    except pytest.skip.Exception:
+        raise
+    except Exception:
+        # Si _directorio_structurev3() ya saltó, no hay nada más que hacer
+        pytest.skip("no hay artefactos de PP-StructureV3 en disco")
+
+    ocr = VeloceOCR("pp_structurev3", custom_path=str(modelos))
+    resultado = ocr.recognize(str(IMAGEN))
+
+    # Verificar que es un StructureResult
+    assert isinstance(resultado, StructureResult)
+
+    # Verificar que el Markdown contiene LaTeX (fórmulas entre $$...$$)
+    markdown = resultado.to_markdown()
+    assert isinstance(markdown, str)
+    assert markdown.strip(), "el Markdown del documento no puede venir vacío"
+
+    # Verificar que el campo formulas no está vacío
+    assert hasattr(resultado, "formulas"), "StructureResult debe exponer el campo 'formulas'"
+    assert isinstance(resultado.formulas, list), "formulas debe ser una lista"
+    assert len(resultado.formulas) > 0, "debe detectarse al menos una fórmula en la imagen"
+
+    # Verificar que cada fórmula es una cadena de LaTeX
+    for formula in resultado.formulas:
+        assert isinstance(formula, str), "cada fórmula debe ser una cadena de texto"
+        assert formula.trim(), "el texto de la fórmula no puede estar vacío"
+
+    # Verificar que el Markdown contiene al menos una fórmula en LaTeX
+    # (puede que no sea exactamente la misma que en formulas, pero debería haber alguna)
+    latex_pattern = r"\$\$.*?\$\$"  # Buscar fórmulas entre doble $
+    import re
+    assert re.search(latex_pattern, markdown, re.DOTALL) is not None, (
+        "el Markdown debe contener al menos una fórmula en LaTeX (entre $$...$$)"
+    )

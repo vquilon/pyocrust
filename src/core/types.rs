@@ -101,6 +101,8 @@ pub enum OcrTask {
     Text,
     /// PP-StructureV3: layout, tablas y fórmulas. ADR-003.
     Structure,
+    /// Reconocimiento de fórmulas (LaTeX).
+    Formula,
 }
 
 /// Preset de pipeline (ADR-002, `DESIGN.md` §3.1).
@@ -131,7 +133,7 @@ impl ModelSpec {
     pub fn artifact_count(&self) -> usize {
         match self {
             Self::PpOcrV6(_) => 3,
-            Self::PpStructureV3 => 9,
+            Self::PpStructureV3 => 11,
         }
     }
 }
@@ -151,6 +153,8 @@ pub struct ModelPaths {
     pub wireless_table_structure_model: Option<PathBuf>,
     pub wired_table_cell_detection_model: Option<PathBuf>,
     pub table_structure_dict: Option<PathBuf>,
+    pub formula_recognition_model: Option<PathBuf>,
+    pub formula_tokenizer: Option<PathBuf>,
     /// Preset al que corresponden estas rutas.
     pub spec: ModelSpec,
 }
@@ -175,6 +179,8 @@ impl ModelPaths {
                 wireless_table_structure_model: None,
                 wired_table_cell_detection_model: None,
                 table_structure_dict: None,
+                formula_recognition_model: None,
+                formula_tokenizer: None,
                 spec: spec.clone(),
             },
             ModelSpec::PpStructureV3 => Self {
@@ -189,6 +195,8 @@ impl ModelPaths {
                     root.join("rt-detr-l_wired_table_cell_det.onnx"),
                 ),
                 table_structure_dict: Some(root.join("table_structure_dict_ch.txt")),
+                formula_recognition_model: Some(root.join("pp-formulanet-s.onnx")),
+                formula_tokenizer: Some(root.join("pp-formulanet-tokenizer.json")),
                 spec: spec.clone(),
             },
         }
@@ -209,6 +217,8 @@ impl ModelPaths {
             &self.wireless_table_structure_model,
             &self.wired_table_cell_detection_model,
             &self.table_structure_dict,
+            &self.formula_recognition_model,
+            &self.formula_tokenizer,
         ];
         paths.extend(optional.into_iter().flatten().cloned());
         paths
@@ -406,6 +416,9 @@ pub struct StructureResult {
     /// Regiones de texto OCR del documento.
     #[pyo3(get)]
     pub regions: Vec<TextRegion>,
+    /// Fórmulas LaTeX detectadas (si el preset incluye reconocimiento de fórmulas).
+    #[pyo3(get)]
+    pub formulas: Vec<String>,
 }
 
 #[pymethods]
@@ -483,8 +496,8 @@ mod tests {
     #[test]
     fn pp_structurev3_embeds_pp_ocrv6_tiny() {
         let paths = ModelPaths::new(Path::new("/models"), &ModelSpec::PpStructureV3);
-        // 8 `.onnx` + el diccionario de estructura de tablas.
-        assert_eq!(paths.all().len(), 9);
+        // 8 `.onnx` + el diccionario de estructura de tablas + 2 modelos de fórmulas = 11.
+        assert_eq!(paths.all().len(), 11);
         assert_eq!(paths.spec, ModelSpec::PpStructureV3);
         assert_eq!(
             paths.detection_model,
@@ -506,6 +519,15 @@ mod tests {
         assert_eq!(
             paths.table_structure_dict,
             Some(PathBuf::from("/models/table_structure_dict_ch.txt"))
+        );
+        // Modelos de reconocimiento de fórmulas
+        assert_eq!(
+            paths.formula_recognition_model,
+            Some(PathBuf::from("/models/pp-formulanet-s.onnx"))
+        );
+        assert_eq!(
+            paths.formula_tokenizer,
+            Some(PathBuf::from("/models/pp-formulanet-tokenizer.json"))
         );
     }
 
