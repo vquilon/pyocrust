@@ -17,6 +17,19 @@ pub enum OcrError {
         spec: String,
         missing: Vec<String>,
     },
+    /// Modo offline activo (`PYOCRUST_OFFLINE=1`) y faltan artefactos. Lo rellena
+    /// `storage::models::ensure_models`; `command` es el comando exacto que los trae.
+    OfflineMissingArtifacts {
+        spec: String,
+        missing: Vec<String>,
+        command: String,
+    },
+    /// La descarga de un artefacto falló. Lo rellena `storage::models::ensure_models`.
+    DownloadFailed {
+        artifact: String,
+        url: String,
+        reason: String,
+    },
     /// Configuración inválida: directorio inexistente, `OAR_HOME` vacío...
     Config { message: String },
     /// La imagen no se pudo decodificar.
@@ -86,6 +99,28 @@ impl std::fmt::Display for OcrError {
                     count = missing.len(),
                     list = missing.join(", ")
                 )
+            }
+            Self::OfflineMissingArtifacts {
+                spec,
+                missing,
+                command,
+            } => {
+                write!(
+                    f,
+                    "offline mode is active ({env}) and {count} model artifact(s) for preset \
+                     '{spec}' are missing: {list}. No network request was made. Download them with: \
+                     {command}",
+                    env = crate::storage::models::OFFLINE_ENV,
+                    count = missing.len(),
+                    list = missing.join(", ")
+                )
+            }
+            Self::DownloadFailed {
+                artifact,
+                url,
+                reason,
+            } => {
+                write!(f, "download failed for '{artifact}' ({url}): {reason}")
             }
             Self::Config { message } => write!(f, "configuration error: {message}"),
             Self::ImageDecode { message, .. } => write!(f, "image decode failed: {message}"),
@@ -160,6 +195,9 @@ impl From<OcrError> for PyErr {
             | OcrError::Inference { .. }
             | OcrError::Io(_) => PyOcrRuntimeError::new_err(message),
             OcrError::MissingModelArtifacts { .. } | OcrError::ModelLoad { .. } => {
+                PyOcrRuntimeError::new_err(message)
+            }
+            OcrError::OfflineMissingArtifacts { .. } | OcrError::DownloadFailed { .. } => {
                 PyOcrRuntimeError::new_err(message)
             }
         }

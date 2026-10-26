@@ -101,12 +101,14 @@ def test_una_ruta_inexistente_se_normaliza_sin_fallar(tmp_path):
     assert resuelto == tmp_path / "no" / "existe" / "bar"
 
 
-def test_veloceocr_usa_el_nivel_1_y_falla_con_error_tipado_si_no_hay_modelos(tmp_path):
+def test_veloceocr_usa_el_nivel_1_y_falla_con_error_tipado_si_no_hay_modelos(tmp_path, monkeypatch):
     """El nivel 1 llega hasta el motor: sin artefactos, error tipado, no pánico.
 
-    `custom_path` apunta a un directorio que no es la caché de `oar-ocr`, así que
-    la autodescarga no puede intervenir y el fallo es determinista.
+    Desde `S2.0` el constructor auto-descarga lo que falta, así que para conservar un
+    fallo determinista y sin red se activa `PYOCRUST_OFFLINE`.
     """
+    monkeypatch.setenv("PYOCRUST_OFFLINE", "1")
+
     with pytest.raises(PyOcrRuntimeError) as fallo:
         VeloceOCR("pp_ocrv6", custom_path=str(tmp_path))
 
@@ -120,21 +122,28 @@ def test_un_preset_desconocido_se_rechaza_como_value_error():
     assert "unknown preset" in str(fallo.value)
 
 
-def test_las_excepciones_del_crate_heredan_de_pyocrerror(tmp_path):
+def test_las_excepciones_del_crate_heredan_de_pyocrerror(tmp_path, monkeypatch):
     assert issubclass(PyOcrValueError, PyOcrError)
     assert issubclass(PyOcrRuntimeError, PyOcrError)
 
+    monkeypatch.setenv("PYOCRUST_OFFLINE", "1")
     with pytest.raises(PyOcrError):
         VeloceOCR("pp_ocrv6", custom_path=str(tmp_path))
 
 
-def test_el_constructor_rechaza_modelos_inexistentes_con_reporte_preflight(tmp_path):
-    """S1.4: Preflight falla con MissingModelArtifacts reportando ficheros faltantes."""
+def test_el_constructor_rechaza_modelos_inexistentes_con_reporte_preflight(tmp_path, monkeypatch):
+    """S1.4: el preflight reporta los ficheros faltantes antes de cargar nada.
+
+    Desde `S2.0` el constructor intenta descargar lo que falta; con `PYOCRUST_OFFLINE`
+    el preflight falla sin tocar la red, que es lo que este test quiere comprobar.
+    """
+    monkeypatch.setenv("PYOCRUST_OFFLINE", "1")
+
     with pytest.raises(PyOcrRuntimeError) as fallo:
         VeloceOCR("pp_ocrv6", custom_path=str(tmp_path))
 
     mensaje = str(fallo.value)
-    assert "missing 3 model artifact(s)" in mensaje
+    assert "PYOCRUST_OFFLINE" in mensaje
     assert "pp-ocrv6_tiny_det.onnx" in mensaje
     assert "pp-ocrv6_tiny_rec.onnx" in mensaje
     assert "ppocrv6_tiny_dict.txt" in mensaje
