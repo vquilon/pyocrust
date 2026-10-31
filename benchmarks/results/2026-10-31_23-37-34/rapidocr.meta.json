@@ -1,0 +1,52 @@
+{
+  "backend": "rapidocr",
+  "dataset": "funsd",
+  "status": "ok",
+  "task_type": "text",
+  "model_name": "rapidocr",
+  "model_variant": "default",
+  "device_requested": "cpu",
+  "provider_effective": "unverified",
+  "repeats": 1,
+  "load_ms": 2398.3619999999064,
+  "warmup": 1,
+  "input": "identical RGB pixels; adapter conversion excluded from timing",
+  "image_sizes": {
+    "0": [
+      762,
+      1000
+    ],
+    "1": [
+      762,
+      1000
+    ],
+    "2": [
+      762,
+      1000
+    ],
+    "3": [
+      762,
+      1000
+    ],
+    "4": [
+      771,
+      1000
+    ]
+  },
+  "inference_ms": [
+    2698.6551999943913,
+    16606.51570000482,
+    5668.160400004126,
+    14912.952399994538,
+    6887.693199998466
+  ],
+  "p95_ms": 16606.51570000482,
+  "markdown_quality": "not_evaluated",
+  "n_images": 5,
+  "n_ok": 5,
+  "n_error": 0,
+  "errors": [],
+  "mean_cer": 0.40034464539637205,
+  "mean_word_f1": 0.6600069002770714,
+  "mean_ms": 9354.7952
+}

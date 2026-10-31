@@ -1,0 +1,6 @@
+{
+  "backend": "tesseract",
+  "dataset": "funsd",
+  "status": "skipped",
+  "reason": "pip install pytesseract + binario Tesseract"
+}

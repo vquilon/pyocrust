@@ -1,0 +1,52 @@
+{
+  "backend": "pyocrust",
+  "dataset": "funsd",
+  "status": "ok",
+  "task_type": "text",
+  "model_name": "pp_ocrv6",
+  "model_variant": "tiny",
+  "device_requested": "cpu",
+  "provider_effective": "unverified",
+  "repeats": 1,
+  "load_ms": 367.6160000031814,
+  "warmup": 1,
+  "input": "identical RGB pixels; adapter conversion excluded from timing",
+  "image_sizes": {
+    "0": [
+      762,
+      1000
+    ],
+    "1": [
+      762,
+      1000
+    ],
+    "2": [
+      762,
+      1000
+    ],
+    "3": [
+      762,
+      1000
+    ],
+    "4": [
+      771,
+      1000
+    ]
+  },
+  "inference_ms": [
+    1270.333499996923,
+    1751.303500001086,
+    925.5689999990864,
+    1702.5629000054323,
+    801.020899998548
+  ],
+  "p95_ms": 1751.303500001086,
+  "markdown_quality": "not_evaluated",
+  "n_images": 5,
+  "n_ok": 5,
+  "n_error": 0,
+  "errors": [],
+  "mean_cer": 0.4022940383653627,
+  "mean_word_f1": 0.7342442466818832,
+  "mean_ms": 1290.158
+}

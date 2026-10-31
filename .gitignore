@@ -19,3 +19,7 @@ dist/
 
 # Rust
 *.pdb
+
+# Caché descargada y logs locales del banco (resultados sí versionados)
+/benchmarks/data_cache/
+/benchmarks/*.log

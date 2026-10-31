@@ -1,0 +1,192 @@
+{
+  "timestamp": "2026-10-31_23-37-34",
+  "runtime": {
+    "python": "3.14.9",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 198 Stepping 2, GenuineIntel",
+    "pyocrust": "0.1.0"
+  },
+  "backends": {
+    "pyocrust": {
+      "backend": "pyocrust",
+      "dataset": "funsd",
+      "status": "ok",
+      "task_type": "text",
+      "model_name": "pp_ocrv6",
+      "model_variant": "tiny",
+      "device_requested": "cpu",
+      "provider_effective": "unverified",
+      "repeats": 1,
+      "load_ms": 367.6160000031814,
+      "warmup": 1,
+      "input": "identical RGB pixels; adapter conversion excluded from timing",
+      "image_sizes": {
+        "0": [
+          762,
+          1000
+        ],
+        "1": [
+          762,
+          1000
+        ],
+        "2": [
+          762,
+          1000
+        ],
+        "3": [
+          762,
+          1000
+        ],
+        "4": [
+          771,
+          1000
+        ]
+      },
+      "inference_ms": [
+        1270.333499996923,
+        1751.303500001086,
+        925.5689999990864,
+        1702.5629000054323,
+        801.020899998548
+      ],
+      "p95_ms": 1751.303500001086,
+      "markdown_quality": "not_evaluated",
+      "n_images": 5,
+      "n_ok": 5,
+      "n_error": 0,
+      "errors": [],
+      "mean_cer": 0.4022940383653627,
+      "mean_word_f1": 0.7342442466818832,
+      "mean_ms": 1290.158
+    },
+    "pyocrust_structure": {
+      "backend": "pyocrust_structure",
+      "dataset": "funsd",
+      "status": "skipped",
+      "reason": "PyOcrRuntimeError: offline mode is active (PYOCRUST_OFFLINE) and 6 model artifact(s) for preset 'pp_structurev3' are missing: pp-doclayoutv3.onnx, pp-lcnet_x1_0_table_cls.onnx, slanext_wired.onnx, slanet_plus.onnx, rt-detr-l_wired_table_cell_det.onnx, table_structure_dict_ch.txt. No network request was made. Download them with: download pp-doclayoutv3.onnx from https://www.modelscope.cn/api/v1/models/greatv/oar-ocr/repo?Revision=master&FilePath=pp-doclayoutv3.onnx; download pp-lcnet_x1_0_table_cls.onnx from https://www.modelscope.cn/api/v1/models/greatv/oar-ocr/repo?Revision=master&FilePath=pp-lcnet_x1_0_table_cls.onnx; download slanext_wired.onnx from https://www.modelscope.cn/api/v1/models/greatv/oar-ocr/repo?Revision=master&FilePath=slanext_wired.onnx; download slanet_plus.onnx from https://www.modelscope.cn/api/v1/models/greatv/oar-ocr/repo?Revision=master&FilePath=slanet_plus.onnx; download rt-detr-l_wired_table_cell_det.onnx from https://www.modelscope.cn/api/v1/models/greatv/oar-ocr/repo?Revision=master&FilePath=rt-detr-l_wired_table_cell_det.onnx; download table_structure_dict_ch.txt from https://www.modelscope.cn/api/v1/models/greatv/oar-ocr/repo?Revision=master&FilePath=table_structure_dict_ch.txt; unset PYOCRUST_OFFLINE; python -c \"import pyocrust; pyocrust.VeloceOCR('pp_structurev3')\"",
+      "task_type": "structure",
+      "model_name": "pp_structurev3",
+      "model_variant": "default",
+      "device_requested": "cpu",
+      "provider_effective": "unverified",
+      "repeats": 1
+    },
+    "pyocrust_formula": {
+      "backend": "pyocrust_formula",
+      "dataset": "funsd",
+      "status": "skipped",
+      "reason": "PyOcrRuntimeError: offline mode is active (PYOCRUST_OFFLINE) and 6 model artifact(s) for preset 'pp_structurev3' are missing: pp-doclayoutv3.onnx, pp-lcnet_x1_0_table_cls.onnx, slanext_wired.onnx, slanet_plus.onnx, rt-detr-l_wired_table_cell_det.onnx, table_structure_dict_ch.txt. No network request was made. Download them with: download pp-doclayoutv3.onnx from https://www.modelscope.cn/api/v1/models/greatv/oar-ocr/repo?Revision=master&FilePath=pp-doclayoutv3.onnx; download pp-lcnet_x1_0_table_cls.onnx from https://www.modelscope.cn/api/v1/models/greatv/oar-ocr/repo?Revision=master&FilePath=pp-lcnet_x1_0_table_cls.onnx; download slanext_wired.onnx from https://www.modelscope.cn/api/v1/models/greatv/oar-ocr/repo?Revision=master&FilePath=slanext_wired.onnx; download slanet_plus.onnx from https://www.modelscope.cn/api/v1/models/greatv/oar-ocr/repo?Revision=master&FilePath=slanet_plus.onnx; download rt-detr-l_wired_table_cell_det.onnx from https://www.modelscope.cn/api/v1/models/greatv/oar-ocr/repo?Revision=master&FilePath=rt-detr-l_wired_table_cell_det.onnx; download table_structure_dict_ch.txt from https://www.modelscope.cn/api/v1/models/greatv/oar-ocr/repo?Revision=master&FilePath=table_structure_dict_ch.txt; unset PYOCRUST_OFFLINE; python -c \"import pyocrust; pyocrust.VeloceOCR('pp_structurev3')\"",
+      "task_type": "formula",
+      "model_name": "pp_structurev3",
+      "model_variant": "pp-formulanet-s",
+      "device_requested": "cpu",
+      "provider_effective": "unverified",
+      "repeats": 1
+    },
+    "pyocrust_indra": {
+      "backend": "pyocrust_indra",
+      "dataset": "funsd",
+      "status": "ok",
+      "task_type": "full_page",
+      "model_name": "indra",
+      "model_variant": "math",
+      "device_requested": "cpu",
+      "provider_effective": "unverified",
+      "repeats": 1,
+      "load_ms": 733.74010000407,
+      "warmup": 1,
+      "input": "identical RGB pixels; adapter conversion excluded from timing",
+      "image_sizes": {
+        "0": [
+          762,
+          1000
+        ],
+        "1": [
+          762,
+          1000
+        ],
+        "2": [
+          762,
+          1000
+        ],
+        "3": [
+          762,
+          1000
+        ],
+        "4": [
+          771,
+          1000
+        ]
+      },
+      "inference_ms": [
+        613.7668000010308,
+        636.4127999986522,
+        599.6116999958758,
+        733.0172000001767,
+        635.7084999981453
+      ],
+      "p95_ms": 733.0172000001767,
+      "markdown_quality": "not_evaluated",
+      "n_images": 5,
+      "n_ok": 5,
+      "n_error": 0,
+      "errors": [],
+      "mean_cer": 1.5517160168466284,
+      "mean_word_f1": 0.45653300896036536,
+      "mean_ms": 643.7034
+    },
+    "rapidocr": {
+      "backend": "rapidocr",
+      "dataset": "funsd",
+      "status": "ok",
+      "task_type": "text",
+      "model_name": "rapidocr",
+      "model_variant": "default",
+      "device_requested": "cpu",
+      "provider_effective": "unverified",
+      "repeats": 1,
+      "load_ms": 2398.3619999999064,
+      "warmup": 1,
+      "input": "identical RGB pixels; adapter conversion excluded from timing",
+      "image_sizes": {
+        "0": [
+          762,
+          1000
+        ],
+        "1": [
+          762,
+          1000
+        ],
+        "2": [
+          762,
+          1000
+        ],
+        "3": [
+          762,
+          1000
+        ],
+        "4": [
+          771,
+          1000
+        ]
+      },
+      "inference_ms": [
+        2698.6551999943913,
+        16606.51570000482,
+        5668.160400004126,
+        14912.952399994538,
+        6887.693199998466
+      ],
+      "p95_ms": 16606.51570000482,
+      "markdown_quality": "not_evaluated",
+      "n_images": 5,
+      "n_ok": 5,
+      "n_error": 0,
+      "errors": [],
+      "mean_cer": 0.40034464539637205,
+      "mean_word_f1": 0.6600069002770714,
+      "mean_ms": 9354.7952
+    }
+  }
+}
