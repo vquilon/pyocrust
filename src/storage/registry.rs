@@ -172,6 +172,27 @@ const PP_STRUCTUREV3: &[Artifact] = &[
     Artifact::modelscope("pp-formulanet-tokenizer.json"),
 ];
 
+/// Artefactos de los cinco predictores de tarea de S2.3.
+const TASK_DOCUMENT_ORIENTATION: &[Artifact] = &[Artifact::modelscope("pp-lcnet_x1_0_doc_ori.onnx")];
+const TASK_DOCUMENT_RECTIFICATION: &[Artifact] = &[Artifact::modelscope("uvdoc.onnx")];
+const TASK_TEXT_LINE_ORIENTATION: &[Artifact] = &[Artifact::modelscope("pp-lcnet_x1_0_textline_ori.onnx")];
+const TASK_SEAL_TEXT_DETECTION: &[Artifact] = &[Artifact::modelscope("pp-ocrv4_mobile_seal_det.onnx")];
+const TASK_FORMULA_RECOGNITION: &[Artifact] = &[
+    Artifact::modelscope("pp-formulanet-s.onnx"),
+    Artifact::modelscope("pp-formulanet-tokenizer.json"),
+];
+
+pub fn task_artifacts(task: &str) -> Option<&'static [Artifact]> {
+    match task {
+        "document_orientation" => Some(TASK_DOCUMENT_ORIENTATION),
+        "document_rectification" => Some(TASK_DOCUMENT_RECTIFICATION),
+        "text_line_orientation" => Some(TASK_TEXT_LINE_ORIENTATION),
+        "seal_text_detection" => Some(TASK_SEAL_TEXT_DETECTION),
+        "formula_recognition" => Some(TASK_FORMULA_RECOGNITION),
+        _ => None,
+    }
+}
+
 /// Repositorio de HuggingFace de `indra`.
 const INDRA_REPO: &str = "datalab-to/indra-ocr";
 
@@ -322,12 +343,25 @@ const INDRA_ARTIFACTS: &[Artifact] = &[
 ];
 
 /// Artefactos que exige un preset, en el orden de `ModelPaths::all()`.
+const INDRA_REQUIRED: &[Artifact] = &[
+    Artifact { required: true, ..INDRA_ARTIFACTS[0] },
+    Artifact { required: true, ..INDRA_ARTIFACTS[1] },
+    Artifact { required: true, ..INDRA_ARTIFACTS[2] },
+    Artifact { required: true, ..INDRA_ARTIFACTS[3] },
+    Artifact { required: true, ..INDRA_ARTIFACTS[12] },
+    Artifact { required: true, ..INDRA_ARTIFACTS[13] },
+    Artifact { required: true, ..INDRA_ARTIFACTS[14] },
+    Artifact { required: true, ..INDRA_ARTIFACTS[15] },
+    Artifact { required: true, ..INDRA_ARTIFACTS[16] },
+];
+
 pub fn artifacts_for(spec: &ModelSpec) -> &'static [Artifact] {
     match spec {
         ModelSpec::PpOcrV6(OcrSize::Tiny) => PP_OCRV6_TINY,
         ModelSpec::PpOcrV6(OcrSize::Small) => PP_OCRV6_SMALL,
         ModelSpec::PpOcrV6(OcrSize::Medium) => PP_OCRV6_MEDIUM,
         ModelSpec::PpStructureV3 => PP_STRUCTUREV3,
+        ModelSpec::Indra => INDRA_REQUIRED,
     }
 }
 
@@ -343,6 +377,7 @@ pub fn presets() -> Vec<(&'static str, ModelSpec)> {
         ("pp_ocrv6_small", ModelSpec::PpOcrV6(OcrSize::Small)),
         ("pp_ocrv6_medium", ModelSpec::PpOcrV6(OcrSize::Medium)),
         ("pp_structurev3", ModelSpec::PpStructureV3),
+        ("indra", ModelSpec::Indra),
     ]
 }
 
@@ -409,6 +444,26 @@ mod tests {
                 assert!(message.contains("no-existe-en-el-registro.onnx"));
             }
             other => panic!("expected Config error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn task_artifacts_resolve_from_oar_registry_and_include_formula_tokenizer() {
+        let expected = [
+            ("document_orientation", &["pp-lcnet_x1_0_doc_ori.onnx"][..]),
+            ("document_rectification", &["uvdoc.onnx"][..]),
+            ("text_line_orientation", &["pp-lcnet_x1_0_textline_ori.onnx"][..]),
+            ("seal_text_detection", &["pp-ocrv4_mobile_seal_det.onnx"][..]),
+            ("formula_recognition", &["pp-formulanet-s.onnx", "pp-formulanet-tokenizer.json"][..]),
+        ];
+        for (name, names) in expected {
+            let artifacts = task_artifacts(name).expect("registered task");
+            assert_eq!(artifacts.iter().map(|artifact| artifact.name).collect::<Vec<_>>(), names);
+            for artifact in artifacts {
+                assert!(artifact.required);
+                artifact.integrity().expect("metadata from oar registry");
+                assert!(artifact.url().expect("download URL").contains(artifact.name));
+            }
         }
     }
 }

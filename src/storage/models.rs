@@ -42,7 +42,7 @@ pub struct ArtifactStatus {
     pub size: u64,
     /// Tamaño esperado según el registro; `0` si el registro no lo conoce.
     pub expected_size: u64,
-    /// Existe y su tamaño coincide con el esperado.
+    /// Existe y coincide con tamaño y hash esperado.
     pub present: bool,
     /// El preset lo exige (los opcionales siguen sin bloquear el arranque).
     pub required: bool,
@@ -147,8 +147,8 @@ pub fn preflight_paths(paths: &ModelPaths) -> PreflightReport {
 
 /// Cruza las rutas esperadas con el registro para decidir qué está presente.
 ///
-/// Un artefacto cuenta como presente si existe **y** su tamaño coincide con el del
-/// registro: un fichero truncado se detecta sin re-hashearlo.
+/// El hash se comprueba para Indra, que usa un registro HF fijado; para los
+/// modelos ModelScope se mantiene el preflight barato por tamaño.
 fn artifact_statuses(paths: &ModelPaths, expected: &[PathBuf]) -> Vec<ArtifactStatus> {
     let registered = registry::artifacts_for(&paths.spec);
     expected
@@ -160,20 +160,24 @@ fn artifact_statuses(paths: &ModelPaths, expected: &[PathBuf]) -> Vec<ArtifactSt
                 .and_then(|n| n.to_str())
                 .unwrap_or("?")
                 .to_string();
-            let (required, expected_size) = match registered.get(index) {
-                Some(artifact) => (
-                    artifact.required,
-                    artifact.integrity().map(|(_, size)| size).unwrap_or(0),
-                ),
+            let (required, integrity) = match registered.get(index) {
+                Some(artifact) => (artifact.required, artifact.integrity().ok()),
                 None => {
                     // El preset y el registro se salen de sincronía: se marca como
-                    // obligatorio y sin tamaño conocido para que el error apunte a
-                    // `src/storage/registry.rs` en lugar de pasar de rosca.
-                    (true, 0)
+                    // obligatorio y sin tamaño conocido para apuntar a registry.rs.
+                    (true, None)
                 }
             };
+            let expected_size = integrity.map(|(_, size)| size).unwrap_or(0);
             let size = path.metadata().map(|m| m.len()).unwrap_or(0);
-            let present = path.is_file() && expected_size > 0 && size == expected_size;
+            let present = path.is_file()
+                && expected_size > 0
+                && size == expected_size
+                && (paths.spec != ModelSpec::Indra
+                    || integrity.is_some_and(|(sha256, _)| {
+                        download::compute_sha256(path)
+                            .is_ok_and(|actual| actual.eq_ignore_ascii_case(sha256))
+                    }));
             ArtifactStatus {
                 name,
                 path: path.clone(),
@@ -190,9 +194,18 @@ fn artifact_statuses(paths: &ModelPaths, expected: &[PathBuf]) -> Vec<ArtifactSt
 ///
 /// Es la pieza que `pyocrust.models_status()` cruza a Python.
 pub fn artifact_status(path: &Path, artifact: &registry::Artifact) -> ArtifactStatus {
-    let expected_size = artifact.integrity().map(|(_, size)| size).unwrap_or(0);
+    let integrity = artifact.integrity().ok();
+    let expected_size = integrity.map(|(_, size)| size).unwrap_or(0);
     let size = path.metadata().map(|m| m.len()).unwrap_or(0);
-    let present = path.is_file() && expected_size > 0 && size == expected_size;
+    let verify_hash = matches!(artifact.source, registry::Source::HuggingFace { .. });
+    let present = path.is_file()
+        && expected_size > 0
+        && size == expected_size
+        && (!verify_hash
+            || integrity.is_some_and(|(sha256, _)| {
+                download::compute_sha256(path)
+                    .is_ok_and(|actual| actual.eq_ignore_ascii_case(sha256))
+            }));
     ArtifactStatus {
         name: artifact.name.to_string(),
         path: path.to_path_buf(),
@@ -221,11 +234,49 @@ pub fn ensure_models(root: &Path, spec: &ModelSpec) -> Result<(), OcrError> {
 
     let pending = pending_downloads(spec, &first)?;
     if !pending.is_empty() {
-        download_all(root, &pending)?;
+        download_all(&first.root_dir, &pending)?;
     }
 
     let second = preflight_paths(&paths);
     second.ensure_ready()
+}
+
+/// Ensure the registered model files for an individual `oar-ocr` task.
+pub fn ensure_task_models(root: &Path, task: &str) -> Result<(), OcrError> {
+    let artifacts = registry::task_artifacts(task).ok_or_else(|| OcrError::InvalidInput {
+        message: format!("task not implemented yet: {task}"),
+    })?;
+    let mut pending = Vec::new();
+    for artifact in artifacts {
+        let status = artifact_status(&root.join(artifact.name), artifact);
+        if artifact.required && !status.present {
+            pending.push(artifact.resolve()?);
+        }
+    }
+    if pending.is_empty() { return Ok(()); }
+    if offline_requested() {
+        return Err(offline_task_missing_error(task, &pending));
+    }
+    download_all(root, &pending)?;
+    for artifact in artifacts {
+        let status = artifact_status(&root.join(artifact.name), artifact);
+        if artifact.required && !status.present {
+            return Err(OcrError::MissingModelArtifacts { spec: task.to_string(), missing: vec![artifact.name.to_string()] });
+        }
+    }
+    Ok(())
+}
+
+fn offline_task_missing_error(task: &str, pending: &[registry::ResolvedArtifact]) -> OcrError {
+    OcrError::OfflineMissingArtifacts {
+        spec: task.to_string(),
+        missing: pending.iter().map(|artifact| artifact.name.clone()).collect(),
+        command: format!(
+            "{}; {}",
+            pending.iter().map(|artifact| format!("download {} from {}", artifact.name, artifact.url)).collect::<Vec<_>>().join("; "),
+            format!("unset {OFFLINE_ENV}; python -c \"import pyocrust; pyocrust.TaskPredictor('{task}')\"")
+        ),
+    }
 }
 
 /// Artefactos obligatorios que faltan, ya resueltos con URL y SHA-256.
@@ -269,12 +320,17 @@ fn download_all(root: &Path, pending: &[registry::ResolvedArtifact]) -> Result<(
 /// Error tipado para modo offline con artefactos ausentes.
 fn offline_missing_error(report: &PreflightReport) -> OcrError {
     let spec = report.spec.as_str();
+    let missing = report.missing_required_filenames();
+    let urls: Vec<String> = report.artifacts.iter()
+        .filter(|artifact| artifact.is_missing_required())
+        .filter_map(|status| registry::artifacts_for(&report.spec).iter()
+            .find(|artifact| artifact.name == status.name)
+            .and_then(|artifact| artifact.url().ok()))
+        .collect();
     OcrError::OfflineMissingArtifacts {
         spec: spec.to_string(),
-        missing: report.missing_required_filenames(),
-        command: format!(
-            "unset {OFFLINE_ENV}; python -c \"import pyocrust; pyocrust.VeloceOCR('{spec}')\""
-        ),
+        missing,
+        command: format!("{}; unset {OFFLINE_ENV}; python -c \"import pyocrust; pyocrust.VeloceOCR('{spec}')\"", urls.iter().zip(&report.missing_required_filenames()).map(|(url, name)| format!("download {name} from {url}")).collect::<Vec<_>>().join("; ")),
     }
 }
 
@@ -440,6 +496,55 @@ mod tests {
         assert!(det.is_missing_required());
 
         let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn indra_rechaza_cache_con_tamano_correcto_y_hash_incorrecto() {
+        let temp_dir = create_temp_dir("indra_hash");
+        let artifact = crate::storage::registry::artifacts_for(&ModelSpec::Indra)[0];
+        let path = temp_dir.join(artifact.name);
+        let (_, size) = artifact.integrity().unwrap();
+        std::fs::write(&path, vec![0x5a; size as usize]).unwrap();
+
+        let status = artifact_status(&path, &artifact);
+        assert_eq!(status.size, size);
+        assert!(!status.present, "tamaño correcto no sustituye la validación SHA-256");
+        assert!(status.is_missing_required());
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn indra_preflight_rechaza_hash_incorrecto_a_tamano_correcto() {
+        let temp_dir = create_temp_dir("indra_preflight_hash");
+        let paths = ModelPaths::new(&temp_dir, &ModelSpec::Indra);
+        let artifact = crate::storage::registry::artifacts_for(&ModelSpec::Indra)[0];
+        let path = paths.all()[0].clone();
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let (_, size) = artifact.integrity().unwrap();
+        std::fs::write(&path, vec![0x5a; size as usize]).unwrap();
+
+        let report = preflight_paths(&paths);
+        assert!(report.missing_filenames().contains(&artifact.name.to_string()));
+        assert!(!report.artifacts[0].present);
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn offline_task_error_preserves_artifact_name_and_url() {
+        let artifact = registry::task_artifacts("document_orientation").unwrap()[0].resolve().unwrap();
+        let error = offline_task_missing_error("document_orientation", &[artifact.clone()]);
+        assert!(error.to_string().contains(&artifact.name));
+        assert!(error.to_string().contains(&artifact.url));
+        match error {
+            OcrError::OfflineMissingArtifacts { spec, missing, command } => {
+                assert_eq!(spec, "document_orientation");
+                assert_eq!(missing, vec![artifact.name]);
+                assert!(command.contains(&artifact.url));
+            }
+            other => panic!("expected typed offline error, got {other:?}"),
+        }
     }
 
     #[test]
