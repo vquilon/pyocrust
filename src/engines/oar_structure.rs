@@ -127,7 +127,7 @@ impl OcrEngineBackend for OarStructureEngine {
                 reason: "missing path in ModelPaths".into(),
             })?;
 
-        let builder = oar_ocr::oarocr::OARStructureBuilder::new(layout_model)
+        let mut builder = oar_ocr::oarocr::OARStructureBuilder::new(layout_model)
             .layout_model_name("PP-DocLayoutV3")
             .with_ocr(&paths.detection_model, rec_model, dict_path)
             .with_table_classification(table_cls)
@@ -135,6 +135,14 @@ impl OcrEngineBackend for OarStructureEngine {
             .with_wireless_table_structure(wireless_struct)
             .with_wired_table_cell_detection(cell_det)
             .table_structure_dict_path(table_dict);
+
+        // Add formula recognition if models are available
+        if let (Some(formula_model), Some(tokenizer)) = (
+            &paths.formula_recognition_model,
+            &paths.formula_tokenizer,
+        ) {
+            builder = builder.with_formula_recognition(formula_model, tokenizer, "pp_formulanet");
+        }
 
         let pipeline = builder.build().map_err(|e| OcrError::ModelLoad {
             model_path: layout_model.display().to_string(),
@@ -207,10 +215,18 @@ fn convert_structure(native: oar_ocr::domain::structure::StructureResult) -> Str
         })
         .collect();
 
+    let formulas = native
+        .layout_elements
+        .iter()
+        .filter(|element| element.element_type.as_str() == "formula")
+        .filter_map(|element| element.text.clone())
+        .collect();
+
     StructureResult {
         markdown,
         elements,
         regions,
+        formulas,
     }
 }
 
@@ -282,6 +298,10 @@ mod tests {
 
         // `to_markdown()` es el método público del pyclass, no un campo suelto.
         assert_eq!(resultado.to_markdown(), resultado.markdown);
+
+        // Verificar que las fórmulas se extraen correctamente al campo formulas
+        assert_eq!(resultado.formulas.len(), 1);
+        assert_eq!(resultado.formulas[0], "E = mc^2");
     }
 
     #[test]
