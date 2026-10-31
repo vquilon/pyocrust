@@ -168,5 +168,6 @@ fn pyocrust_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_models_status, m)?)?;
     // Clase pública de alto nivel (tarjeta I4).
     m.add_class::<VeloceOCR>()?;
+    m.add_class::<tasks::TaskPredictor>()?;
     Ok(())
 }
