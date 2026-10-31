@@ -80,6 +80,41 @@ Este documento detalla la hoja de ruta secuencial para la implementación del pa
 * No se ejecutaron tests/builds, modelos, descargas, commits ni cambios de board
   en esta actualización documental; se preservan estructura y antecedentes.
 
+### Actualización `S2.5/S2.6` — cierre documental de exposición (2026-10-31)
+
+* **Alcance:** exposición Python comprobada **11/11 predictores + 3/3 familias
+  de pipelines**. Tiny/Small/Medium cuentan como una familia `pp_ocrv6`;
+  exposición por introspección/constructor con error tipado no prueba inferencia.
+  Cierre documental de exposición, no aceptación de inferencia completa ni
+  sign-off global; revisión crítica en curso, sin cambiar estados del board.
+* **Evidencia focal contrastada:** `runs.json` registra `test_recognize`
+  **9 pass/2 skip**, `test_indra` **1 pass/0 skip**, `test_models`
+  **4 pass/2 skip**: total **14 pass, 4 skip, 0 fallos/errores**.
+  Tiny reconoce las dos líneas conocidas; Indra devuelve Markdown/bloques/regiones
+  y matemática inline. No equivale a calidad matemática certificada ni full suite.
+  `.venv` Python 3.14.9, native existente sin rebuild, offline, afinidad dos CPU;
+  provider efectivo no instrumentado y sin garantía de dos threads nativos totales.
+* **Cuatro tareas pendientes de inferencia:** `layout_detection`,
+  `table_classification`, `table_structure_recognition`, `table_cell_detection`
+  por caché/modelos ausentes. Se conserva la evidencia posterior S2.4 del padre
+  (**40 pass, 4 skip**): `text_line_orientation` ya corregida; el fallo de un
+  log anterior es histórico, no un fallo actual ni invalida esa ejecución posterior.
+* **Cuatro skips focales explícitos:** estructura/Markdown y acceso LaTeX de
+  PP-StructureV3 por seis artefactos ausentes de once: `pp-doclayoutv3.onnx`,
+  `pp-lcnet_x1_0_table_cls.onnx`, `slanext_wired.onnx`, `slanet_plus.onnx`,
+  `rt-detr-l_wired_table_cell_det.onnx`, `table_structure_dict_ch.txt`;
+  descarga de caché fría y redescarga por tamaño incorrecto excluidas por offline.
+  PP-StructureV3, Small/Medium, descargas frías/redescarga, GPU y calidad siguen
+  sin aceptación actual. El test LaTeX omitido conserva el riesgo por lectura
+  `formula.trim()` sobre `str` y fixture sin fórmula conocida: no fallo ejecutado.
+* **Provenance:** evidencia en
+  `C:/Users/vquilon/AppData/Local/hermes/profiles/hefesto/cache/scratch/s25-closure/`
+  (`MATRIX_S2_5.md`, `runs.json`, logs/XML y `exposure.json`), HEAD observado
+  `113a490`. La matriz no localizó el log exacto de las 40 tasks posteriores;
+  se atribuyen al padre y al registro S2.4, no a nuevas ejecuciones del escriba.
+  S2.6 solo modifica README/PLANNING: sin tests/builds/modelos/descargas,
+  benchmarks, commits ni board; histórico D1/D2/S2.2 preservado.
+
 ## 0. Mapa de tareas a tarjetas del board
 
 Board: `pyocrust` (`%LOCALAPPDATA%\hermes\kanban\boards\pyocrust\kanban.db`). Estado leído en `D1` el 2026-10-25 directamente de la base de datos del board.
