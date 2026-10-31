@@ -118,6 +118,8 @@ pub enum ModelSpec {
     ///
     /// `DESIGN.md` §3.1 dice "8 ficheros" y lista 9; manda el crate.
     PpStructureV3,
+    /// Indra page reader, including inline math, from `<root>/indra/`.
+    Indra,
 }
 
 impl ModelSpec {
@@ -126,6 +128,7 @@ impl ModelSpec {
         match self {
             Self::PpOcrV6(_) => "pp_ocrv6",
             Self::PpStructureV3 => "pp_structurev3",
+            Self::Indra => "indra",
         }
     }
 
@@ -134,6 +137,7 @@ impl ModelSpec {
         match self {
             Self::PpOcrV6(_) => 3,
             Self::PpStructureV3 => 11,
+            Self::Indra => 9,
         }
     }
 }
@@ -169,6 +173,20 @@ impl ModelPaths {
     /// (`size.character_dict()`).
     pub fn new(root: &Path, spec: &ModelSpec) -> Self {
         match spec {
+            ModelSpec::Indra => Self {
+                detection_model: root.join("indra/det.onnx"),
+                recognition_model: Some(root.join("indra/rec.onnx")),
+                character_dict: None,
+                layout_detection_model: None,
+                table_classification_model: None,
+                wired_table_structure_model: None,
+                wireless_table_structure_model: None,
+                wired_table_cell_detection_model: None,
+                table_structure_dict: None,
+                formula_recognition_model: None,
+                formula_tokenizer: None,
+                spec: spec.clone(),
+            },
             ModelSpec::PpOcrV6(size) => Self {
                 detection_model: root.join(size.detection_model()),
                 recognition_model: Some(root.join(size.recognition_model())),
@@ -207,6 +225,13 @@ impl ModelPaths {
     /// Es la entrada del *preflight* de `storage::models` (`I3`), que es quien
     /// decide cuáles faltan en disco: este tipo no hace I/O.
     pub fn all(&self) -> Vec<PathBuf> {
+        if self.spec == ModelSpec::Indra {
+            let root = self.detection_model.parent().unwrap_or_else(|| Path::new("."));
+            return ["det.onnx", "rec.onnx", "order.onnx", "meta.json",
+                "mathcls.onnx", "math_enc.onnx", "math_dec_init.onnx",
+                "math_dec_step.onnx", "math_meta.json"]
+                .iter().map(|name| root.join(name)).collect();
+        }
         let mut paths = vec![self.detection_model.clone()];
         let optional = [
             &self.recognition_model,

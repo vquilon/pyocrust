@@ -38,6 +38,10 @@ except ImportError as exc:  # pragma: no cover - solo si el binario no está con
 
 __version__: Final[str] = _native_version()
 
+from pyocrust._pyocrust_core import model_catalog, pipeline_profiles
+from pyocrust.hardware import GpuInfo, HardwareProfile, detect_hardware
+from pyocrust.resolver import TaskSpec, PipelineChoice, resolve_pipeline
+
 __all__: Final[list[str]] = [
     "__version__",
     "BoundingBox",
@@ -52,4 +56,12 @@ __all__: Final[list[str]] = [
     "VeloceOCR",
     "resolve_models_dir",
     "models_status",
+    "model_catalog",
+    "pipeline_profiles",
+    "GpuInfo",
+    "HardwareProfile",
+    "detect_hardware",
+    "TaskSpec",
+    "PipelineChoice",
+    "resolve_pipeline",
 ]

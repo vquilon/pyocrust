@@ -1,7 +1,7 @@
 # pyocrust
 
-Wrapper nativo en **Rust** (PyO3 + Maturin) que unifica OCR de texto
-(PP-OCRv6) y análisis de estructura documental (PP-StructureV3) sobre el crate
+Wrapper nativo en **Rust** (PyO3 + Maturin) con tres familias de presets: OCR de texto
+(`pp_ocrv6*`), estructura documental (`pp_structurev3`) e `indra`, sobre el crate
 [`oar-ocr`](https://crates.io/crates/oar-ocr) `0.10.1`.
 
 Este repositorio **es** el paquete Python: `rust-bindings/pyocrust/` es a la vez
@@ -10,11 +10,74 @@ la raíz del crate `pyocrust_core` y el directorio del paquete importable
 
 ## Estado
 
-Implementación de las fases 0-5 del `PLANNING.md`: `cargo check` compila,
+Instantánea histórica de las fases 0-5 del `PLANNING.md`: `cargo check` compila,
 `import pyocrust` funciona y la suite de integración pasa (31 pasados, 2 `skip`,
 1 `xfail`). **Sin embargo, el sign-off final `S1` es `RECHAZADO`** con 7
 condiciones abiertas, dos de ellas bloqueantes; ver `DESIGN.md` §9 y
 `PLANNING.md` §7.
+
+`S2.2` (Indra) tiene aceptación arquitectónica **parcial**: smoke CPU con dos
+regiones, dos elementos y Markdown; una prueba Python y una Rust de giro inverso
+pasadas, según la evidencia comunicada. GPU, calidad matemática y suite global
+siguen pendientes. La descarga Rust HF falla por TLS; el diagnóstico con `urllib`
+no valida `ensure_models`. Ver `DESIGN.md` §3.1.1 y `PLANNING.md`.
+
+## Presets y salida
+
+| Preset | Salida |
+| :--- | :--- |
+| `pp_ocrv6` / `pp_ocrv6_tiny`, `pp_ocrv6_small`, `pp_ocrv6_medium` | `OcrResult` |
+| `pp_structurev3` | `StructureResult` |
+| `indra` | `StructureResult` (Markdown, regiones y bloques) |
+
+`VeloceOCR('indra')` usa el mismo `ensure_models`, con `.math(true)` y nueve
+artefactos requeridos en `<models_dir>/indra/`. `models_status()['indra']` es el
+catálogo completo (`required=false`); `models_status()['presets']['indra']`
+enumera los nueve requisitos efectivos (`required=true`).
+En Indra, la confianza de bloque `0.0` indica score no disponible; `formulas=[]`
+no implica ausencia matemática: el LaTeX inline se conserva en Markdown/regiones.
+
+## Catálogo y recomendación (`S3`, aprobación acotada)
+
+`model_catalog()` describe modelos/diccionarios/tokenizers; `pipeline_profiles()`
+expone presets y tareas del registro real. Parámetros y RAM desconocidos son
+`None`; los tamaños son de archivo, no memoria de ejecución. Indra conserva
+`size_bytes=None`/`disk_bytes=None` en estas consultas. Contrato completo:
+`DESIGN.md` §3.1.3; evidencia comunicada: `PLANNING.md`, actualización S3.
+
+### Solo recomendar (sin modelos, descargas ni preflight)
+
+```python
+from pyocrust import TaskSpec, detect_hardware, resolve_pipeline, pipeline_profiles
+
+hardware = detect_hardware()  # inventario físico; no prueba CUDA en el wheel
+choice = resolve_pipeline(
+    TaskSpec(document_kind="scanned", tables=True, output_format="markdown"),
+    hardware=hardware,
+)
+print(choice.id, choice.tasks, choice.models_dir, choice.offline)
+print(pipeline_profiles()[choice.id])
+```
+
+Un `HardwareProfile` explícito evita la detección. Resolver puede normalizar y
+reexportar `OAR_HOME` relativa mediante la resolución nativa (§7.1), pero no
+carga modelos. Las tareas recomendadas no se ejecutan; Indra puede aparecer como
+alternativa heurística, sin garantía de disponibilidad ni GPU. `output_format`
+orienta la selección, no convierte resultados.
+
+### Ejecutar después, explícitamente (puede cargar/descargar modelos)
+
+```python
+from pyocrust import VeloceOCR
+
+# Ejemplo independiente: requiere artefactos; offline con faltantes da error.
+engine = VeloceOCR("pp_structurev3")
+result = engine.recognize("document.png")
+print(result.to_markdown())
+```
+
+No ejecuta automáticamente orientación/rectificación ni alternativas del resolver.
+GPU, calidad y disponibilidad local no están certificadas por la aprobación S3.
 
 ## Estructura
 
@@ -81,6 +144,42 @@ se declara todavía: no hay nada que compilar detrás de ella.
 
 Los modelos se resuelven en este orden de prioridad (ver `DESIGN.md` §3.2):
 parámetro `custom_path` → `OAR_HOME` / `OCR_MODELS_CACHE_DIR` → `~/.oar`.
+
+## Benchmarking
+
+Fuera de `src/`, `benchmarks/` mide `pyocrust` contra otros OCR sobre un dataset
+real ([FUNSD](https://huggingface.co/datasets/nielsr/funsd), 149 formularios
+escaneados con ground truth) y genera tablas y gráficos listos para publicar.
+
+```bash
+./.venv/Scripts/python.exe benchmarks/run_benchmarks.py --limit 30 --backends pyocrust,rapidocr,easyocr
+./.venv/Scripts/python.exe benchmarks/report_benchmarks.py
+./.venv/Scripts/python.exe -m pytest benchmarks/tests -q
+```
+
+Mide calidad (`word_f1` y `wer_ord` —que neutralizan el orden de lectura— más
+`cer`/`wer` crudos como referencia) y velocidad (`ms/pág.`, `págs/s`); los
+backends disponibles son `pyocrust`, `pyocrust_structure`, `rapidocr`, `easyocr`
+y `tesseract` (los no instalados se marcan `skipped`, nunca como ejecutados).
+Documentación completa y resultados en
+[`benchmarks/README.md`](benchmarks/README.md); el CSV por imagen queda en
+`benchmarks/results/<timestamp>/` y los artefactos publicables en
+`benchmarks/output_examples/`.
+
+Última ejecución registrada (`benchmarks/results/2026-10-25_22-26-51`: FUNSD
+`train`, 30 imágenes por backend, CPU, modelo Tiny), tal cual la produce
+`benchmarks/report_benchmarks.py --run benchmarks/results/2026-10-25_22-26-51`:
+
+| Backend | n | F1 palabra ↑ | WER ord. ↓ | CER ↓ | WER ↓ | ms/pág. | págs/s |
+|---|---|---|---|---|---|---|---|
+| easyocr | 30 | 0.426 | 0.670 | 0.526 | 0.794 | 3247 | 0.31 |
+| pyocrust | 30 | **0.745** | **0.325** | 0.487 | 0.670 | **643** | **1.56** |
+| rapidocr | 30 | _0.607_ | _0.487_ | 0.482 | 0.699 | 4534 | 0.22 |
+
+`pyocrust_structure` quedó `skipped` (faltan 6 artefactos del preset
+`pp_structurev3`); `tesseract` no se incluyó (no está instalado). Las columnas
+`F1 palabra` y `WER ord.` son las que deciden la marca: `CER`/`WER` crudos miden
+también el orden de lectura y se publican solo como referencia.
 
 ## Licencia
 

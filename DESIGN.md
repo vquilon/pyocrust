@@ -28,7 +28,7 @@ Diseñar y desarrollar un wrapper nativo en Rust utilizando **PyO3** y **Maturin
 | Distribución de modelos | `auto-download` (ModelScope → `$OAR_HOME`) + descargador Hugging Face resiliente (ADR-007). **Estado real (D1):** el descargador está implementado pero no conectado al pipeline (§9.1 ADR-007) | otros repositorios |
 | Plataforma de ejecución | CPU y GPU (features `cuda`, `directml`), Python 3.10+ (abi3) | `tensorrt`, `openvino`, `coreml`, `webgpu` |
 
-`oar-ocr` `0.10.1` cubre además PP-OCRv4/v5, UniMERNet y PP-FormulaNet (fórmulas), SLANet/SLANet+/SLANeXt + RT-DETR (tablas), PP-DocLayoutV2/V3 (layout) y PP-LCNet/UVDoc (orientación y rectificación). La v1 expone dos de esas capacidades; el resto queda accesible sin cambios de arquitectura porque el motor ONNX ya las trae.
+`oar-ocr` `0.10.1` cubre además PP-OCRv4/v5, UniMERNet y PP-FormulaNet (fórmulas), SLANet/SLANet+/SLANeXt + RT-DETR (tablas), PP-DocLayoutV2/V3 (layout) y PP-LCNet/UVDoc (orientación y rectificación). El árbol actual expone tres familias de presets: `pp_ocrv6*`, `pp_structurev3` e `indra`; `S2.2` sigue parcial (§3.1.1).
 
 ### 1.2 Hechos verificados del ecosistema
 
@@ -184,6 +184,156 @@ Firmas reales de estructura (cita `A1` sobre `0.10.1`):
 > `.with_wireless_table_structure`, `.with_wired_table_cell_detection` y
 > `.table_structure_dict_path` (`src/engines/oar_structure.rs:130-137`). Manda la
 > API real del crate; el riesgo R1 queda cerrado (§5).
+
+### 3.1.1 Contrato actual de Indra (`S2.2`, parcial)
+
+Esta sección actualiza las instantáneas históricas `D1`/`D2` de este documento
+(dos implementaciones/presets); no cierra sus condiciones ni sustituye sus evidencias.
+El árbol actual añade `ModelSpec::Indra` y `src/engines/oar_indra.rs` como tercer
+backend del mismo trait. `VeloceOCR('indra').recognize(...)` devuelve
+`StructureResult`, con Markdown, regiones de línea y elementos de bloque.
+
+* Carga: `IndraOcrBuilder::new(root/indra).math(true)`, tras el mismo
+  `ensure_models` del constructor. Requiere nueve artefactos en `<models_dir>/indra/`:
+  `det.onnx`, `rec.onnx`, `order.onnx`, `meta.json`, `mathcls.onnx`, `math_enc.onnx`,
+  `math_dec_init.onnx`, `math_dec_step.onnx` y `math_meta.json`.
+* `models_status()['indra']` es el catálogo completo con `required=false`;
+  `models_status()['presets']['indra']` lista los nueve requisitos con `required=true`.
+  El catálogo no determina si el preset está listo.
+* `elements[*].confidence == 0.0` significa score de bloque no disponible,
+  no confianza inferida nula; las regiones conservan la confianza de línea.
+* `formulas=[]` significa que Indra no expone registros separados de fórmulas,
+  no ausencia de matemáticas: el LaTeX inline se conserva en Markdown/regiones.
+* Evidencia comunicada para `S2.2`: smoke CPU con dos regiones, dos elementos y
+  Markdown; una prueba Python y una Rust de giro inverso pasadas. No constituye
+  validación de calidad matemática ni de GPU. La descarga Rust HF falla por TLS;
+  el diagnóstico con `urllib` no valida `ensure_models`. Suite global pendiente.
+
+### 3.1.2 Contrato actual de `TaskPredictor` (`S2.4`, APROBADO acotado)
+
+`TaskPredictor(task, models=None, **options)` amplía las cinco tareas de `S2.3`
+a once. `predict(image)` devuelve un `dict`; `predict_batch(images)` devuelve
+uno por imagen, en orden de entrada, y `[]` para lote vacío. Ambos admiten
+`str`, `Path` y `bytes` de imagen codificada. La inferencia libera el GIL con
+`py.detach`; lectura/decodificación y conversión a diccionarios lo retienen.
+Fuente normativa: `src/tasks/mod.rs` (whitelist/defaults: líneas 50-128;
+mappers: 214-312) y `src/storage/registry.rs::task_artifacts`.
+
+| Tarea | Opciones admitidas (valores por defecto) | Salida completa |
+| :--- | :--- | :--- |
+| `text_detection` | `score_threshold=0.3`, `box_threshold=0.6`, `unclip_ratio=1.5`, `max_candidates=1000` | `{detections: list[{bbox: list[list[float]], score: float}]}` |
+| `text_recognition` | `score_threshold=0.0`, `dict_path` (prioridad abajo) | `{text: str, score: float}` |
+| `layout_detection` | `score_threshold=0.5`, `model_name='pp_doclayoutv3'` | `{elements: list[{bbox: list[list[float]], element_type: str, score: float}], is_reading_order_sorted: bool}` |
+| `table_classification` | `score_threshold=0.5`, `topk=2`, `input_shape=(224, 224)` | `{classifications: list[{class_id: int, label: str, score: float}]}` |
+| `table_structure_recognition` | `dict_path`, `model_name` e `input_shape` opcionales; sin override por defecto | `{structures: list[str], bboxes: list[list[float]]}`; tokens y geometría, **no HTML reconstruido** |
+| `table_cell_detection` | `score_threshold=0.3`, `model_name` detectado de la ruta; fallback `rt-detr-l_wired_table_cell_det` | `{cells: list[{bbox: list[list[float]], label: str, score: float}]}` |
+| `document_orientation` | `score_threshold=0.5`, `topk=4` | `{orientations: list[{class_id: int, label: str, score: float}]}` |
+| `text_line_orientation` | `score_threshold=0.5`, `topk=2`, `input_shape=(80, 160)` | Mismo esquema de orientaciones |
+| `document_rectification` | Ninguna | `{image: bytes, width: int, height: int}`; PNG codificado como `PyBytes` |
+| `seal_text_detection` | `score_threshold=0.5` | Mismo esquema de detecciones de texto |
+| `formula_recognition` | Ninguna | `{formula: str, score: float \| None}`; modelo fijo `PP-FormulaNet-S`, `None` si no hay score |
+
+Las cajas de detección/layout/celdas son cuatro puntos `[x, y]`; no se debe
+confundir su forma con `bboxes` de estructura de tabla. `input_shape` es `(H, W)`
+con dos enteros `u32` positivos. Para estructura, el fallback local `(512, 512)`
+se calcula pero **no se pasa al builder** si falta la opción: upstream detecta
+shape del ONNX y familia por ruta (fallback wired). No admite `score_threshold`.
+Nombre de tarea u opción desconocida y shape cero producen `PyOcrValueError`;
+la whitelist se comprueba antes de resolver/cargar modelos.
+
+| Tarea | Artefactos gestionados, en orden (registro real) |
+| :--- | :--- |
+| `text_detection` | `pp-ocrv6_tiny_det.onnx` |
+| `text_recognition` | `pp-ocrv6_tiny_rec.onnx`, `ppocrv6_tiny_dict.txt` |
+| `layout_detection` | `pp-doclayoutv3.onnx` |
+| `table_classification` | `pp-lcnet_x1_0_table_cls.onnx` |
+| `table_structure_recognition` | `slanext_wired.onnx`, `table_structure_dict_ch.txt` |
+| `table_cell_detection` | `rt-detr-l_wired_table_cell_det.onnx` |
+| `document_orientation` | `pp-lcnet_x1_0_doc_ori.onnx` |
+| `document_rectification` | `uvdoc.onnx` |
+| `text_line_orientation` | `pp-lcnet_x1_0_textline_ori.onnx` |
+| `seal_text_detection` | `pp-ocrv4_mobile_seal_det.onnx` |
+| `formula_recognition` | `pp-formulanet-s.onnx`, `pp-formulanet-tokenizer.json` |
+
+* `models=None` invoca `ensure_task_models` para los artefactos registrados.
+  `models=str` es ruta de modelo, no directorio; `models=dict` exige `model`
+  y admite `dict`/`tokenizer`. Estos caminos explícitos no descargan.
+* Diccionario de texto/tabla: `options['dict_path']` > `models['dict']` > hermano
+  del modelo canónico con el nombre del registro. El fallback se evalúa solo
+  cuando no hay override; una ruta explícita inválida no cae al hermano.
+  Fórmula: `models['tokenizer']` > hermano `pp-formulanet-tokenizer.json`.
+* `existing_asset` exige fichero local existente y lo canonicaliza antes de
+  entregarlo a upstream, para modelo, diccionario y tokenizer. Ausente/directorio
+  o fallo de canonicalización: `PyOcrRuntimeError` con ruta y causa; sin descarga
+  implícita upstream, incluso cuando este ignoraría `PYOCRUST_OFFLINE`.
+* Evidencia comunicada y límites: actualización `S2.4` de `PLANNING.md`.
+  Aprobación del contrato/código, no once inferencias reales ni validación GPU;
+  no cierra el sign-off global y preserva las instantáneas `D1`/`D2` y `S2.3`.
+
+### 3.1.3 Catálogo, hardware y recomendación (`S3`, APROBADO acotado)
+
+APIs ya exportadas, sin nueva API de ejecución: `model_catalog`,
+`pipeline_profiles`, `GpuInfo`, `HardwareProfile`, `detect_hardware`, `TaskSpec`,
+`PipelineChoice` y `resolve_pipeline`. Fuentes: `src/storage/catalog.rs`,
+`pyocrust/hardware.py` y `pyocrust/resolver.py`.
+
+* `model_catalog() -> dict[str, dict]`, indexado por nombre de artefacto:
+  `{name: str, task: str, description: str, params: int | None,
+  size_bytes: int | None, env_vars: list[str]}`. Incluye el registro upstream
+  y companions Indra; `params=None` siempre, tamaño desde `find(name)` para
+  upstream y `None` para Indra (no sustituido por los tamaños HF de storage).
+  `env_vars`: `OAR_HOME`, `OCR_MODELS_CACHE_DIR`, `PYOCRUST_OFFLINE`,
+  `CUDA_LAUNCH_BLOCKING`, `RUST_LOG`; no promete controles `OAR_VL_*` para Indra ONNX.
+* `pipeline_profiles() -> dict[str, dict]`, indexado por ID:
+  `{id: str, family: str, quality: str, output_format: str,
+  disk_bytes: int | None, ram_bytes: int | None, artifacts: list[str], description: str}`.
+  Son los cinco presets reales del registro más las once tareas (§3.1.2).
+  Tiny/Small/Medium: `pp_ocrv6`, `speed`/`balanced`/`accuracy`, `text`;
+  PP-StructureV3: `pp_structurev3`, `balanced`, `markdown`; Indra:
+  `indra`, `accuracy`, `markdown`; tareas: `task`, `default`, `json`.
+  Artefactos desde el registro, no una lista ficticia: PP-StructureV3 tiene ahora
+  once (incluye fórmula/tokenizer), frente a la instantánea histórica D1/D2.
+  `disk_bytes` suma tamaños upstream con comprobación de overflow y es `None`
+  si falta cualquier entrada (Indra); `ram_bytes=None` siempre. Tamaño en disco
+  no es número de parámetros, RAM medida ni disponibilidad local.
+  Ambas consultas carecen de escaneo de disco, red e inferencia.
+* Dataclasses inmutables: `GpuInfo(name: str | None=None, vram_bytes: int | None=None)`;
+  `HardwareProfile(cpu_count: int, ram_bytes: int | None, gpu: GpuInfo | None=None)`.
+  CPU entero positivo; RAM/VRAM enteros positivos o `None` (no bool). GPU de otro
+  tipo causa `TypeError`; valores numéricos inválidos, `ValueError`.
+  `detect_hardware()` usa stdlib: CPU `os.cpu_count() or 1`, RAM total del SO
+  (desconocida → `None`), primera GPU NVIDIA visible vía `nvidia-smi` (sin prueba
+  de CUDA en el wheel). `CUDA_VISIBLE_DEVICES` vacío/`-1` oculta; índices o prefijos
+  UUID `GPU-` filtran en orden, parando ante inválido/ambiguo/repetido. Fallo de
+  inventario → `gpu=None`; VRAM desconocida → `None`, nunca memoria inventada.
+* `TaskSpec(document_kind='digital', ocr_only=True, formulas='none', tables=False,
+  quality='speed', output_format='text')` es inmutable. Enum válidos:
+  `document_kind`: `scanned|digital|mixed`; `formulas`: `none|with_text|only`;
+  `quality`: `speed|balanced|accuracy`; `output_format`: `text|markdown|html|json`.
+  Enums inválidos → `ValueError`; `ocr_only`/`tables` deben ser bool (`TypeError`).
+* `resolve_pipeline(task: TaskSpec, hardware: HardwareProfile | None=None)` detecta
+  hardware solo sin override. Tipos incorrectos → `TypeError`. Precedencia:
+  fórmulas, tablas, Markdown/HTML **o cualquier `ocr_only=False`** seleccionan
+  `pp_structurev3`, `size=None`; JSON solo no fuerza estructura. Para texto:
+  speed, RAM desconocida o RAM <4 GiB → tiny; después balanced o RAM <8 GiB →
+  small; resto → medium. Son heurísticas, no mediciones de viabilidad.
+  Scanned/mixed añade orientación y rectificación; accuracy y VRAM >=8 GiB
+  añade `indra` como alternativa en `tasks`, sin cambiar preset ni probar
+  disponibilidad, wheel CUDA o ejecución. Ninguna tarea se ejecuta automáticamente.
+* `PipelineChoice` inmutable: `{preset: str, size: str | None, tasks: tuple[str, ...],
+  models_dir: str, offline: bool}`; propiedad `id` devuelve `pp_ocrv6_{size}`
+  para texto o el preset de estructura. `tasks` es recomendación, no secuencia
+  de `TaskPredictor` ejecutable (puede incluir el preset `indra`).
+  El resolver no descarga/carga modelos ni hace preflight. `models_dir` usa
+  `resolve_models_dir()` nativo (§7.1): puede normalizar/reexportar `OAR_HOME`
+  relativa; **no es ausencia absoluta de efectos laterales**. El `custom_path`
+  explícito de una posterior ejecución sigue ganando. `offline` lee
+  `PYOCRUST_OFFLINE`: unset/vacío/`0`/`false`/`no` → false, case-insensitive,
+  sin trim de espacios. `output_format` orienta la selección, no convierte salida.
+
+Evidencia acotada comunicada: hardware **15 pass, 1 skip**, resolver **29 pass**,
+catálogo **5 pass**, Rust **53 pass previos** (`PLANNING.md`). No certifica GPU,
+modelos disponibles, rendimiento ni sign-off global.
 
 ### 3.2 Estrategia de Resolución de Modelos (Paths) y Autodescarga
 

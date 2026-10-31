@@ -15,6 +15,7 @@ pub use crate::core::OcrEngineBackend;
 
 mod oar_structure;
 mod oar_text;
+mod oar_indra;
 
 pub use oar_structure::{create_oar_structure_engine, OarStructureEngine};
 pub use oar_text::{create_oar_text_engine, OarTextEngine};
@@ -27,9 +28,10 @@ pub fn create_backend(name: &str) -> Result<Box<dyn OcrEngineBackend>, OcrError>
     match name {
         "pp_ocrv6" => Ok(Box::new(OarTextEngine::new())),
         "pp_structurev3" => Ok(Box::new(OarStructureEngine::new())),
+        "indra" => Ok(Box::new(oar_indra::OarIndraEngine::default())),
         _ => Err(OcrError::InvalidInput {
             message: format!(
-                "unknown preset '{name}'. Expected one of: pp_ocrv6, pp_structurev3"
+                "unknown preset '{name}'. Expected one of: pp_ocrv6, pp_structurev3, indra"
             ),
         }),
     }
@@ -40,6 +42,11 @@ pub fn create_engine(spec: &ModelSpec, paths: &ModelPaths) -> Result<Box<dyn Ocr
     match spec {
         ModelSpec::PpOcrV6(_) => Ok(Box::new(create_oar_text_engine(paths)?)),
         ModelSpec::PpStructureV3 => Ok(Box::new(create_oar_structure_engine(paths)?)),
+        ModelSpec::Indra => {
+            let mut engine = oar_indra::OarIndraEngine::default();
+            engine.load_model(paths)?;
+            Ok(Box::new(engine))
+        },
     }
 }
 

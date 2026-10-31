@@ -184,6 +184,12 @@ const TASK_FORMULA_RECOGNITION: &[Artifact] = &[
 
 pub fn task_artifacts(task: &str) -> Option<&'static [Artifact]> {
     match task {
+        "text_detection" => Some(&PP_OCRV6_TINY[..1]),
+        "text_recognition" => Some(&PP_OCRV6_TINY[1..]),
+        "layout_detection" => Some(&PP_STRUCTUREV3[3..4]),
+        "table_classification" => Some(&PP_STRUCTUREV3[4..5]),
+        "table_structure_recognition" => Some(TASK_TABLE_STRUCTURE),
+        "table_cell_detection" => Some(&PP_STRUCTUREV3[7..8]),
         "document_orientation" => Some(TASK_DOCUMENT_ORIENTATION),
         "document_rectification" => Some(TASK_DOCUMENT_RECTIFICATION),
         "text_line_orientation" => Some(TASK_TEXT_LINE_ORIENTATION),
@@ -192,6 +198,12 @@ pub fn task_artifacts(task: &str) -> Option<&'static [Artifact]> {
         _ => None,
     }
 }
+
+// Wired by default; explicit models select other SLANet/SLANeXt variants.
+const TASK_TABLE_STRUCTURE: &[Artifact] = &[
+    Artifact::modelscope("slanext_wired.onnx"),
+    Artifact::modelscope("table_structure_dict_ch.txt"),
+];
 
 /// Repositorio de HuggingFace de `indra`.
 const INDRA_REPO: &str = "datalab-to/indra-ocr";

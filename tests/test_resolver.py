@@ -88,12 +88,22 @@ def test_ocr_only_balanced_elige_small():
     eleccion = elegir(spec(ocr_only=True, quality="balanced"), hardware(ram_gib=16))
     assert eleccion.preset == "pp_ocrv6"
     assert eleccion.size == "small", f"size={eleccion.size!r}, se esperaba 'small'"
+    assert eleccion.id == "pp_ocrv6_small"
 
 
 def test_ocr_only_accuracy_con_ram_suficiente_elige_medium():
     eleccion = elegir(spec(ocr_only=True, quality="accuracy"), hardware(ram_gib=16))
     assert eleccion.preset == "pp_ocrv6"
     assert eleccion.size == "medium", f"size={eleccion.size!r}, se esperaba 'medium'"
+    assert eleccion.id == "pp_ocrv6_medium"
+
+
+@pytest.mark.parametrize("ram", [None, 4 * GIB, 8 * GIB - 1, 8 * GIB])
+def test_accuracy_respeta_umbral_ram(ram):
+    eleccion = elegir(spec(quality="accuracy"), pyocrust.HardwareProfile(cpu_count=2, ram_bytes=ram))
+    esperado = "tiny" if ram is None else "small" if ram < 8 * GIB else "medium"
+    assert eleccion.size == esperado
+    assert eleccion.id == f"pp_ocrv6_{esperado}"
 
 
 def test_ocr_only_accuracy_con_poca_ram_cae_a_tiny():
@@ -245,15 +255,21 @@ def test_el_id_del_resolvedor_es_un_preset_no_vacio():
 # --------------------------------------------------------------------------
 
 
-def test_resolve_pipeline_prioriza_las_variables_de_entorno():
-    """Pendiente de la implementación real: exige leer `pyocrust/resolver.py`.
+@pytest.mark.parametrize("offline", [None, "", "0", "FALSE", " FALSE ", "no", "1", "true"])
+def test_resolve_pipeline_prioriza_las_variables_de_entorno(monkeypatch, offline):
+    from pathlib import Path
 
-    La tarjeta `S3.1` (punto 6) dice que `OAR_HOME` manda sobre el resto y que el
-    resolvedor lee `PYOCRUST_OFFLINE`. Sin el módulo no se puede afirmar *cómo* se
-    observa esa prioridad (nombre del campo que la expone) sin inventárselo, así
-    que el escenario queda marcado como no ejecutado, no como verde.
-    """
-    pytest.skip(
-        "requiere pyocrust/resolver.py implementado para asertar la semántica observable "
-        "de OAR_HOME/PYOCRUST_OFFLINE sobre la detección; no se inventa la aserción"
-    )
+    oar = Path.cwd() / "modelos-oar-regresion"
+    cache = Path.cwd() / "modelos-cache-regresion"
+    monkeypatch.setenv("OAR_HOME", str(oar))
+    monkeypatch.setenv("OCR_MODELS_CACHE_DIR", str(cache))
+    if offline is None:
+        monkeypatch.delenv("PYOCRUST_OFFLINE", raising=False)
+    else:
+        monkeypatch.setenv("PYOCRUST_OFFLINE", offline)
+    eleccion = elegir(spec(), hardware())
+    assert Path(eleccion.models_dir) == oar
+    assert eleccion.offline is (offline in (" FALSE ", "1", "true"))
+    assert eleccion.offline is pyocrust.models_status()["offline"]
+    monkeypatch.delenv("OAR_HOME")
+    assert Path(elegir(spec(), hardware()).models_dir) == cache
