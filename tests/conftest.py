@@ -71,7 +71,7 @@ PP_OCRV6_TINY = (
     "ppocrv6_tiny_dict.txt",
 )
 
-# Los 9 artefactos de PP-StructureV3 (`src/core/types.rs::ModelPaths::new`).
+# Los 11 artefactos de PP-StructureV3 (`src/core/types.rs::ModelPaths::new`).
 PP_STRUCTUREV3 = (
     "pp-ocrv6_tiny_det.onnx",
     "pp-ocrv6_tiny_rec.onnx",
@@ -82,6 +82,8 @@ PP_STRUCTUREV3 = (
     "slanet_plus.onnx",
     "rt-detr-l_wired_table_cell_det.onnx",
     "table_structure_dict_ch.txt",
+    "pp-formulanet-s.onnx",
+    "pp-formulanet-tokenizer.json",
 )
 
 
@@ -115,5 +117,18 @@ def modelos_tiny(tmp_path: Path, fuente_modelos: Path) -> Path:
     destino = tmp_path / "modelos"
     destino.mkdir()
     for nombre in PP_OCRV6_TINY:
+        shutil.copy2(fuente_modelos / nombre, destino / nombre)
+    return destino
+
+
+@pytest.fixture
+def modelos_structure(tmp_path: Path, fuente_modelos: Path) -> Path:
+    """Copia local de los 11 artefactos de PP-StructureV3.
+    
+    Incluye los modelos de reconocimiento de fórmulas.
+    """
+    destino = tmp_path / "modelos"
+    destino.mkdir()
+    for nombre in PP_STRUCTUREV3:
         shutil.copy2(fuente_modelos / nombre, destino / nombre)
     return destino
