@@ -6,6 +6,7 @@
 //! - `download`: descargador Hugging Face resiliente con verificación de integridad (§7.3, ADR-007).
 
 pub mod config;
+pub mod catalog;
 pub mod download;
 pub mod models;
 pub mod registry;

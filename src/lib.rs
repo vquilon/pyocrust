@@ -12,6 +12,7 @@ use pyo3::prelude::*;
 pub mod core;
 pub mod engines;
 pub mod storage;
+pub mod tasks;
 
 use crate::core::{OcrEngineBackend, OcrError};
 
@@ -38,10 +39,11 @@ impl VeloceOCR {
             "pp_ocrv6_small" => crate::core::ModelSpec::PpOcrV6(crate::core::OcrSize::Small),
             "pp_ocrv6_medium" => crate::core::ModelSpec::PpOcrV6(crate::core::OcrSize::Medium),
             "pp_structurev3" => crate::core::ModelSpec::PpStructureV3,
+            "indra" => crate::core::ModelSpec::Indra,
             _ => {
                 return Err(OcrError::InvalidInput {
                     message: format!(
-                        "unknown preset '{preset}'. Expected one of: pp_ocrv6, pp_ocrv6_tiny, pp_ocrv6_small, pp_ocrv6_medium, pp_structurev3"
+                        "unknown preset '{preset}'. Expected one of: pp_ocrv6, pp_ocrv6_tiny, pp_ocrv6_small, pp_ocrv6_medium, pp_structurev3, indra"
                     ),
                 }.into());
             }
@@ -121,13 +123,15 @@ fn py_models_status(py: Python<'_>, custom_path: Option<&str>) -> PyResult<Py<Py
     let presets = pyo3::types::PyDict::new(py);
     for (name, spec) in storage::registry::presets() {
         let artifacts = storage::registry::artifacts_for(&spec);
-        presets.set_item(name, artifact_entries(py, &config.models_dir, artifacts)?)?;
+        let paths = config.resolve_paths(&spec);
+        let root = paths.detection_model.parent().unwrap_or(&config.models_dir);
+        presets.set_item(name, artifact_entries(py, root, artifacts)?)?;
     }
     dict.set_item("presets", presets)?;
 
     dict.set_item(
         "indra",
-        artifact_entries(py, &config.models_dir, storage::registry::indra_artifacts())?,
+        artifact_entries(py, &config.models_dir.join("indra"), storage::registry::indra_artifacts())?,
     )?;
 
     Ok(dict.into_any().into())
@@ -166,6 +170,8 @@ fn pyocrust_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(storage::config::py_resolve_models_dir, m)?)?;
     // Estado de los modelos en disco (tarjeta `S2.0`) para `tests/test_models.py`.
     m.add_function(wrap_pyfunction!(py_models_status, m)?)?;
+    m.add_function(wrap_pyfunction!(storage::catalog::model_catalog, m)?)?;
+    m.add_function(wrap_pyfunction!(storage::catalog::pipeline_profiles, m)?)?;
     // Clase pública de alto nivel (tarjeta I4).
     m.add_class::<VeloceOCR>()?;
     m.add_class::<tasks::TaskPredictor>()?;

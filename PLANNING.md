@@ -9,6 +9,77 @@ Este documento detalla la hoja de ruta secuencial para la implementación del pa
 >
 > **Estado global (D1, 2026-10-25; actualizado en `D2`):** las fases 0-5 están **Hechas**; `S1.2` (`b128566`), `S1.3` y `S1.5` (`c30a3a9`) quedaron **cerradas**, pero el sign-off `S1` sigue **RECHAZADO**, con `S1.1` pendiente y `S1.4`/`S1.6` parciales (§7). El proyecto **no** está aprobado: `D1`/`D2` reconcilian la documentación, no la implementación.
 
+### Actualización `S2.2` — Indra (parcial)
+
+* **Tarjeta:** `t_027743e2`, abierta; aceptación arquitectónica parcial, no cierre.
+* **Implementado:** tercer preset `indra` junto a `pp_ocrv6*` y `pp_structurev3`,
+  nueve artefactos requeridos en `<models_dir>/indra/`, mismo `ensure_models`,
+  `.math(true)` y salida `StructureResult`; contrato en `DESIGN.md` §3.1.1.
+* **Evidencia comunicada:** smoke CPU (dos regiones, dos elementos y Markdown),
+  una prueba Python pasada y una prueba Rust de giro inverso pasada.
+* **Pendiente:** suite global (antecedente de 24 fallos de APIs `S3.x`), GPU y
+  calidad matemática. TLS bloquea la descarga Rust HF; `urllib` fue solo diagnóstico,
+  no validación de `ensure_models`. `B6/B7` mantiene la tarjeta existente `t_c319bbab`.
+* Las tablas y recuentos `D1`/`D2` siguientes son históricos; se preservan sus pendientes.
+
+### Actualización `S2.3` — tareas individuales (aprobación acotada)
+
+* **Tarjeta:** `t_a3bd3db6`, abierta; aprobación arquitectónica acotada al código
+  tras revisión crítica de whitelist/shape sin bloqueantes, no cierre global.
+* **Implementado:** cinco tareas de `TaskPredictor`, entradas `str`/`Path`/`bytes`,
+  salidas `dict`/lista de `dict`, modelos gestionados o explícitos sin descarga,
+  whitelist por tarea, PNG como `PyBytes` y shape de línea `(H, W)=(80, 160)`
+  configurable. Contrato y defaults en `DESIGN.md` §3.1.2.
+* **Evidencia comunicada:** 53 pruebas Cargo pasadas; binding reconstruido;
+  defaults probados con inferencia CPU real. Probador: `tests/test_tasks.py`,
+  offline con `RAYON_NUM_THREADS=2`, **21 pasadas, 0 skips, 5.08 s**; incluye
+  rectificación por ruta/bytes y batch, rechazo de opciones y shape cero.
+* **Pendiente de evidencia positiva:** `models=dict`, shape alternativo,
+  GPU/calidad y batch de las otras tareas. Suite global no reevaluada en esta
+  intervención; se mantiene el antecedente de 24 fallos de APIs `S3.x`.
+* No modifica los estados ni las condiciones históricas `D1`/`D2` o `S2.2`.
+
+### Actualización `S2.4` — once tareas (APROBADO acotado)
+
+* **Estado:** contrato/código aprobado por Arquitecto S2.4 y Crítico R2;
+  no implica cierre global ni reemplaza la evidencia histórica `S2.3` anterior.
+* **Implementado:** seis tareas adicionales (`text_detection`, `text_recognition`,
+  `layout_detection`, `table_classification`, `table_structure_recognition`,
+  `table_cell_detection`): once nombres, esquemas, whitelist/defaults y artefactos
+  exactos en `DESIGN.md` §3.1.2. Batch ordenado, vacío `[]`, inferencia sin GIL;
+  tokens/bboxes de tabla sin reconstrucción HTML. Diccionario `dict_path` >
+  `models['dict']` > companion perezoso; modelos/dict/tokenizer canonicalizados
+  como ficheros locales antes de upstream, explícitos sin descarga implícita.
+* **Evidencia comunicada:** Rust **53 pass**, binding reconstruido;
+  probador **40 pass, 4 skip, 9.16 s**; padre con `.venv` exacto del proyecto:
+  **40 pass, 4 skip, 6.51 s**. Son ejecuciones previas, no reejecutadas por escriba.
+* **Inferencia CPU real:** las cinco tareas `S2.3` más detección/reconocimiento
+  de texto de `S2.4`. Las cuatro nuevas tareas layout/table classification/
+  table structure/table cells quedan pendientes por caché/modelos ausentes;
+  los skips no son inferencias verificadas. GPU y calidad no validadas.
+* Sin modificar pendientes/TODO históricos `D1`/`D2`/`S2.2`, ni afirmar once
+  inferencias reales o suite global reevaluada.
+
+### Actualización `S3` — catálogo, hardware y resolver (APROBADO acotado)
+
+* **Estado:** Arquitecto S3 aprueba acotadamente las APIs ya exportadas
+  `model_catalog`, `pipeline_profiles`, `GpuInfo`, `HardwareProfile`,
+  `detect_hardware`, `TaskSpec`, `PipelineChoice`, `resolve_pipeline`.
+  Contrato en `DESIGN.md` §3.1.3; ejemplo de recomendación separado de ejecución
+  en `README.md`. No cierra el sign-off global ni las condiciones históricas.
+* **Implementado:** catálogo/perfiles desde registros reales, parámetros/RAM
+  desconocidos `None`, tamaños upstream y tamaño Indra desconocido en catálogo;
+  inventario físico stdlib, override explícito y resolver heurístico validado.
+* **Evidencia comunicada:** hardware **15 pass, 1 skip**, resolver **29 pass**,
+  catálogo **5 pass**; Rust **53 pass previos**. No son nuevas ejecuciones de
+  esta intervención documental ni certificación de modelos o GPU.
+* **Límites:** GPU detectada no prueba wheel CUDA; Indra es alternativa heurística,
+  no disponibilidad ni ejecución. Resolver sin modelos/descargas/preflight;
+  resolución nativa de `models_dir` puede normalizar/reexportar `OAR_HOME` relativa.
+  `tasks` no se ejecuta automáticamente y `output_format` no convierte salida.
+* No se ejecutaron tests/builds, modelos, descargas, commits ni cambios de board
+  en esta actualización documental; se preservan estructura y antecedentes.
+
 ## 0. Mapa de tareas a tarjetas del board
 
 Board: `pyocrust` (`%LOCALAPPDATA%\hermes\kanban\boards\pyocrust\kanban.db`). Estado leído en `D1` el 2026-10-25 directamente de la base de datos del board.
@@ -135,6 +206,39 @@ Los 8 puntos del dictamen consolidado (`A1`, comentario del 2026-10-25) y dónde
 * **Criterio de aceptación:** los dos documentos describen el código que existe y son verificables comparando con el árbol real de `src/` y con el estado del board. Sin promesas sobre ficheros inexistentes.
 * **Resultado:** todas las rutas de `DESIGN.md` §2 existen (27 ficheros versionados, más `tests/conftest.py` y `tests/data/sample_text.png` que se añaden al árbol documentado); desviaciones registradas en `DESIGN.md` §9 y en §6 de este documento; estado del board reflejado en §0. **`DESIGN.md` §5 (R1/R4) y los ADR 003/005/007/008 llevan ahora su estado real.**
 * **Fuera de alcance (declarado):** `D1` **no** escribe código. Las condiciones `S1.1`-`S1.6` (§7) siguen **Pendientes** y necesitan tarjeta propia.
+
+## Fase 7: Benchmarking
+
+Medir la **calidad** y la **velocidad** de `pyocrust` frente a otros OCR sobre un dataset real (FUNSD) y publicar los resultados. El banco vive en `benchmarks/`, **fuera de `src/`**, así que no toca la implementación. Lo escribió `hefesto` (el cuerpo de `B4` atribuye `benchmarks/run_benchmarks.py` a `hefesto`) y **no tiene tarjeta propia en el board**: a fecha de `B3`, las únicas tarjetas de esta fase en la base del board son `B3`, `B4` y `B5`.
+
+| Id | Fase | Título | Tarjeta | Responsable | Estado | Fecha de cambio |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `B3` | 7 | Documentar el benchmarking y redactar el post de LinkedIn | `t_da2882a8` | `escriba` | Hecho | 2026-10-25 |
+| `B4` | 7 | Atacar la metodología del benchmark (fairness, métricas, estadística) | `t_55e3c268` | `critico` | En curso | 2026-10-25 |
+| `B5` | 7 | Verificar reproducibilidad del benchmark y consistencia del reportero | `t_7f916baa` | `probador` | En curso | 2026-10-25 |
+
+Dependencias: el código del banco (`benchmarks/*.py`, sin tarjeta) precede a `B3`, `B4` y `B5`; `B3` documenta lo que `B4` (metodología) y `B5` (reproducibilidad) auditan.
+
+### `B3` — Documentar el benchmarking y redactar el post de LinkedIn
+
+* **Tarjeta:** `t_da2882a8`. **Responsable:** `escriba`. **Estado:** Hecho (2026-10-25).
+* **Contenido:** `benchmarks/README.md` (qué mide, comandos con `.venv/Scripts/python.exe`, contrato del CSV de 15 columnas, interpretación de cada métrica y limitaciones conocidas); `benchmarks/LINKEDIN.md` (borrador de post con los números reales del JSON); una sección `## Benchmarking` en `README.md`; y esta `Fase 7`.
+* **Criterio de aceptación:** los cuatro ficheros existen; `benchmarks/README.md` documenta comandos copiables; el post contiene números que coinciden con `benchmark_summary.json`; `PLANNING.md` conserva el estilo y no rompe las tablas previas.
+* **Evidencia:** números leídos de `benchmarks/output_examples/benchmark_summary.json` (run `2026-10-25_22-07-24`, n=29 por backend, 3 backends: `pyocrust`, `rapidocr`, `easyocr`): `pyocrust` CER `0.483`, F1 `0.744`, `715` ms/pág.; `rapidocr` CER `0.477`, F1 `0.603`, `5994` ms/pág.; `easyocr` CER `0.523`, F1 `0.428`, `8303` ms/pág. `pyocrust` es ~8,4× más rápido que `rapidocr` y ~11,6× que `easyocr`. El JSON se regenera con cada `report_benchmarks.py`, así que los números del post corresponden a la run vigente al escribir `B3`.
+
+### `B4` — Atacar la metodología del benchmark
+
+* **Tarjeta:** `t_55e3c268`. **Responsable:** `critico`. **Estado:** En curso (2026-10-25).
+* **Contenido:** revisión adversarial de la *fairness* entre backends (mismo preprocesado, mismo *warmup*), de las métricas (orden del ground truth, papel del `word_f1`, falta de significancia con `n` pequeño), de la representatividad (Tiny vs. modelo por defecto; FUNSD en inglés), de los tiempos y de la reproducibilidad.
+* **Criterio de aceptación:** un comentario con la lista numerada de defectos, cada uno con `fichero:línea` y la corrección concreta; por cada categoría sin defectos, qué se verificó y cómo.
+* **Límite:** no toca código ni `src/`; si un defecto invalida resultados ya publicados, `kanban_block` con `needs_input`.
+
+### `B5` — Verificar reproducibilidad del benchmark
+
+* **Tarjeta:** `t_7f916baa`. **Responsable:** `probador`. **Estado:** En curso (2026-10-25).
+* **Contenido:** `benchmarks/tests/test_functional.py` (pruebas funcionales de la API pública de `pyocrust` sobre FUNSD y del contrato del CSV) y `benchmarks/tests/conftest.py`; dos runs de `--limit 10` para comparar estabilidad de `cer`/`word_f1`, y recálculo manual del agregado frente a `benchmark_summary.json`.
+* **Criterio de aceptación:** un comentario con la salida real de `pytest benchmarks/tests -q`, las medias de `pyocrust` de las dos runs y su diferencia, el recálculo del CER/F1 agregado frente a `benchmark_summary.json`, y evidencia de que ningún backend ausente apareció como ejecutado.
+* **Límite:** no modifica `src/` ni el runner/reportero salvo un bug de una línea, que reporta aparte.
 
 ## 6. Qué quedó fuera de alcance y por qué
 

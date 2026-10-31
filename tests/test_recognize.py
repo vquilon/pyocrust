@@ -253,3 +253,51 @@ def test_el_latex_de_una_formula_es_accesible_desde_python():
     assert re.search(latex_pattern, markdown, re.DOTALL) is not None, (
         "el Markdown debe contener al menos una fórmula en LaTeX (entre $$...$$)"
     )
+
+
+def test_indra_devuelve_markdown_bloques_y_regiones():
+    """Indra cruza Markdown, bloques, líneas y LaTeX inline a Python."""
+    modelos_root = next(
+        (
+            root
+            for root in directorios_candidatos()
+            if (root / "indra").is_dir()
+        ),
+        None,
+    )
+    if modelos_root is None:
+        pytest.skip(
+            "no existe el directorio <models_dir>/indra; para descargar/verificar "
+            "los artefactos: ./.venv/Scripts/python.exe -c "
+            "\"import pyocrust; pyocrust.VeloceOCR('indra')\""
+        )
+
+    from pyocrust import models_status
+
+    estado = models_status(custom_path=str(modelos_root))
+    artefactos_requeridos = estado["presets"]["indra"]
+    invalidos = [item["name"] for item in artefactos_requeridos if item["required"] and not item["present"]]
+    if invalidos:
+        pytest.skip(
+            f"artefactos Indra ausentes o con SHA-256 inválido: {invalidos}; "
+            "para descargarlos/verificarlos: ./.venv/Scripts/python.exe -c "
+            "\"import pyocrust; pyocrust.VeloceOCR('indra')\""
+        )
+
+    ocr = VeloceOCR("indra", custom_path=str(modelos_root))
+    resultado = ocr.recognize(IMAGEN)
+
+    assert isinstance(resultado, StructureResult)
+    assert resultado.to_markdown().strip()
+    assert resultado.elements
+    assert resultado.regions
+
+    formula = Path(__file__).parent / "data" / "indra_math.png"
+    if not formula.is_file():
+        pytest.skip("falta el fixture tests/data/indra_math.png con fórmula conocida")
+    resultado_math = ocr.recognize(formula)
+    assert isinstance(resultado_math, StructureResult)
+    assert any("$" in region.text for region in resultado_math.regions), (
+        "Indra debe conservar delimitadores LaTeX inline en las líneas"
+    )
+    assert "$" in resultado_math.to_markdown()
