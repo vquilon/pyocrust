@@ -22,6 +22,14 @@ pasadas, según la evidencia comunicada. GPU, calidad matemática y suite global
 siguen pendientes. La descarga Rust HF falla por TLS; el diagnóstico con `urllib`
 no valida `ensure_models`. Ver `DESIGN.md` §3.1.1 y `PLANNING.md`.
 
+`S2.5/S2.6`: exposición Python documentada **11/11 predictores + 3/3 familias
+de pipelines**, no once inferencias verificadas. El cierre focal offline registra
+**14 pass, 4 skip, 0 fallos**: Tiny reconoce texto e Indra conserva matemática
+inline en Markdown. Quedan cuatro tareas layout/tablas sin inferencia por caché
+faltante, PP-StructureV3 sin caché completa, descarga fría/redescarga y GPU sin
+validar. Evidencia, skips y alcance en `PLANNING.md`, actualización S2.5/S2.6;
+no sustituye el histórico ni constituye sign-off global.
+
 ## Presets y salida
 
 | Preset | Salida |
@@ -36,6 +44,23 @@ catálogo completo (`required=false`); `models_status()['presets']['indra']`
 enumera los nueve requisitos efectivos (`required=true`).
 En Indra, la confianza de bloque `0.0` indica score no disponible; `formulas=[]`
 no implica ausencia matemática: el LaTeX inline se conserva en Markdown/regiones.
+
+## Tareas individuales (`TaskPredictor`)
+
+Once tareas disponibles; nombres, esquemas y opciones en `DESIGN.md` §3.1.2.
+Ejemplo con un modelo local explícito (sin descarga implícita):
+
+```python
+from pyocrust import TaskPredictor
+
+predictor = TaskPredictor("text_detection", models="/ruta/ppocrv6_tiny_det.onnx")
+print(predictor.predict("document.png")["detections"])
+results = predictor.predict_batch(["document.png", "otra.png"])
+```
+
+`predict` acepta ruta, `PathLike` o bytes; batch conserva orden. `models=None`
+gestiona artefactos registrados y puede descargar; rutas explícitas deben existir.
+Exposición no certifica inferencia de las once tareas, calidad ni GPU.
 
 ## Catálogo y recomendación (`S3`, aprobación acotada)
 
