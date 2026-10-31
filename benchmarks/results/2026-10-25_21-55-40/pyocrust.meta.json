@@ -1,0 +1,11 @@
+{
+  "backend": "pyocrust",
+  "dataset": "funsd",
+  "n_images": 9,
+  "n_ok": 9,
+  "n_error": 0,
+  "errors": [],
+  "mean_cer": 0.45323401418224957,
+  "mean_word_f1": 0.6843217141760686,
+  "mean_ms": 659.0112222222222
+}

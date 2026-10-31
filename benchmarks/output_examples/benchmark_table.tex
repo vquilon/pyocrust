@@ -1,0 +1,13 @@
+\documentclass[varwidth,border=2pt]{standalone}
+\usepackage{booktabs}
+\begin{document}
+\begin{tabular}{llrrrrrrrr}
+\toprule
+Backend & n & F1 Markdown ↑ & F1 bloques ↑ & F1 palabra ↑ & WER ord. ↓ & CER ↓ & WER ↓ & ms/pág. & págs/s \\
+\midrule
+pyocrust (tiny; text) & 5 & N/A & N/A & \textbf{0.734} & \textbf{0.340} & 0.402 & 0.628 & \textbf{1290} & \textbf{0.78} \\
+pyocrust\_indra (math; full\_page) & 5 & N/A & N/A & 0.457 & 0.648 & 1.552 & 0.815 & 644 & 1.55 \\
+rapidocr (default; text) & 5 & N/A & N/A & \underline{0.660} & \underline{0.431} & 0.400 & 0.654 & \underline{9355} & \underline{0.11} \\
+\bottomrule
+\end{tabular}
+\end{document}

@@ -1,0 +1,53 @@
+{
+  "pyocrust (tiny; text)": {
+    "n": 5,
+    "cer": 0.4022940383653627,
+    "wer": 0.6282942221749936,
+    "cer_ord": 0.1896859433341007,
+    "wer_ord": 0.33964374900377237,
+    "markdown_f1": null,
+    "block_f1": null,
+    "word_f1": 0.7342442466818832,
+    "exact_match": 0.0,
+    "mean_ms": 1290.158,
+    "median_ms": 1270.333,
+    "p95_ms": 1751.304,
+    "pages_per_s": 0.7750988638600854,
+    "mean_confidence": 0.95122,
+    "cer_std": 0.14403313562409753
+  },
+  "pyocrust_indra (math; full_page)": {
+    "n": 5,
+    "cer": 1.5517160168466284,
+    "wer": 0.8146326207723051,
+    "cer_ord": 1.5257620372489513,
+    "wer_ord": 0.6477105361032889,
+    "markdown_f1": null,
+    "block_f1": null,
+    "word_f1": 0.45653300896036536,
+    "exact_match": 0.0,
+    "mean_ms": 643.7034,
+    "median_ms": 635.708,
+    "p95_ms": 733.017,
+    "pages_per_s": 1.553510514314512,
+    "mean_confidence": 0.0,
+    "cer_std": 0.8091710594155425
+  },
+  "rapidocr (default; text)": {
+    "n": 5,
+    "cer": 0.40034464539637205,
+    "wer": 0.6535156651258346,
+    "cer_ord": 0.29033763839587645,
+    "wer_ord": 0.4309281004079367,
+    "markdown_f1": null,
+    "block_f1": null,
+    "word_f1": 0.6600069002770714,
+    "exact_match": 0.0,
+    "mean_ms": 9354.7952,
+    "median_ms": 6887.693,
+    "p95_ms": 16606.516,
+    "pages_per_s": 0.10689704890599849,
+    "mean_confidence": 0.8155999999999999,
+    "cer_std": 0.14035951502586114
+  }
+}

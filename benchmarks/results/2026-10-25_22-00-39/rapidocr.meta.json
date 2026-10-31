@@ -1,0 +1,12 @@
+{
+  "backend": "rapidocr",
+  "dataset": "funsd",
+  "status": "ok",
+  "n_images": 29,
+  "n_ok": 29,
+  "n_error": 0,
+  "errors": [],
+  "mean_cer": 0.4772870545097778,
+  "mean_word_f1": 0.6034964225332465,
+  "mean_ms": 6723.105172413792
+}

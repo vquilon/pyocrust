@@ -1,0 +1,48 @@
+{
+  "timestamp": "2026-10-25_22-26-51",
+  "runtime": {
+    "python": "3.14.9",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 198 Stepping 2, GenuineIntel",
+    "pyocrust": "0.1.0"
+  },
+  "backends": {
+    "pyocrust": {
+      "backend": "pyocrust",
+      "dataset": "funsd",
+      "status": "ok",
+      "n_images": 30,
+      "n_ok": 30,
+      "n_error": 0,
+      "errors": [],
+      "mean_cer": 0.48705544528596934,
+      "mean_word_f1": 0.7447996186780251,
+      "mean_ms": 642.5700333333333
+    },
+    "rapidocr": {
+      "backend": "rapidocr",
+      "dataset": "funsd",
+      "status": "ok",
+      "n_images": 30,
+      "n_ok": 30,
+      "n_error": 0,
+      "errors": [],
+      "mean_cer": 0.48187957807632775,
+      "mean_word_f1": 0.606660298395895,
+      "mean_ms": 4533.8566666666675
+    },
+    "easyocr": {
+      "backend": "easyocr",
+      "dataset": "funsd",
+      "status": "ok",
+      "n_images": 30,
+      "n_ok": 30,
+      "n_error": 0,
+      "errors": [],
+      "mean_cer": 0.5264772292038488,
+      "mean_word_f1": 0.42612146561593356,
+      "mean_ms": 3246.6142333333332
+    }
+  }
+}
