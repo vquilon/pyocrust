@@ -115,6 +115,27 @@ Este documento detalla la hoja de ruta secuencial para la implementación del pa
   S2.6 solo modifica README/PLANNING: sin tests/builds/modelos/descargas,
   benchmarks, commits ni board; histórico D1/D2/S2.2 preservado.
 
+### Actualización `B9` — documentación del banco (2026-10-31)
+
+* **Estado:** Crítico R2 **APROBADO acotado** al banco, no sign-off global.
+  Regresiones comunicadas **21 pass, 17 deselected**, no reejecutadas por escriba.
+* **Run real contrastada:** `benchmarks/results/2026-10-31_23-37-34/summary.json`
+  y CSV: **5/5 Tiny (`text`), 5/5 Indra (`full_page`, `math`), 5/5 RapidOCR
+  (`text`)**, sin errores. Estructura/fórmula **skipped**: seis artefactos de
+  PP-StructureV3 ausentes en offline, no inferencia ni descarga verificada.
+  La herramienta agotó el timeout; exit code del runner no observado, aunque
+  los artefactos fueron recuperados. No se certifica terminación correcta.
+* **Contrato documentado:** 22 columnas; `--task-types`, `--manifest` con `image`
+  y GT legítimo `text`/`markdown`/`blocks`, `--repeats`, `--device cpu|gpu`.
+  GPU rechazada con skip sin fallback CPU; provider efectivo `unverified`.
+  Fórmula usa `result.formulas`, no Markdown de página; legacy `cer_ord=None`.
+* **Límites:** Markdown **N/A / no evaluada** sin GT Markdown/bloques; cinco
+  muestras no son comparación publicable. Sin ganador general ni claims de
+  rendimiento GPU. B3/B4/B5 y post previo conservados como históricos;
+  prevalece B9 en `benchmarks/README.md` y `benchmarks/LINKEDIN.md`.
+* Solo esos dos documentos y este tracker: sin modelos/tests/builds/commits/board.
+  Autorización de commit para Hefesto, no ejecutada por el escriba.
+
 ## 0. Mapa de tareas a tarjetas del board
 
 Board: `pyocrust` (`%LOCALAPPDATA%\hermes\kanban\boards\pyocrust\kanban.db`). Estado leído en `D1` el 2026-10-25 directamente de la base de datos del board.

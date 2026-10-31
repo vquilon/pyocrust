@@ -53,7 +53,7 @@ Ejemplo con un modelo local explícito (sin descarga implícita):
 ```python
 from pyocrust import TaskPredictor
 
-predictor = TaskPredictor("text_detection", models="/ruta/ppocrv6_tiny_det.onnx")
+predictor = TaskPredictor("text_detection", models="/ruta/pp-ocrv6_tiny_det.onnx")
 print(predictor.predict("document.png")["detections"])
 results = predictor.predict_batch(["document.png", "otra.png"])
 ```
