@@ -181,20 +181,37 @@ impl TaskPredictor {
     fn run(&self, py: Python<'_>, images: Vec<RgbImage>) -> PyResult<Vec<Py<PyAny>>> {
         let count = images.len();
         if count == 0 { return Ok(Vec::new()); }
-        let results = py.detach(|| match &self.predictor {
-            Predictor::TextDetection(p) => p.predict(images).map(|r| TaskOutput::SealDetection(r.detections)),
-            Predictor::TextRecognition(p) => p.predict(images).map(|r| TaskOutput::Text((r.texts, r.scores))),
-            Predictor::LayoutDetection(p) => p.predict(images).map(|r| TaskOutput::Layout((r.elements, r.is_reading_order_sorted))),
-            Predictor::TableClassification(p) => p.predict(images).map(|r| TaskOutput::TableClasses(r.classifications)),
-            Predictor::TableStructure(p) => p.predict(images).map(|r| TaskOutput::TableStructure((r.structures, r.bboxes))),
-            Predictor::TableCells(p) => p.predict(images).map(|r| TaskOutput::Cells(r.cells)),
-            Predictor::DocumentOrientation(p) => p.predict(images).map(|r| TaskOutput::Orientation(r.orientations)),
-            Predictor::DocumentRectification(p) => p.predict(images).map(|r| TaskOutput::Rectification(r.images)),
-            Predictor::TextLineOrientation(p) => p.predict(images).map(|r| TaskOutput::LineOrientation(r.orientations)),
-            Predictor::SealTextDetection(p) => p.predict(images).map(|r| TaskOutput::SealDetection(r.detections)),
-            Predictor::FormulaRecognition(p) => p.predict(images).map(|r| TaskOutput::Formula((r.formulas, r.scores))),
-        }).map_err(|error| OcrError::Inference { message: error.to_string(), source: None })?;
-        output_dicts(py, results, count)
+        let output = self.predict_images(py, &images)?;
+        if output.len() >= count {
+            return output_dicts(py, output, count);
+        }
+        // Upstream RT-DETR (oar-ocr-core `models/detection/rtdetr.rs`) reshapes a 2-D
+        // output to a batch of one, so a multi-image request silently keeps only the
+        // first image. Re-run the dropped images on the SAME predictor (built once)
+        // so `predict_batch` still returns one dictionary per input image.
+        let mut dicts = Vec::with_capacity(count);
+        for image in &images {
+            let output = self.predict_images(py, std::slice::from_ref(image))?;
+            dicts.push(output_dicts(py, output, 1)?.pop().expect("one input image"));
+        }
+        Ok(dicts)
+    }
+
+    fn predict_images(&self, py: Python<'_>, images: &[RgbImage]) -> PyResult<TaskOutput> {
+        let batch = images.to_vec();
+        py.detach(move || match &self.predictor {
+            Predictor::TextDetection(p) => p.predict(batch).map(|r| TaskOutput::SealDetection(r.detections)),
+            Predictor::TextRecognition(p) => p.predict(batch).map(|r| TaskOutput::Text((r.texts, r.scores))),
+            Predictor::LayoutDetection(p) => p.predict(batch).map(|r| TaskOutput::Layout((r.elements, r.is_reading_order_sorted))),
+            Predictor::TableClassification(p) => p.predict(batch).map(|r| TaskOutput::TableClasses(r.classifications)),
+            Predictor::TableStructure(p) => p.predict(batch).map(|r| TaskOutput::TableStructure((r.structures, r.bboxes))),
+            Predictor::TableCells(p) => p.predict(batch).map(|r| TaskOutput::Cells(r.cells)),
+            Predictor::DocumentOrientation(p) => p.predict(batch).map(|r| TaskOutput::Orientation(r.orientations)),
+            Predictor::DocumentRectification(p) => p.predict(batch).map(|r| TaskOutput::Rectification(r.images)),
+            Predictor::TextLineOrientation(p) => p.predict(batch).map(|r| TaskOutput::LineOrientation(r.orientations)),
+            Predictor::SealTextDetection(p) => p.predict(batch).map(|r| TaskOutput::SealDetection(r.detections)),
+            Predictor::FormulaRecognition(p) => p.predict(batch).map(|r| TaskOutput::Formula((r.formulas, r.scores))),
+        }).map_err(|error| OcrError::Inference { message: error.to_string(), source: None }.into())
     }
 }
 
@@ -209,6 +226,24 @@ enum TaskOutput {
     LineOrientation(Vec<Vec<oar_ocr::domain::tasks::Classification>>),
     SealDetection(Vec<Vec<oar_ocr::domain::tasks::Detection>>),
     Formula((Vec<String>, Vec<Option<f32>>)),
+}
+
+impl TaskOutput {
+    /// Number of per-image entries returned by the upstream predictor.
+    fn len(&self) -> usize {
+        match self {
+            TaskOutput::Text((values, _)) => values.len(),
+            TaskOutput::Layout((values, _)) => values.len(),
+            TaskOutput::TableClasses(values) => values.len(),
+            TaskOutput::TableStructure((values, _)) => values.len(),
+            TaskOutput::Cells(values) => values.len(),
+            TaskOutput::Orientation(values) => values.len(),
+            TaskOutput::Rectification(values) => values.len(),
+            TaskOutput::LineOrientation(values) => values.len(),
+            TaskOutput::SealDetection(values) => values.len(),
+            TaskOutput::Formula((values, _)) => values.len(),
+        }
+    }
 }
 
 fn output_dicts(py: Python<'_>, output: TaskOutput, count: usize) -> PyResult<Vec<Py<PyAny>>> {
