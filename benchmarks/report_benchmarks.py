@@ -262,6 +262,11 @@ def _pyplot():
     plt.rcParams.update(
         {
             "font.size": 11,
+            "axes.titlesize": 13,
+            "axes.labelsize": 11,
+            "xtick.labelsize": 9,
+            "ytick.labelsize": 9,
+            "legend.fontsize": 9,
             "axes.spines.top": False,
             "axes.spines.right": False,
             "figure.facecolor": "white",
@@ -274,13 +279,100 @@ def _pyplot():
     return plt
 
 
+def _savefig(fig, out: Path) -> None:
+    """Exporta con relleno automatico para que ninguna etiqueta quede cortada."""
+    fig.savefig(out, dpi=160, bbox_inches="tight", facecolor="white")
+
+
+def _wrap_backend(label: str) -> str:
+    """Parte `nombre (variante; tarea)` en dos lineas para que quepa en el eje X."""
+    head, sep, tail = label.partition("(")
+    if sep and label.endswith(")") and head.strip():
+        return f"{head.strip()}\n({tail}"
+
+
+def _readable_xticks(ax, backends: Sequence[str]) -> None:
+    """Etiquetas de eje X legibles: parte cada backend en dos lineas.
+
+    Se aplica *después* de `set_xticklabels` sustituyendo el formateador, de modo
+    que el texto nuevo sobrevive al `draw` sin alterar esa llamada.
+    """
+    from matplotlib.ticker import FixedFormatter
+
+    ax.xaxis.set_major_formatter(FixedFormatter([_wrap_backend(b) for b in backends]))
+
+
+# Anchos aproximados (en "em") por tipo de caracter, para una fuente sans
+# proporcional. No es la metrica exacta de matplotlib, pero basta para repartir
+# cada columna por la anchura de su celda mas ancha (auto-width).
+_NARROW_CHARS = set("iljtfr.,;:!|()[]{}'\"`")
+_WIDE_CHARS = set("mwMW@%&#")
+_CHAR_EM = {"narrow": 0.33, "wide": 0.92, "space": 0.30, "digit": 0.56, "upper": 0.66, "other": 0.54}
+
+
+def _text_width(text: str) -> float:
+    """Anchura aproximada de `text` en em (fuente sans proporcional).
+
+    >>> _text_width("")
+    0.0
+    >>> _text_width("ii") < _text_width("MM")
+    True
+    """
+    width = 0.0
+    for ch in text:
+        if ch in _NARROW_CHARS:
+            width += _CHAR_EM["narrow"]
+        elif ch in _WIDE_CHARS:
+            width += _CHAR_EM["wide"]
+        elif ch == " ":
+            width += _CHAR_EM["space"]
+        elif ch.isdigit():
+            width += _CHAR_EM["digit"]
+        elif ch.isupper():
+            width += _CHAR_EM["upper"]
+        else:
+            width += _CHAR_EM["other"]
+    return width
+
+
+def _table_layout(
+    header: Sequence[str],
+    rows: Sequence[Sequence[str]],
+    fontsize: float = 10.5,
+    pad_em: float = 1.6,
+) -> tuple[list[float], float]:
+    """Auto-width de la tabla: anchos por columna y ancho de figura.
+
+    Para cada columna toma la anchura estimada de su celda mas ancha (cabecera
+    incluida), le suma `pad_em` de relleno y reparte el ancho total en esa
+    proporcion: las columnas con contenido mas ancho reciben mas espacio y el
+    texto no se corta ni invade la columna vecina. La figura crece lo justo
+    para que, a `fontsize`, ninguna celda se desborde.
+
+    >>> widths, _ = _table_layout(["a", "long header"], [["1", "x"]])
+    >>> widths[1] > widths[0]
+    True
+    >>> abs(sum(widths) - 1.0) < 1e-9
+    True
+    """
+    widths = [0.0] * len(header)
+    for row in (header, *rows):
+        for col, cell in enumerate(row):
+            widths[col] = max(widths[col], _text_width(str(cell)))
+    padded = [w + pad_em for w in widths]
+    total = sum(padded) or 1.0
+    col_widths = [w / total for w in padded]
+    # em -> pulgadas a `fontsize` pt, mas un margen para los bordes de figura
+    fig_width = max(11.0, total * fontsize / 72.0 + 0.8)
+    return col_widths, fig_width
+
+
 def plot_table(report: dict[str, dict[str, Any]], out: Path) -> None:
     plt = _pyplot()
     marks = _ranks(report)
     backends = sorted(report.keys())
     labels = [b for b, _l, _f in METRIC_COLUMNS]
-    fig, ax = plt.subplots(figsize=(12, 1.1 + 0.55 * len(backends)))
-    ax.axis("off")
+    header = ["Backend", "n"] + labels
 
     cell_text = []
     for backend in backends:
@@ -293,25 +385,36 @@ def plot_table(report: dict[str, dict[str, Any]], out: Path) -> None:
             row.append(value)
         cell_text.append(row)
 
+    # Auto-width: cada columna recibe la anchura de su celda mas ancha y la
+    # figura crece lo justo para que el texto no se corte ni pise la vecina.
+    col_widths, fig_width = _table_layout(header, cell_text)
+    fig, ax = plt.subplots(figsize=(fig_width, 1.4 + 0.62 * len(backends)))
+    ax.axis("off")
+
     table = ax.table(
         cellText=cell_text,
-        colLabels=["Backend", "n"] + labels,
+        colLabels=header,
         cellLoc="center",
         loc="center",
+        colWidths=col_widths,
     )
     table.auto_set_font_size(False)
     table.set_fontsize(10.5)
-    table.scale(1.0, 1.6)
+    table.scale(1.0, 1.7)
     for (row, col), cell in table.get_celld().items():
         if row == 0:
             cell.set_text_props(weight="bold")
+        # los nombres de backend, alineados a la izquierda y algo menores:
+        # caben en su columna sin invadir la de `n`.
+        if col == 0 and row > 0:
+            cell.set_text_props(ha="left", fontsize=9.5)
     fig.suptitle(
         "pyocrust vs. OCR en Python/Rust — dataset real FUNSD "
         f"({max((d['n'] for d in report.values()), default=0)} imágenes evaluadas)",
         fontsize=13,
         weight="bold",
     )
-    fig.tight_layout()
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
     fig.savefig(out.with_suffix(".png"), dpi=160, bbox_inches="tight", facecolor="white")
     fig.savefig(out.with_suffix(".svg"), bbox_inches="tight", facecolor="white")
     plt.close(fig)
@@ -323,7 +426,7 @@ def plot_quality(report: dict[str, dict[str, Any]], out: Path) -> None:
     x = range(len(backends))
     width = 0.38
 
-    fig, ax = plt.subplots(figsize=(8, 4.6))
+    fig, ax = plt.subplots(figsize=(max(8.0, 1.9 * len(backends) + 2.2), 5.4))
     cer = [report[b]["cer_ord"] if report[b]["cer_ord"] is not None else float("nan") for b in backends]
     f1 = [report[b]["word_f1"] for b in backends]
     bars1 = ax.bar([i - width / 2 for i in x], cer, width,
@@ -337,12 +440,15 @@ def plot_quality(report: dict[str, dict[str, Any]], out: Path) -> None:
                         ha="center", va="bottom", fontsize=8.5)
     ax.set_xticks(list(x))
     ax.set_xticklabels(backends)
-    ax.set_ylim(0, 1.0)
+    _readable_xticks(ax, backends)
+    ax.set_ylim(0, 1.12)
     ax.set_ylabel("Error / acierto")
     ax.set_title("Calidad de OCR sobre FUNSD", fontsize=12, weight="bold")
-    ax.legend(loc="upper right", frameon=False)
+    # leyenda fuera del área de plot: no tapa barras ni anotaciones
+    ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1.0),
+              borderaxespad=0.0, frameon=False)
     fig.tight_layout()
-    fig.savefig(out, dpi=160, bbox_inches="tight", facecolor="white")
+    _savefig(fig, out)
     plt.close(fig)
 
 
@@ -354,7 +460,7 @@ def plot_speed(report: dict[str, dict[str, Any]], out: Path) -> None:
     ms = [report[b]["mean_ms"] for b in backends]
     pps = [report[b]["pages_per_s"] for b in backends]
 
-    fig, ax = plt.subplots(figsize=(8, 4.6))
+    fig, ax = plt.subplots(figsize=(max(9.0, 2.1 * len(backends) + 2.4), 5.6))
     bars = ax.bar([i - width / 2 for i in x], ms, width, label="ms/página ↓",
                   color="#3b6fb0")
     for bar in bars:
@@ -372,33 +478,44 @@ def plot_speed(report: dict[str, dict[str, Any]], out: Path) -> None:
                      ha="center", va="bottom", fontsize=8.5)
     ax.set_xticks(list(x))
     ax.set_xticklabels(backends)
+    _readable_xticks(ax, backends)
     ax.set_ylabel("ms por página")
     ax2.set_ylabel("páginas por segundo")
     ax.set_title("Velocidad de OCR (provider efectivo no instrumentado)", fontsize=12, weight="bold")
     handles = [bars, bars2]
-    ax.legend(handles=[h for h in handles], labels=[h.get_label() for h in handles],
-              loc="upper right", frameon=False)
+    # leyenda fuera del área de plot, a la derecha: no tapa barras
+    ax.legend(handles=handles, labels=[h.get_label() for h in handles],
+              loc="upper left", bbox_to_anchor=(1.10, 1.0),
+              borderaxespad=0.0, frameon=False)
     fig.tight_layout()
-    fig.savefig(out, dpi=160, bbox_inches="tight", facecolor="white")
+    _savefig(fig, out)
     plt.close(fig)
 
 
 def plot_quality_vs_speed(report: dict[str, dict[str, Any]], out: Path) -> None:
     plt = _pyplot()
-    fig, ax = plt.subplots(figsize=(8, 5.2))
-    for backend, data in sorted(report.items()):
-        if not backend.endswith("; text)"):
-            continue
+    fig, ax = plt.subplots(figsize=(9.5, 6.0))
+    text_backends = sorted(b for b in report if b.endswith("; text)"))
+    for index, backend in enumerate(text_backends):
+        data = report[backend]
         ax.scatter(data["pages_per_s"], data["word_f1"], s=140, label=backend, zorder=3)
+        # "escalera" alterna de desplazamientos: los backends con velocidad y
+        # calidad casi iguales no apilan su etiqueta una encima de otra.
+        # ponytail: escalera creciente; con decenas de series, adjustText.
+        steps = 10 + 26 * ((index + 1) // 2)
+        dy = steps if index % 2 == 0 else -steps - 6
         ax.annotate(backend, (data["pages_per_s"], data["word_f1"]),
-                    textcoords="offset points", xytext=(8, 4), fontsize=9.5)
+                    textcoords="offset points", xytext=(12, dy), fontsize=9)
     ax.set_xlabel("páginas por segundo ↑")
     ax.set_ylabel("F1 de palabra ↑")
     ax.set_title("Calidad vs. velocidad — dataset real FUNSD", fontsize=12, weight="bold")
     ax.set_xlim(left=0)
-    ax.set_ylim(0, 1.0)
+    ax.set_ylim(0, 1.05)
+    # leyenda fuera del área de plot: no tapa puntos ni etiquetas
+    ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1.0),
+              borderaxespad=0.0, frameon=False)
     fig.tight_layout()
-    fig.savefig(out, dpi=160, bbox_inches="tight", facecolor="white")
+    _savefig(fig, out)
     plt.close(fig)
 
 
