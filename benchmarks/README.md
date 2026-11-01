@@ -1,5 +1,73 @@
 # Benchmarking de `pyocrust`
 
+## Índice por feature (organización vigente)
+
+`benchmarks/` está organizado **por feature/componente** (como los componentes de
+`oar-ocr`): cada capacidad del paquete tiene su banco, su métrica y sus
+**alternativas Python reales**. Un motor puede cubrir varias features (p. ej. el
+pipeline completo resuelve texto + tablas + fórmulas), pero cada banco mide **una**
+capacidad y se compara contra alternativas comparables.
+
+| Feature | Estado | Tarea `pyocrust` | Métrica | Alternativas reales | Banquillo |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **text** | implementado | `text_detection` + `text_recognition` | CER/WER/`word_f1` + `box_recall`/`box_iou_mean` | rapidocr, easyocr, tesseract, surya, paddleocr, doctrl | `features/text/` |
+| **formula** | implementado | `formula_recognition` (+ pipeline) | `latex_exact`/`latex_sim`/`latex_token_f1` + cobertura LaTeX | **pix2tex, texify, nougat, UniMERNet, Pix2Text, TexTeller, img2latex** | `features/formula/` |
+| layout | esqueleto | `layout_detection` | mAP / IoU por clase | layoutparser, docling, unstructured, paddleocr, TATR | `features/layout/` |
+| orientation | esqueleto | `document_orientation` | accuracy 0/90/180/270 | paddleocr, docling, surya | `features/orientation/` |
+| rectification | esqueleto | `document_rectification` | calidad de enderezado | paddleocr, docling | `features/rectification/` |
+| text_line | esqueleto | `text_line_orientation` | accuracy 0/180 | paddleocr, surya | `features/text_line/` |
+| seal | esqueleto | `seal_text_detection` | IoU / detección | paddleocr (seal), doctrl | `features/seal/` |
+| table | esqueleto | `table_classification`/`_structure`/`_cells` | TEDS / estructura | table-transformer, docling, paddleocr | `features/table/` |
+| full_page | esqueleto | `pp_structurev3` / `indra` | `markdown_f1` / `block_f1` | docling, unstructured, paddleocr, marker-pdf | `features/full_page/` |
+
+Cada carpeta de feature tiene su `README.md` (qué mide, alternativa y métrica) y
+su `bank.py`. El reporte **por feature** se genera con
+`features/report.py` y se guarda junto al banco (`features/<feature>/REPORT.md`).
+
+### Estructura
+
+```text
+benchmarks/
+├── README.md            # este índice + contrato
+├── common/              # runner, métricas y datasets compartidos
+│   ├── runner.py        # orquesta: warmup, repeats, CSV 28 cols, skipped≠ok
+│   ├── metrics.py       # CER/WER/word_f1, markdown_f1, block_f1, cajas, LaTeX
+│   └── datasets.py      # FUNSD, OmniDocBench, recortes de fórmula, manifests
+├── features/<feature>/  # bank.py + README.md (+ REPORT.md tras ejecutar)
+├── results/             # salidas por feature/<run> (NO se versionan)
+└── tests/               # contrato y organización (pytest)
+```
+
+### Cómo correr cada banco
+
+```bash
+# text (FUNSD con cajas GT) — un backend a la vez, CPU
+.venv/Scripts/python.exe benchmarks/features/text/bank.py --limit 5 \
+  --backends pyocrust,rapidocr,easyocr,tesseract,surya,paddleocr,doctrl
+
+# formula (recortes de OmniDocBench; compara contra alternativas que SÍ hacen LaTeX)
+.venv/Scripts/python.exe benchmarks/features/formula/bank.py --limit 10 \
+  --backends pyocrust_formulanet,pyocrust_formula,pyocrust_indra,pix2tex,easyocr,rapidocr --dump-outputs
+
+# esqueleto (imprime su plan y el estado real de sus alternativas)
+.venv/Scripts/python.exe benchmarks/features/layout/bank.py
+
+# reporte por feature (provenance + comparativa + skipped)
+.venv/Scripts/python.exe benchmarks/features/report.py --all
+```
+
+### Regla de provenance (obligatoria)
+
+Todo número en un markdown o gráfico de `benchmarks/` lleva origen explícito:
+
+* **`medido`** — ejecutado por nosotros en este repo; se publica con comando,
+  dataset, `n`, `warmup`, `repeats`, CPU/GPU y fecha (lo guarda el `summary.json`).
+* **`referencia`** — externo (paper, repo, leaderboard), **solo** con URL + tabla/
+  figura + fecha de consulta, marcado como externo. Sin URL verificable **no se pone**.
+
+Nunca se mezclan sin etiquetar. Los artefactos de ejecución (`results/`, CSV
+crudos, `*.outputs.json`) **no se versionan**; solo el markdown con valores.
+
 ## Estado vigente B10 — dataset documental (2026-11-01; prevalece sobre lo anterior)
 
 Primera comparativa sobre un **dataset documental** (páginas de documentos
@@ -146,8 +214,12 @@ CPU solicitado, `provider_effective=unverified`, `warmup=1`, `repeats=1`:
 
 ### Contrato vigente (sustituye las definiciones históricas inferiores)
 
-* **22 columnas**, cabecera exacta:
-  `run_timestamp,backend,dataset,image_id,cer,wer,cer_ord,wer_ord,word_f1,exact_match,elapsed_ms,n_regions,mean_confidence,n_chars_gt,n_chars_pred,status,error,task_type,model_name,model_variant,markdown_f1,block_f1`.
+* **28 columnas** (22 históricas + 6 aditivas), cabecera exacta:
+  `run_timestamp,backend,dataset,image_id,cer,wer,cer_ord,wer_ord,word_f1,exact_match,elapsed_ms,n_regions,mean_confidence,n_chars_gt,n_chars_pred,status,error,task_type,model_name,model_variant,markdown_f1,block_f1,latex_exact,latex_sim,latex_token_f1,feature,box_recall,box_iou_mean`.
+  Las aditivas del banco por feature: `latex_exact`/`latex_sim`/`latex_token_f1`
+  (solo `task_type=formula`), `feature` (banco que produjo la fila) y
+  `box_recall`/`box_iou_mean` (detección; solo si el dataset anota cajas GT, si no
+  quedan vacías). El contrato lo aplica `common/runner.py::CSV_FIELDS`.
 * **Backends** registrados en `run_benchmarks.py --backends`:
   `pyocrust` (`pp_ocrv6` tiny → `text`), `pyocrust_structure` (`pp_structurev3` →
   `structure`), `pyocrust_formula` (`pp_structurev3` + `pp-formulanet-s` →
@@ -213,12 +285,17 @@ Los backends que no están instalados (o cuyos modelos faltan) se registran como
 
 | Fichero | Qué es |
 | :--- | :--- |
-| `run_benchmarks.py` | Runner: carga FUNSD, ejecuta los backends y escribe el CSV + `summary.json` de la run. |
+| `common/runner.py` | Runner **compartido** (movido aquí en la reorganización por feature): carga el dataset, ejecuta los backends (un modelo a la vez), `warmup`/`repeats` y escribe el CSV de 28 columnas + `summary.json` (con comando y parámetros = provenance). |
+| `common/metrics.py` | Métricas: CER/WER/`word_f1`, `cer_ord`/`wer_ord`, `markdown_f1`, `block_f1`, cajas (`iou`/`box_metrics`) y LaTeX (reexporta `latex_metrics.py`). |
+| `common/datasets.py` | Carga de datasets con GT: FUNSD (texto + cajas), OmniDocBench (texto + LaTeX), recortes de fórmula y manifests locales. |
+| `features/<feature>/bank.py` | Banco **por feature** (text, formula implementados; resto esqueletos documentados). |
+| `features/<feature>/REPORT.md` | Reporte por feature (provenance + comparativa + `skipped`), generado por `features/report.py`. |
+| `run_benchmarks.py` | CLI histórica, viva: mantiene el mismo contrato de CSV que `common/runner.py` (22 columnas + aditivas) y sigue siendo el driver de las runs de página completa. Los bancos por feature usan `common/runner.py`. |
 | `report_benchmarks.py` | Agrega los CSV y escribe tablas (`.md`, `.tex`, `.png`, `.svg`) y gráficos en `output_examples/`. |
-| `results/<timestamp>/` | Salida por run: `<timestamp>.csv`, `<timestamp>.meta.json`, `<backend>.meta.json` y `summary.json`. |
-| `output_examples/` | Artefactos listos para publicar: `benchmark_table.md`, `benchmark_summary.json`, gráficos. |
-| `data_cache/` | Caché local de FUNSD (`nielsr/funsd`) descargado con `datasets`. |
-| `tests/` | Pruebas funcionales de `pyocrust` sobre FUNSD (`pytest`); las añade la tarjeta `B5` y no forman parte del runner ni del reportero. |
+| `results/<feature>/<run>/` | Salida por run: `<ts>.csv`, `<ts>.meta.json`, `<backend>.meta.json` y `summary.json`. **No se versiona.** |
+| `output_examples/` | Artefactos listos para publicar: `benchmark_table.md`, `benchmark_summary.json`, gráficos. Mutable. |
+| `data_cache/` | Caché local de FUNSD (`nielsr/funsd`) y OmniDocBench. Gitignored. |
+| `tests/` | Contrato del CSV/organización por feature (`test_features.py`) y pruebas funcionales (`test_functional.py`). |
 
 ## Cómo ejecutarlo
 
