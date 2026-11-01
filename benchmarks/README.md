@@ -1,6 +1,72 @@
 # Benchmarking de `pyocrust`
 
-## Estado vigente — comparativa multi-tarea (2026-11-01)
+## Estado vigente B10 — dataset documental (2026-11-01; prevalece sobre lo anterior)
+
+Primera comparativa sobre un **dataset documental** (páginas de documentos
+reales, no formularios FUNSD): **`opendatalab/OmniDocBench`** v1.6 — 1651 páginas
+de 10 tipos de documento y 5 idiomas (literatura académica, informes, periódicos,
+libros, exámenes, notas manuscritas…), con **GT por anotaciones**: cada bloque de
+la página trae su `text` o su `latex` y su **orden de lectura**. Cubre las cuatro
+casuísticas de `pyocrust` (`text`, `structure`, `formula`, `full_page`).
+
+Run `benchmarks/results/2026-11-01_15-13-03`:
+
+```bash
+.venv/Scripts/python.exe benchmarks/run_benchmarks.py --dataset omnidocbench \
+  --limit 25 --backends pyocrust,pyocrust_structure,pyocrust_formula,pyocrust_indra,rapidocr,easyocr,tesseract \
+  --task-types text,structure,formula,full_page --warmup 1 --repeats 1 --device cpu
+```
+
+**25 imágenes por backend**, un backend/modelo cargado a la vez, **150 filas `ok`
+y 0 errores**; `tesseract` **skipped** (no instalado). Muestras por `task_type`:
+**`text` 75** (tres backends), **`structure` 25**, **`formula` 25**,
+**`full_page` 25** — todas **≥ 20**.
+
+Tabla (generada por el reportero, `output_examples/benchmark_table.md`):
+
+| Backend (variante; tarea) | n | F1 Markdown ↑ | F1 bloques ↑ | F1 palabra ↑ | WER ord. ↓ | CER ↓ | WER ↓ | ms/pág. | págs/s |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| **pyocrust** (tiny; text) | 25 | N/A | N/A | **0.274** | 1.661 | 1.041 | 1.698 | **1551** | **0.64** |
+| rapidocr (default; text) | 25 | N/A | N/A | _0.251_ | **1.380** | 0.966 | 1.420 | 8445 | 0.12 |
+| easyocr (default; text) | 25 | N/A | N/A | 0.261 | 1.685 | 1.059 | 1.721 | 10937 | 0.09 |
+| pyocrust_indra (math; full_page) | 25 | N/A | N/A | 0.259 | 2.945 | 3.443 | 3.001 | _1045_ | 0.96 |
+| pyocrust_structure (default; structure) | 25 | N/A | N/A | 0.216 | 3.608 | 7.196 | 3.647 | 8288 | 0.12 |
+| pyocrust_formula (pp-formulanet-s; formula) | 25 | N/A | N/A | 0.004 | 2.527 | 1.876 | 2.527 | 8681 | 0.12 |
+
+**GT sin inventar.** `gt_text` es el **texto anotado de los bloques de prosa en su
+orden de lectura** (`run_benchmarks.py::_odb_page_text`); las fórmulas/tablas
+(solo `latex`) quedan fuera del GT de texto para no mezclar modalidades. La tarea
+`formula` se puntúa contra el **LaTeX anotado** de las fórmulas de la página
+(`gt_by_task["formula"]` ← `_odb_page_formulas`). La release **no** publica un
+Markdown de página ya renderizado —su anotación es el mismo JSON de bloques—, así
+que `markdown_f1`/`block_f1` quedan **N/A** y la calidad Markdown/bloques se marca
+**no evaluada** (regla: no inventar GT).
+
+**Lectura honesta.** Sobre páginas reales y difíciles (multicolumna, matemáticas,
+varios idiomas), y **solo entre los tres backends de `text`**:
+
+* **Reconocimiento: prácticamente empate.** `pyocrust` gana por poco el **F1 de
+  palabra** (0.274 vs 0.251 de `rapidocr` y 0.261 de `easyocr`); el **WER
+  orden-neutralizado** lo gana `rapidocr` (1.380 vs 1.661). Con 25 páginas de
+  OmniDocBench esas diferencias **no separan** a los motores.
+* **Velocidad: gana `pyocrust`.** 1551 ms/página ≈ **5,4× más rápido que
+  `rapidocr`** y **≈7,0× que `easyocr`** (CPU, modelo Tiny, un backend a la vez).
+* `pyocrust_indra` (`full_page`) es el más rápido de todos (1045 ms/página) y
+  reconoce a la altura de los de texto. `structure`/`formula` **corren**, pero su
+  calidad de tabla/matemática **no está medida**: no hay Markdown/LaTeX de página
+  como referencia exportada, solo su tiempo y un `F1 palabra` parcial.
+  `pyocrust_formula` emite LaTeX: su `F1 palabra=0.004` frente al LaTeX anotado
+  refleja diferencia de **formato**, no ausencia de reconocimiento.
+* **Sin ganador general.** `markdown_f1`/`block_f1` en N/A y velocidades de tareas
+  distintas no permiten un ranking global; `model_variant` es nominal y
+  `provider_effective="unverified"`.
+
+Detalles de carga y descarga: `--dataset omnidocbench` descarga y cachea la
+anotación (`OmniDocBench.json`, 42 MB) y **solo las imágenes de las páginas
+elegidas** en `benchmarks/data_cache/` (gitignored); la selección prioriza
+páginas con tabla o fórmula. Requiere `huggingface_hub`.
+
+## Estado anterior — comparativa multi-tarea (2026-11-01)
 
 Run `results/2026-11-01_15-04-00`: FUNSD `train`, **10 imágenes por backend**,
 **CPU**, `warmup=1`, `repeats=1`, `device=cpu`, Tiny en `text`. CSV de **22

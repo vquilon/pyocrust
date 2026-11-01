@@ -188,6 +188,10 @@ class Sample:
     gt_text: str
     gt_markdown: str | None = None
     gt_blocks: tuple[str, ...] | None = None
+    # Per-task GT override for `gt_text`: some datasets carry modality-specific
+    # references (e.g. OmniDocBench annotates each display formula's LaTeX), so
+    # the formula task can be scored against formula GT instead of page prose.
+    gt_by_task: dict[str, str] | None = None
 
 
 def load_local(manifest: Path, limit: int | None = None) -> list[Sample]:
@@ -263,6 +267,99 @@ def load_funsd(split: str = "train", limit: int | None = None) -> list[Sample]:
             )
         )
     marker.write_text(f"{len(samples)} samples\n", encoding="utf-8")
+    return samples
+
+
+# ---------------------------------------------------------------------------
+# Dataset documental: OmniDocBench (paginas de documentos reales con GT)
+# ---------------------------------------------------------------------------
+#
+# `opendatalab/OmniDocBench` (v1.6, 1651 paginas) anota cada bloque de la
+# pagina (parrafos, titulos, tablas, formulas, ...) con su `text` o su `latex`
+# y da el **orden de lectura** (`order`). El GT de texto de una pagina es, por
+# tanto, su contenido anotado en ese orden: no se inventa nada.
+#
+# La release (HF) **no** publica un Markdown de pagina ya renderizado —su
+# `answer`/anotacion es el mismo JSON de bloques—, asi que `gt_markdown` y
+# `gt_blocks` quedan a `None` y la calidad Markdown/bloques se reporta como
+# **no evaluada** (regla de la tarjeta: no inventar GT). Lo que si da el dataset
+# es el **LaTeX de cada formula** (`equation_isolated`), que se usa como GT de la
+# tarea `formula` via `gt_by_task`.
+
+OMNIDOCBENCH_REPO = "opendatalab/OmniDocBench"
+
+
+def _odb_block_content(det: dict) -> str:
+    """Texto anotado de un bloque de prosa (parrafo, titulo, pie, ...).
+
+    Las formulas y tablas anotadas solo traen `latex`/`html`; se dejan fuera del
+    GT de texto para no mezclar modalidades: su referencia viaja aparte en
+    `gt_by_task["formula"]`.
+    """
+    return str(det.get("text") or "")
+
+
+def _odb_page_text(page: dict) -> str:
+    """GT de texto de la pagina: bloques no ignorados, en orden de lectura."""
+    blocks = [d for d in page["layout_dets"] if not d.get("ignore")]
+    blocks.sort(key=lambda d: d.get("order") or (1 << 30))
+    return " ".join(filter(None, (_odb_block_content(d) for d in blocks)))
+
+
+def _odb_page_formulas(page: dict) -> str:
+    """GT LaTeX de las formulas mostradas (`equation_isolated`) de la pagina."""
+    blocks = [d for d in page["layout_dets"]
+              if not d.get("ignore") and d["category_type"] == "equation_isolated"]
+    blocks.sort(key=lambda d: d.get("order") or (1 << 30))
+    return "\n".join(filter(None, (d.get("latex") for d in blocks)))
+
+
+def load_omnidocbench(limit: int | None = None, cache_dir: Path | None = None) -> list[Sample]:
+    """Carga OmniDocBench (dataset documental con GT) desde Hugging Face.
+
+    Descarga y cachea la anotacion y solo las imagenes de las paginas elegidas
+    en `benchmarks/data_cache` (gitignored). La seleccion prioriza paginas con
+    tabla o formula para cubrir las casuisticas de `pyocrust` (estructura,
+    formulas) sin dejar de lado las de texto.
+    """
+    try:
+        from huggingface_hub import hf_hub_download
+    except ImportError as exc:  # pragma: no cover - entorno sin huggingface_hub
+        raise ProviderUnavailable(
+            "pip install huggingface_hub para descargar OmniDocBench"
+        ) from exc
+
+    cache = cache_dir or (HERE / "data_cache")
+    cache.mkdir(parents=True, exist_ok=True)
+    ann = hf_hub_download(OMNIDOCBENCH_REPO, "OmniDocBench.json",
+                          repo_type="dataset", cache_dir=str(cache))
+    pages = json.loads(Path(ann).read_text(encoding="utf-8"))
+
+    def kinds(page: dict) -> set[str]:
+        return {d["category_type"] for d in page["layout_dets"] if not d.get("ignore")}
+
+    # Deterministic: rich pages (tabla o formula) primero, luego el resto.
+    rich_idx = [i for i, p in enumerate(pages) if kinds(p) & {"table", "equation_isolated"}]
+    rest_idx = [i for i in range(len(pages)) if i not in set(rich_idx)]
+    ordered = [pages[i] for i in (rich_idx + rest_idx)]
+    if limit is not None:
+        ordered = ordered[:limit]
+
+    samples: list[Sample] = []
+    for page in ordered:
+        name = str(page["page_info"]["image_path"])
+        path = hf_hub_download(OMNIDOCBENCH_REPO, f"images/{name}",
+                               repo_type="dataset", cache_dir=str(cache))
+        formulas = _odb_page_formulas(page)
+        samples.append(Sample(
+            image_id=name,
+            image=Image.open(path).convert("RGB"),
+            gt_text=_odb_page_text(page),
+            gt_markdown=None,
+            gt_blocks=None,
+            gt_by_task={"formula": formulas} if formulas else None,
+        ))
+    (cache / "omnidocbench.ok").write_text(f"{len(samples)} samples\n", encoding="utf-8")
     return samples
 
 
@@ -503,21 +600,24 @@ def run_benchmark(
             )
             continue
 
+        # Tareas con GT propio (p. ej. `formula` -> LaTeX anotado) se puntuan
+        # contra su referencia; el resto usa el GT de texto de la pagina.
+        gt = sample.gt_by_task.get(task_type, sample.gt_text) if sample.gt_by_task else sample.gt_text
         rows.append(
             {
                 "backend": backend,
                 "dataset": dataset,
                 "image_id": sample.image_id,
-                "cer": cer(sample.gt_text, output.text),
-                "wer": wer(sample.gt_text, output.text),
-                "cer_ord": cer_ord(sample.gt_text, output.text),
-                "wer_ord": wer_ord(sample.gt_text, output.text),
-                "word_f1": word_f1(sample.gt_text, output.text),
-                "exact_match": float(normalize(sample.gt_text) == normalize(output.text)),
+                "cer": cer(gt, output.text),
+                "wer": wer(gt, output.text),
+                "cer_ord": cer_ord(gt, output.text),
+                "wer_ord": wer_ord(gt, output.text),
+                "word_f1": word_f1(gt, output.text),
+                "exact_match": float(normalize(gt) == normalize(output.text)),
                 "elapsed_ms": round(output.elapsed_ms, 3),
                 "n_regions": output.n_regions,
                 "mean_confidence": round(output.mean_confidence, 4),
-                "n_chars_gt": len(normalize(sample.gt_text)),
+                "n_chars_gt": len(normalize(gt)),
                 "n_chars_pred": len(normalize(output.text)),
                 "status": "ok",
                 "error": "",
@@ -575,7 +675,7 @@ def write_csv(rows: Sequence[dict], out_dir: Path, timestamp: str) -> Path:
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Benchmark de OCR sobre FUNSD")
-    parser.add_argument("--dataset", default=DEFAULT_DATASET, choices=["funsd"])
+    parser.add_argument("--dataset", default=DEFAULT_DATASET, choices=["funsd", "omnidocbench"])
     parser.add_argument("--split", default="train")
     parser.add_argument("--limit", type=int, default=20, help="imagenes a evaluar")
     parser.add_argument(
@@ -599,7 +699,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"[dataset] {args.dataset} split={args.split} limit={args.limit}")
-    samples = load_local(args.manifest, args.limit) if args.manifest else load_funsd(split=args.split, limit=args.limit)
+    if args.manifest:
+        samples = load_local(args.manifest, args.limit)
+    elif args.dataset == "omnidocbench":
+        samples = load_omnidocbench(limit=args.limit)
+    else:
+        samples = load_funsd(split=args.split, limit=args.limit)
     if args.manifest:
         args.dataset = str(args.manifest.resolve())
     print(f"[dataset] {len(samples)} muestras cargadas")

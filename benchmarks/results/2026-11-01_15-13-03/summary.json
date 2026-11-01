@@ -1,0 +1,936 @@
+{
+  "timestamp": "2026-11-01_15-13-03",
+  "runtime": {
+    "python": "3.14.9",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 198 Stepping 2, GenuineIntel",
+    "pyocrust": "0.1.0"
+  },
+  "backends": {
+    "pyocrust": {
+      "backend": "pyocrust",
+      "dataset": "omnidocbench",
+      "status": "ok",
+      "task_type": "text",
+      "model_name": "pp_ocrv6",
+      "model_variant": "tiny",
+      "device_requested": "cpu",
+      "provider_effective": "unverified",
+      "repeats": 1,
+      "load_ms": 229.71720000350615,
+      "warmup": 1,
+      "input": "identical re-encoded PNG bytes for every adapter; no per-backend resize or preprocess; conversion excluded from timing",
+      "image_sizes": {
+        "page-d1561665-5359-42fe-920c-d6e3bff81953.png": [
+          1653,
+          2339
+        ],
+        "page-bd6eb36e-0856-4d9d-b587-21b4a0209c8b.png": [
+          1653,
+          2339
+        ],
+        "page-14cd673f-d86d-45a7-a13e-2b4e1d91c08f.png": [
+          1654,
+          2339
+        ],
+        "page-ba4443e6-f432-435f-89e7-ddf0a571d2cd.png": [
+          2000,
+          1500
+        ],
+        "page-74c7629d-b064-4b8f-8667-bf943f5ba367.png": [
+          1209,
+          1832
+        ],
+        "page-c9654418-0624-48d4-8be7-6065f45dd1f9.png": [
+          1654,
+          2339
+        ],
+        "page-0a262e27-b24d-4429-9b21-90563d4fada7.png": [
+          1653,
+          2339
+        ],
+        "page-99c0fd2f-608e-479c-9af5-5b012de4f6af.png": [
+          1654,
+          2339
+        ],
+        "page-f9583127-1277-4424-be9d-35430e0aedd6.png": [
+          1700,
+          2200
+        ],
+        "page-573c437e-c309-4483-a038-ef2f440b104a.png": [
+          1653,
+          2339
+        ],
+        "page-cdd33cf6-76ce-42bb-a99c-342c861afed0.png": [
+          1654,
+          2339
+        ],
+        "page-39d18b46-ad1b-4c7a-b7e2-132471c27c15.png": [
+          1654,
+          2339
+        ],
+        "page-e2fbf592-51f5-431a-8ae6-0c62e3349e89.png": [
+          1654,
+          2338
+        ],
+        "page-7dfc88d8-6d95-446c-b910-2410e8552f76.png": [
+          1654,
+          2339
+        ],
+        "page-4b8f8a9d-e061-4207-a42e-ebf9b7090099.png": [
+          1654,
+          2339
+        ],
+        "page-bb98165a-8033-4ea4-a527-58ac974f2c32.png": [
+          1653,
+          2339
+        ],
+        "page-8c21f73a-b849-4f71-9573-57d50fbcc180.png": [
+          1653,
+          2339
+        ],
+        "page-1853e666-6f83-432c-afc8-923ce8cf0fea.png": [
+          1653,
+          2339
+        ],
+        "page-b21c7247-a843-4316-a44d-c3365077f077.png": [
+          1654,
+          2339
+        ],
+        "page-d43b98f8-6a96-44f8-a3cf-65de9397f582.png": [
+          1654,
+          2339
+        ],
+        "page-44a14308-9d3e-4044-9508-5c3e30141a19.png": [
+          1654,
+          2339
+        ],
+        "page-67013be9-58e5-4842-809d-7a3c1fc91fc7.png": [
+          1654,
+          2339
+        ],
+        "page-39551bb3-1b65-4562-b258-1bc97898cdf9.png": [
+          2339,
+          1654
+        ],
+        "page-49776237-a9be-441d-a326-002eb7084385.png": [
+          1700,
+          2200
+        ],
+        "page-30aa7cae-34fd-4b0b-b01a-fd35ff3bdfea.png": [
+          1700,
+          2200
+        ]
+      },
+      "inference_ms": [
+        1533.2145999927889,
+        1372.805300001346,
+        1819.3256999948062,
+        1202.109300000302,
+        1081.0186999951839,
+        1497.5656000024173,
+        1553.8188999998965,
+        1583.0200999989756,
+        1937.2330000041984,
+        1586.7465999981505,
+        1424.8098999960348,
+        1318.8724999999977,
+        1697.1682000003057,
+        1413.5409999944386,
+        1639.587700003176,
+        1618.8580000016373,
+        1803.9441000000807,
+        1858.6738999947556,
+        1478.1468000001041,
+        1554.4552999999723,
+        1554.335100001481,
+        1857.0500999994692,
+        1429.9736999964807,
+        1578.204999997979,
+        1374.262200006342
+      ],
+      "p95_ms": 1858.6738999947556,
+      "markdown_quality": "not_evaluated",
+      "n_images": 25,
+      "n_ok": 25,
+      "n_error": 0,
+      "errors": [],
+      "mean_cer": 1.0412297821279741,
+      "mean_word_f1": 0.2738822464409885,
+      "mean_ms": 1550.74968
+    },
+    "pyocrust_structure": {
+      "backend": "pyocrust_structure",
+      "dataset": "omnidocbench",
+      "status": "ok",
+      "task_type": "structure",
+      "model_name": "pp_structurev3",
+      "model_variant": "default",
+      "device_requested": "cpu",
+      "provider_effective": "unverified",
+      "repeats": 1,
+      "load_ms": 3687.6144999987446,
+      "warmup": 1,
+      "input": "identical re-encoded PNG bytes for every adapter; no per-backend resize or preprocess; conversion excluded from timing",
+      "image_sizes": {
+        "page-d1561665-5359-42fe-920c-d6e3bff81953.png": [
+          1653,
+          2339
+        ],
+        "page-bd6eb36e-0856-4d9d-b587-21b4a0209c8b.png": [
+          1653,
+          2339
+        ],
+        "page-14cd673f-d86d-45a7-a13e-2b4e1d91c08f.png": [
+          1654,
+          2339
+        ],
+        "page-ba4443e6-f432-435f-89e7-ddf0a571d2cd.png": [
+          2000,
+          1500
+        ],
+        "page-74c7629d-b064-4b8f-8667-bf943f5ba367.png": [
+          1209,
+          1832
+        ],
+        "page-c9654418-0624-48d4-8be7-6065f45dd1f9.png": [
+          1654,
+          2339
+        ],
+        "page-0a262e27-b24d-4429-9b21-90563d4fada7.png": [
+          1653,
+          2339
+        ],
+        "page-99c0fd2f-608e-479c-9af5-5b012de4f6af.png": [
+          1654,
+          2339
+        ],
+        "page-f9583127-1277-4424-be9d-35430e0aedd6.png": [
+          1700,
+          2200
+        ],
+        "page-573c437e-c309-4483-a038-ef2f440b104a.png": [
+          1653,
+          2339
+        ],
+        "page-cdd33cf6-76ce-42bb-a99c-342c861afed0.png": [
+          1654,
+          2339
+        ],
+        "page-39d18b46-ad1b-4c7a-b7e2-132471c27c15.png": [
+          1654,
+          2339
+        ],
+        "page-e2fbf592-51f5-431a-8ae6-0c62e3349e89.png": [
+          1654,
+          2338
+        ],
+        "page-7dfc88d8-6d95-446c-b910-2410e8552f76.png": [
+          1654,
+          2339
+        ],
+        "page-4b8f8a9d-e061-4207-a42e-ebf9b7090099.png": [
+          1654,
+          2339
+        ],
+        "page-bb98165a-8033-4ea4-a527-58ac974f2c32.png": [
+          1653,
+          2339
+        ],
+        "page-8c21f73a-b849-4f71-9573-57d50fbcc180.png": [
+          1653,
+          2339
+        ],
+        "page-1853e666-6f83-432c-afc8-923ce8cf0fea.png": [
+          1653,
+          2339
+        ],
+        "page-b21c7247-a843-4316-a44d-c3365077f077.png": [
+          1654,
+          2339
+        ],
+        "page-d43b98f8-6a96-44f8-a3cf-65de9397f582.png": [
+          1654,
+          2339
+        ],
+        "page-44a14308-9d3e-4044-9508-5c3e30141a19.png": [
+          1654,
+          2339
+        ],
+        "page-67013be9-58e5-4842-809d-7a3c1fc91fc7.png": [
+          1654,
+          2339
+        ],
+        "page-39551bb3-1b65-4562-b258-1bc97898cdf9.png": [
+          2339,
+          1654
+        ],
+        "page-49776237-a9be-441d-a326-002eb7084385.png": [
+          1700,
+          2200
+        ],
+        "page-30aa7cae-34fd-4b0b-b01a-fd35ff3bdfea.png": [
+          1700,
+          2200
+        ]
+      },
+      "inference_ms": [
+        9440.228200001002,
+        8025.688500005344,
+        5678.977600000508,
+        7014.649999997346,
+        14042.57100000541,
+        11677.018500005943,
+        11606.25070000242,
+        5943.85119999788,
+        6004.195499997877,
+        7806.970799996634,
+        5656.093599995074,
+        6700.666999997338,
+        22024.386299999605,
+        6449.551699995936,
+        9781.408799994097,
+        6226.296799999545,
+        7917.458500000066,
+        7414.548600005219,
+        6484.840799996164,
+        5635.229299994535,
+        6376.979100001336,
+        6489.531999999599,
+        7063.80899999931,
+        8444.647099997383,
+        7295.279700003448
+      ],
+      "p95_ms": 14042.57100000541,
+      "markdown_quality": "not_evaluated",
+      "n_images": 25,
+      "n_ok": 25,
+      "n_error": 0,
+      "errors": [],
+      "mean_cer": 7.196468080855993,
+      "mean_word_f1": 0.21640739424846894,
+      "mean_ms": 8288.04532
+    },
+    "pyocrust_formula": {
+      "backend": "pyocrust_formula",
+      "dataset": "omnidocbench",
+      "status": "ok",
+      "task_type": "formula",
+      "model_name": "pp_structurev3",
+      "model_variant": "pp-formulanet-s",
+      "device_requested": "cpu",
+      "provider_effective": "unverified",
+      "repeats": 1,
+      "load_ms": 3929.074600004242,
+      "warmup": 1,
+      "input": "identical re-encoded PNG bytes for every adapter; no per-backend resize or preprocess; conversion excluded from timing",
+      "image_sizes": {
+        "page-d1561665-5359-42fe-920c-d6e3bff81953.png": [
+          1653,
+          2339
+        ],
+        "page-bd6eb36e-0856-4d9d-b587-21b4a0209c8b.png": [
+          1653,
+          2339
+        ],
+        "page-14cd673f-d86d-45a7-a13e-2b4e1d91c08f.png": [
+          1654,
+          2339
+        ],
+        "page-ba4443e6-f432-435f-89e7-ddf0a571d2cd.png": [
+          2000,
+          1500
+        ],
+        "page-74c7629d-b064-4b8f-8667-bf943f5ba367.png": [
+          1209,
+          1832
+        ],
+        "page-c9654418-0624-48d4-8be7-6065f45dd1f9.png": [
+          1654,
+          2339
+        ],
+        "page-0a262e27-b24d-4429-9b21-90563d4fada7.png": [
+          1653,
+          2339
+        ],
+        "page-99c0fd2f-608e-479c-9af5-5b012de4f6af.png": [
+          1654,
+          2339
+        ],
+        "page-f9583127-1277-4424-be9d-35430e0aedd6.png": [
+          1700,
+          2200
+        ],
+        "page-573c437e-c309-4483-a038-ef2f440b104a.png": [
+          1653,
+          2339
+        ],
+        "page-cdd33cf6-76ce-42bb-a99c-342c861afed0.png": [
+          1654,
+          2339
+        ],
+        "page-39d18b46-ad1b-4c7a-b7e2-132471c27c15.png": [
+          1654,
+          2339
+        ],
+        "page-e2fbf592-51f5-431a-8ae6-0c62e3349e89.png": [
+          1654,
+          2338
+        ],
+        "page-7dfc88d8-6d95-446c-b910-2410e8552f76.png": [
+          1654,
+          2339
+        ],
+        "page-4b8f8a9d-e061-4207-a42e-ebf9b7090099.png": [
+          1654,
+          2339
+        ],
+        "page-bb98165a-8033-4ea4-a527-58ac974f2c32.png": [
+          1653,
+          2339
+        ],
+        "page-8c21f73a-b849-4f71-9573-57d50fbcc180.png": [
+          1653,
+          2339
+        ],
+        "page-1853e666-6f83-432c-afc8-923ce8cf0fea.png": [
+          1653,
+          2339
+        ],
+        "page-b21c7247-a843-4316-a44d-c3365077f077.png": [
+          1654,
+          2339
+        ],
+        "page-d43b98f8-6a96-44f8-a3cf-65de9397f582.png": [
+          1654,
+          2339
+        ],
+        "page-44a14308-9d3e-4044-9508-5c3e30141a19.png": [
+          1654,
+          2339
+        ],
+        "page-67013be9-58e5-4842-809d-7a3c1fc91fc7.png": [
+          1654,
+          2339
+        ],
+        "page-39551bb3-1b65-4562-b258-1bc97898cdf9.png": [
+          2339,
+          1654
+        ],
+        "page-49776237-a9be-441d-a326-002eb7084385.png": [
+          1700,
+          2200
+        ],
+        "page-30aa7cae-34fd-4b0b-b01a-fd35ff3bdfea.png": [
+          1700,
+          2200
+        ]
+      },
+      "inference_ms": [
+        9041.242699997383,
+        8577.053699998942,
+        6274.131499994837,
+        6970.483499993861,
+        14224.760099998093,
+        12299.469800003862,
+        13024.213099997723,
+        5950.615199995809,
+        7044.005299998389,
+        8383.973399999377,
+        5707.995600001595,
+        6376.7771999991965,
+        20938.094099998125,
+        6619.155000000319,
+        10013.498300002539,
+        6357.8347000002395,
+        8777.000399997632,
+        8719.782499996654,
+        7053.658199998608,
+        6304.662599999574,
+        7661.568599993188,
+        7593.795000000682,
+        7079.113799998595,
+        8340.370899997652,
+        7698.319100003573
+      ],
+      "p95_ms": 14224.760099998093,
+      "markdown_quality": "not_evaluated",
+      "n_images": 25,
+      "n_ok": 25,
+      "n_error": 0,
+      "errors": [],
+      "mean_cer": 1.8756281445689995,
+      "mean_word_f1": 0.003808518683206486,
+      "mean_ms": 8681.262920000001
+    },
+    "pyocrust_indra": {
+      "backend": "pyocrust_indra",
+      "dataset": "omnidocbench",
+      "status": "ok",
+      "task_type": "full_page",
+      "model_name": "indra",
+      "model_variant": "math",
+      "device_requested": "cpu",
+      "provider_effective": "unverified",
+      "repeats": 1,
+      "load_ms": 754.8774999959278,
+      "warmup": 1,
+      "input": "identical re-encoded PNG bytes for every adapter; no per-backend resize or preprocess; conversion excluded from timing",
+      "image_sizes": {
+        "page-d1561665-5359-42fe-920c-d6e3bff81953.png": [
+          1653,
+          2339
+        ],
+        "page-bd6eb36e-0856-4d9d-b587-21b4a0209c8b.png": [
+          1653,
+          2339
+        ],
+        "page-14cd673f-d86d-45a7-a13e-2b4e1d91c08f.png": [
+          1654,
+          2339
+        ],
+        "page-ba4443e6-f432-435f-89e7-ddf0a571d2cd.png": [
+          2000,
+          1500
+        ],
+        "page-74c7629d-b064-4b8f-8667-bf943f5ba367.png": [
+          1209,
+          1832
+        ],
+        "page-c9654418-0624-48d4-8be7-6065f45dd1f9.png": [
+          1654,
+          2339
+        ],
+        "page-0a262e27-b24d-4429-9b21-90563d4fada7.png": [
+          1653,
+          2339
+        ],
+        "page-99c0fd2f-608e-479c-9af5-5b012de4f6af.png": [
+          1654,
+          2339
+        ],
+        "page-f9583127-1277-4424-be9d-35430e0aedd6.png": [
+          1700,
+          2200
+        ],
+        "page-573c437e-c309-4483-a038-ef2f440b104a.png": [
+          1653,
+          2339
+        ],
+        "page-cdd33cf6-76ce-42bb-a99c-342c861afed0.png": [
+          1654,
+          2339
+        ],
+        "page-39d18b46-ad1b-4c7a-b7e2-132471c27c15.png": [
+          1654,
+          2339
+        ],
+        "page-e2fbf592-51f5-431a-8ae6-0c62e3349e89.png": [
+          1654,
+          2338
+        ],
+        "page-7dfc88d8-6d95-446c-b910-2410e8552f76.png": [
+          1654,
+          2339
+        ],
+        "page-4b8f8a9d-e061-4207-a42e-ebf9b7090099.png": [
+          1654,
+          2339
+        ],
+        "page-bb98165a-8033-4ea4-a527-58ac974f2c32.png": [
+          1653,
+          2339
+        ],
+        "page-8c21f73a-b849-4f71-9573-57d50fbcc180.png": [
+          1653,
+          2339
+        ],
+        "page-1853e666-6f83-432c-afc8-923ce8cf0fea.png": [
+          1653,
+          2339
+        ],
+        "page-b21c7247-a843-4316-a44d-c3365077f077.png": [
+          1654,
+          2339
+        ],
+        "page-d43b98f8-6a96-44f8-a3cf-65de9397f582.png": [
+          1654,
+          2339
+        ],
+        "page-44a14308-9d3e-4044-9508-5c3e30141a19.png": [
+          1654,
+          2339
+        ],
+        "page-67013be9-58e5-4842-809d-7a3c1fc91fc7.png": [
+          1654,
+          2339
+        ],
+        "page-39551bb3-1b65-4562-b258-1bc97898cdf9.png": [
+          2339,
+          1654
+        ],
+        "page-49776237-a9be-441d-a326-002eb7084385.png": [
+          1700,
+          2200
+        ],
+        "page-30aa7cae-34fd-4b0b-b01a-fd35ff3bdfea.png": [
+          1700,
+          2200
+        ]
+      },
+      "inference_ms": [
+        1136.505299997225,
+        1286.6327000010642,
+        640.6440999999177,
+        528.6066999979084,
+        3196.179900005518,
+        711.2575999999535,
+        1265.4668999966816,
+        757.3035000023083,
+        1181.1438999939128,
+        1022.1412999962922,
+        1372.7433000021847,
+        572.4715999967884,
+        1435.0491000004695,
+        1229.9302000028547,
+        607.0971000008285,
+        796.2979000003543,
+        1175.076399995305,
+        1450.5561999976635,
+        582.6391000009608,
+        1152.7512000029674,
+        635.2673000001232,
+        893.87639999768,
+        720.1837000029627,
+        871.1241999990307,
+        898.3842000016011
+      ],
+      "p95_ms": 1450.5561999976635,
+      "markdown_quality": "not_evaluated",
+      "n_images": 25,
+      "n_ok": 25,
+      "n_error": 0,
+      "errors": [],
+      "mean_cer": 3.443173244975705,
+      "mean_word_f1": 0.2591610915875429,
+      "mean_ms": 1044.77316
+    },
+    "rapidocr": {
+      "backend": "rapidocr",
+      "dataset": "omnidocbench",
+      "status": "ok",
+      "task_type": "text",
+      "model_name": "rapidocr",
+      "model_variant": "default",
+      "device_requested": "cpu",
+      "provider_effective": "unverified",
+      "repeats": 1,
+      "load_ms": 1561.5315000031842,
+      "warmup": 1,
+      "input": "identical re-encoded PNG bytes for every adapter; no per-backend resize or preprocess; conversion excluded from timing",
+      "image_sizes": {
+        "page-d1561665-5359-42fe-920c-d6e3bff81953.png": [
+          1653,
+          2339
+        ],
+        "page-bd6eb36e-0856-4d9d-b587-21b4a0209c8b.png": [
+          1653,
+          2339
+        ],
+        "page-14cd673f-d86d-45a7-a13e-2b4e1d91c08f.png": [
+          1654,
+          2339
+        ],
+        "page-ba4443e6-f432-435f-89e7-ddf0a571d2cd.png": [
+          2000,
+          1500
+        ],
+        "page-74c7629d-b064-4b8f-8667-bf943f5ba367.png": [
+          1209,
+          1832
+        ],
+        "page-c9654418-0624-48d4-8be7-6065f45dd1f9.png": [
+          1654,
+          2339
+        ],
+        "page-0a262e27-b24d-4429-9b21-90563d4fada7.png": [
+          1653,
+          2339
+        ],
+        "page-99c0fd2f-608e-479c-9af5-5b012de4f6af.png": [
+          1654,
+          2339
+        ],
+        "page-f9583127-1277-4424-be9d-35430e0aedd6.png": [
+          1700,
+          2200
+        ],
+        "page-573c437e-c309-4483-a038-ef2f440b104a.png": [
+          1653,
+          2339
+        ],
+        "page-cdd33cf6-76ce-42bb-a99c-342c861afed0.png": [
+          1654,
+          2339
+        ],
+        "page-39d18b46-ad1b-4c7a-b7e2-132471c27c15.png": [
+          1654,
+          2339
+        ],
+        "page-e2fbf592-51f5-431a-8ae6-0c62e3349e89.png": [
+          1654,
+          2338
+        ],
+        "page-7dfc88d8-6d95-446c-b910-2410e8552f76.png": [
+          1654,
+          2339
+        ],
+        "page-4b8f8a9d-e061-4207-a42e-ebf9b7090099.png": [
+          1654,
+          2339
+        ],
+        "page-bb98165a-8033-4ea4-a527-58ac974f2c32.png": [
+          1653,
+          2339
+        ],
+        "page-8c21f73a-b849-4f71-9573-57d50fbcc180.png": [
+          1653,
+          2339
+        ],
+        "page-1853e666-6f83-432c-afc8-923ce8cf0fea.png": [
+          1653,
+          2339
+        ],
+        "page-b21c7247-a843-4316-a44d-c3365077f077.png": [
+          1654,
+          2339
+        ],
+        "page-d43b98f8-6a96-44f8-a3cf-65de9397f582.png": [
+          1654,
+          2339
+        ],
+        "page-44a14308-9d3e-4044-9508-5c3e30141a19.png": [
+          1654,
+          2339
+        ],
+        "page-67013be9-58e5-4842-809d-7a3c1fc91fc7.png": [
+          1654,
+          2339
+        ],
+        "page-39551bb3-1b65-4562-b258-1bc97898cdf9.png": [
+          2339,
+          1654
+        ],
+        "page-49776237-a9be-441d-a326-002eb7084385.png": [
+          1700,
+          2200
+        ],
+        "page-30aa7cae-34fd-4b0b-b01a-fd35ff3bdfea.png": [
+          1700,
+          2200
+        ]
+      },
+      "inference_ms": [
+        5118.974299999536,
+        8391.061799993622,
+        5680.028499999025,
+        4459.6017000003485,
+        10121.717900001386,
+        9709.982699998363,
+        12893.027199999779,
+        12534.634100004041,
+        19126.49180000153,
+        7050.3014999994775,
+        7456.901600002311,
+        6934.323400004359,
+        14013.96399999794,
+        7571.728000002622,
+        9106.083900005615,
+        7422.2761999990325,
+        9710.093000001507,
+        9296.351500001037,
+        7331.9009999977425,
+        7700.47109999723,
+        6566.810500000429,
+        7047.355900002003,
+        3685.990000005404,
+        8057.395000003453,
+        4140.111299995624
+      ],
+      "p95_ms": 14013.96399999794,
+      "markdown_quality": "not_evaluated",
+      "n_images": 25,
+      "n_ok": 25,
+      "n_error": 0,
+      "errors": [],
+      "mean_cer": 0.9656902601457653,
+      "mean_word_f1": 0.25089434461826576,
+      "mean_ms": 8445.10312
+    },
+    "easyocr": {
+      "backend": "easyocr",
+      "dataset": "omnidocbench",
+      "status": "ok",
+      "task_type": "text",
+      "model_name": "easyocr",
+      "model_variant": "default",
+      "device_requested": "cpu",
+      "provider_effective": "unverified",
+      "repeats": 1,
+      "load_ms": 7709.055799998168,
+      "warmup": 1,
+      "input": "identical re-encoded PNG bytes for every adapter; no per-backend resize or preprocess; conversion excluded from timing",
+      "image_sizes": {
+        "page-d1561665-5359-42fe-920c-d6e3bff81953.png": [
+          1653,
+          2339
+        ],
+        "page-bd6eb36e-0856-4d9d-b587-21b4a0209c8b.png": [
+          1653,
+          2339
+        ],
+        "page-14cd673f-d86d-45a7-a13e-2b4e1d91c08f.png": [
+          1654,
+          2339
+        ],
+        "page-ba4443e6-f432-435f-89e7-ddf0a571d2cd.png": [
+          2000,
+          1500
+        ],
+        "page-74c7629d-b064-4b8f-8667-bf943f5ba367.png": [
+          1209,
+          1832
+        ],
+        "page-c9654418-0624-48d4-8be7-6065f45dd1f9.png": [
+          1654,
+          2339
+        ],
+        "page-0a262e27-b24d-4429-9b21-90563d4fada7.png": [
+          1653,
+          2339
+        ],
+        "page-99c0fd2f-608e-479c-9af5-5b012de4f6af.png": [
+          1654,
+          2339
+        ],
+        "page-f9583127-1277-4424-be9d-35430e0aedd6.png": [
+          1700,
+          2200
+        ],
+        "page-573c437e-c309-4483-a038-ef2f440b104a.png": [
+          1653,
+          2339
+        ],
+        "page-cdd33cf6-76ce-42bb-a99c-342c861afed0.png": [
+          1654,
+          2339
+        ],
+        "page-39d18b46-ad1b-4c7a-b7e2-132471c27c15.png": [
+          1654,
+          2339
+        ],
+        "page-e2fbf592-51f5-431a-8ae6-0c62e3349e89.png": [
+          1654,
+          2338
+        ],
+        "page-7dfc88d8-6d95-446c-b910-2410e8552f76.png": [
+          1654,
+          2339
+        ],
+        "page-4b8f8a9d-e061-4207-a42e-ebf9b7090099.png": [
+          1654,
+          2339
+        ],
+        "page-bb98165a-8033-4ea4-a527-58ac974f2c32.png": [
+          1653,
+          2339
+        ],
+        "page-8c21f73a-b849-4f71-9573-57d50fbcc180.png": [
+          1653,
+          2339
+        ],
+        "page-1853e666-6f83-432c-afc8-923ce8cf0fea.png": [
+          1653,
+          2339
+        ],
+        "page-b21c7247-a843-4316-a44d-c3365077f077.png": [
+          1654,
+          2339
+        ],
+        "page-d43b98f8-6a96-44f8-a3cf-65de9397f582.png": [
+          1654,
+          2339
+        ],
+        "page-44a14308-9d3e-4044-9508-5c3e30141a19.png": [
+          1654,
+          2339
+        ],
+        "page-67013be9-58e5-4842-809d-7a3c1fc91fc7.png": [
+          1654,
+          2339
+        ],
+        "page-39551bb3-1b65-4562-b258-1bc97898cdf9.png": [
+          2339,
+          1654
+        ],
+        "page-49776237-a9be-441d-a326-002eb7084385.png": [
+          1700,
+          2200
+        ],
+        "page-30aa7cae-34fd-4b0b-b01a-fd35ff3bdfea.png": [
+          1700,
+          2200
+        ]
+      },
+      "inference_ms": [
+        11913.943300001847,
+        11002.803199997288,
+        9027.99010000308,
+        5204.886100000294,
+        12392.445100005716,
+        10006.005499999446,
+        13006.562000002305,
+        13801.595299999462,
+        13397.186100002727,
+        13917.076899997483,
+        11154.759800003376,
+        11762.75820000592,
+        11284.346200001892,
+        10044.12460000458,
+        11065.435999997135,
+        8825.930500002869,
+        13300.947399999131,
+        15161.756399997103,
+        12458.177699998487,
+        12144.338699996297,
+        10446.709499999997,
+        11145.306600003096,
+        7109.083600000304,
+        7083.977700000105,
+        6769.202499999665
+      ],
+      "p95_ms": 13917.076899997483,
+      "markdown_quality": "not_evaluated",
+      "n_images": 25,
+      "n_ok": 25,
+      "n_error": 0,
+      "errors": [],
+      "mean_cer": 1.058510850204394,
+      "mean_word_f1": 0.26050855001575596,
+      "mean_ms": 10937.09392
+    },
+    "tesseract": {
+      "backend": "tesseract",
+      "dataset": "omnidocbench",
+      "status": "skipped",
+      "reason": "pip install pytesseract + binario Tesseract",
+      "task_type": "text",
+      "model_name": "tesseract",
+      "model_variant": "default",
+      "device_requested": "cpu",
+      "provider_effective": "unverified",
+      "repeats": 1
+    }
+  }
+}
