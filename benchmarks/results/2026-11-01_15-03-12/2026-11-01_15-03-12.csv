@@ -1,2 +1,0 @@
-run_timestamp,backend,dataset,image_id,cer,wer,cer_ord,wer_ord,word_f1,exact_match,elapsed_ms,n_regions,mean_confidence,n_chars_gt,n_chars_pred,status,error,task_type,model_name,model_variant,markdown_f1,block_f1
-2026-11-01_15-03-12,pyocrust_formula,funsd,0,1.0,1.0,1.0,1.0,0.0,0.0,1730.854,28,0.0,956,0,ok,,formula,pp_structurev3,pp-formulanet-s,,

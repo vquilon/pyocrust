@@ -1,6 +1,0 @@
-{
-  "backend": "pyocrust_structure",
-  "dataset": "funsd",
-  "status": "skipped",
-  "reason": "PyOcrRuntimeError: missing 6 model artifact(s) for preset 'pp_structurev3': pp-doclayoutv3.onnx, pp-lcnet_x1_0_table_cls.onnx, slanext_wired.onnx, slanet_plus.onnx, rt-detr-l_wired_table_cell_det.onnx, table_structure_dict_ch.txt"
-}
