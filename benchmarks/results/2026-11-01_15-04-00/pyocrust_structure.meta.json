@@ -1,0 +1,77 @@
+{
+  "backend": "pyocrust_structure",
+  "dataset": "funsd",
+  "status": "ok",
+  "task_type": "structure",
+  "model_name": "pp_structurev3",
+  "model_variant": "default",
+  "device_requested": "cpu",
+  "provider_effective": "unverified",
+  "repeats": 1,
+  "load_ms": 3469.5071000023745,
+  "warmup": 1,
+  "input": "identical re-encoded PNG bytes for every adapter; no per-backend resize or preprocess; conversion excluded from timing",
+  "image_sizes": {
+    "0": [
+      762,
+      1000
+    ],
+    "1": [
+      762,
+      1000
+    ],
+    "2": [
+      762,
+      1000
+    ],
+    "3": [
+      762,
+      1000
+    ],
+    "4": [
+      771,
+      1000
+    ],
+    "5": [
+      762,
+      1000
+    ],
+    "6": [
+      754,
+      1000
+    ],
+    "7": [
+      762,
+      1000
+    ],
+    "8": [
+      762,
+      1000
+    ],
+    "9": [
+      762,
+      1000
+    ]
+  },
+  "inference_ms": [
+    1710.3726000059396,
+    2165.1958000002196,
+    1752.4857000025804,
+    2477.4792000025627,
+    7695.773699997517,
+    1826.4492999951472,
+    3101.4770999972825,
+    2005.8761999971466,
+    1819.4511999972747,
+    1874.3342000016128
+  ],
+  "p95_ms": 7695.773699997517,
+  "markdown_quality": "not_evaluated",
+  "n_images": 10,
+  "n_ok": 10,
+  "n_error": 0,
+  "errors": [],
+  "mean_cer": 1.131299587141097,
+  "mean_word_f1": 0.47050150347510933,
+  "mean_ms": 2642.8895
+}

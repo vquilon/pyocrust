@@ -1,0 +1,32 @@
+{
+  "backend": "pyocrust_indra",
+  "dataset": "funsd",
+  "status": "ok",
+  "task_type": "full_page",
+  "model_name": "indra",
+  "model_variant": "math",
+  "device_requested": "cpu",
+  "provider_effective": "unverified",
+  "repeats": 1,
+  "load_ms": 983.7460999988252,
+  "warmup": 1,
+  "input": "identical re-encoded PNG bytes for every adapter; no per-backend resize or preprocess; conversion excluded from timing",
+  "image_sizes": {
+    "0": [
+      762,
+      1000
+    ]
+  },
+  "inference_ms": [
+    301.468699995894
+  ],
+  "p95_ms": 301.468699995894,
+  "markdown_quality": "not_evaluated",
+  "n_images": 1,
+  "n_ok": 1,
+  "n_error": 0,
+  "errors": [],
+  "mean_cer": 0.6223849372384938,
+  "mean_word_f1": 0.7896678966789668,
+  "mean_ms": 301.469
+}

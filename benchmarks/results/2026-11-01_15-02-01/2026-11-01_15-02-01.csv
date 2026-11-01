@@ -1,0 +1,2 @@
+run_timestamp,backend,dataset,image_id,cer,wer,cer_ord,wer_ord,word_f1,exact_match,elapsed_ms,n_regions,mean_confidence,n_chars_gt,n_chars_pred,status,error,task_type,model_name,model_variant,markdown_f1,block_f1
+2026-11-01_15-02-01,pyocrust_structure,funsd,0,0.6349372384937239,0.7862068965517242,0.14644351464435146,0.2620689655172414,0.7985074626865671,0.0,2095.365,28,0.0,956,918,ok,,structure,pp_structurev3,default,,

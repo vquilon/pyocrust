@@ -1,6 +1,23 @@
 # Borrador de post para LinkedIn
 
-## Nota vigente B9 — no publicar como comparación (2026-10-31)
+## Nota vigente — comparativa multi-tarea (2026-11-01)
+
+Run `benchmarks/results/2026-11-01_15-04-00`: FUNSD `train`, **10 imágenes por
+backend**, CPU, `warmup=1`, `repeats=1`. Corren por primera vez **las cuatro
+casuísticas** de `pyocrust` (10/10 cada una) más dos baselines (`rapidocr`,
+`easyocr`); `tesseract` **skipped** (no instalado). CSV de 22 columnas y 60 filas,
+`task_type`/`model_name` rellenos en todas; `markdown_f1`/`block_f1` **N/A**
+(FUNSD no trae GT Markdown/LaTeX/bloques). En `text` (comparación de igual a
+igual) `pyocrust` (Tiny) gana **F1 palabra 0.694** y **WER orden-neutralizado
+0.392** frente a `rapidocr` (0.590 / 0.502) y `easyocr` (0.344 / 0.745), y es
+**≈12,6×** más rápido (751 ms/página vs 9472). El **CER crudo** lo gana `rapidocr`
+por 0.007 (0.463 vs 0.470) y no decide la marca. `structure`/`formula`/`full_page`
+ejecutan (los artefactos PP-StructureV3 ya están en `~/.oar`); su `CER=1,0`/`F1=0,0`
+en `formula` refleja que comparan LaTeX contra GT de texto plano, no una calidad
+matemática medida. **Sin GT Markdown/LaTeX no hay comparación publicable de esas
+casuísticas, y velocidad entre tareas distintas no es un ranking general.**
+
+## Estado anterior B9 — no publicar como comparación (2026-10-31)
 
 Prevalece esta nota sobre el post histórico inferior. Crítico R2:
 **APROBADO acotado** al banco; regresiones comunicadas **21 pass, 17 deselected**,
@@ -60,43 +77,49 @@ maquillar los resultados. 🦀🐍
 Hugging Face), las **mismas imágenes** para los motores comparables, métricas de
 calidad `word_f1` y `wer_ord` (neutralizan el orden de lectura) más `cer`/`wer`
 crudos como referencia, y velocidad en ms por página. Todo en **CPU**, sin GPU
-y con el modelo **Tiny** de `pyocrust` en `text`. Aviso honesto: **n = 5 imágenes
+y con el modelo **Tiny** de `pyocrust` en `text`. Aviso honesto: **n = 10 imágenes
 por backend** — es una primera pasada, no un paper.
 
-**Los números** (5 imágenes por backend, FUNSD, CPU):
+**Los números** (10 imágenes por backend, FUNSD, CPU):
 
 | Motor | task_type | F1 palabra ↑ | WER ord. ↓ | CER ↓ | WER ↓ | ms/pág. ↓ | págs/s ↑ |
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
-| **pyocrust** (tiny) | `text` | **0.734** | **0.340** | 0.402 | 0.628 | **1290** | **0.78** |
-| **rapidocr** (default) | `text` | 0.660 | 0.431 | 0.400 | 0.654 | 9355 | 0.11 |
-| **pyocrust_indra** (math) | `full_page` | 0.457 | 0.648 | 1.552 | 0.815 | 644 | 1.55 |
+| **pyocrust** (tiny) | `text` | **0.694** | **0.392** | 0.470 | **0.685** | _751_ | _1.33_ |
+| **rapidocr** (default) | `text` | _0.590_ | _0.502_ | **0.463** | 0.699 | 9472 | 0.11 |
+| **easyocr** (default) | `text` | 0.344 | 0.745 | 0.527 | 0.819 | 9356 | 0.11 |
+| **pyocrust_indra** (math) | `full_page` | 0.444 | 0.658 | 1.560 | 0.824 | **310** | **3.22** |
+| **pyocrust_structure** (default) | `structure` | 0.471 | 0.622 | 1.131 | 0.823 | 2643 | 0.38 |
+| **pyocrust_formula** (pp-formulanet-s) | `formula` | 0.000 | 1.000 | 1.000 | 1.000 | 3133 | 0.32 |
 
-`structure`/`formula` **skipped** en esta run: offline con seis artefactos
-PP-StructureV3 ausentes, no generan filas.
+Por primera vez corren **las cuatro casuísticas** de `pyocrust`
+(`text`/`structure`/`formula`/`full_page`, 10/10 cada una). `tesseract` sigue
+**skipped**: `pytesseract` + binario no instalados.
 
 **Lo que gana `pyocrust` en `text`:**
 
-* **Velocidad**: 1290 ms/página frente a 9355 de `rapidocr` (**≈7.3× más rápido**);
-  0.78 páginas/s frente a 0.11.
-* Mejor **F1 de palabra** (0.734 vs. 0.660 de `rapidocr`).
-* Mejor **WER con orden neutralizado** (0.340, frente a 0.431): mide
+* **Velocidad**: 751 ms/página frente a 9472 de `rapidocr` (**≈12,6× más rápido**)
+  y 9356 de `easyocr`; 1,33 páginas/s frente a 0,11.
+* Mejor **F1 de palabra** (0.694 vs. 0.590 de `rapidocr` y 0.344 de `easyocr`).
+* Mejor **WER con orden neutralizado** (0.392, frente a 0.502 y 0.745): mide
   reconocimiento, no cómo se recorre la página.
 
 **Lo que pierde, o donde empatan** (honestidad primero):
 
-* En **CER crudo** gana `rapidocr` por muy poco: 0.400 frente a 0.402. Pero esa
+* En **CER crudo** gana `rapidocr` por muy poco: 0.463 frente a 0.470. Pero esa
   columna mide también el orden de lectura, y ahí el formulario multicolumna
   penaliza más a `pyocrust` que a `rapidocr`. Por eso el ranking lo decide el
-  **WER orden-neutralizado**, donde `pyocrust` gana por 0.091.
-* **Exact-match = 0** en los dos: ninguno reconstruye la página carácter a
-  carácter.
-* **F1 Markdown y F1 bloques = N/A** para todos los backends: FUNSD no trae
-  GT Markdown/LaTeX/bloques, así que esas métricas titular no aportan información
-  en esta run.
-* Y la letra pequeña importa: es un modelo **Tiny** contra el modelo por defecto
-  de `rapidocr`, en **CPU** y con **5 imágenes**. Son indicios, no un veredicto.
-  Además `model_variant` es nominal y `provider_effective="unverified"` no
-  demuestra el provider ejecutado.
+  **WER orden-neutralizado**, donde `pyocrust` gana por 0.110.
+* **Exact-match = 0** en todos: ninguno reconstruye la página carácter a carácter.
+* **`structure`/`formula`/`full_page`**: ejecutan y quedan registradas, pero sin GT
+  Markdown/LaTeX/bloques sus métricas textuales comparan contra texto plano, no
+  contra su modalidad real. `pyocrust_formula` emite LaTeX, de ahí su `CER=1,0`:
+  demuestra que la casuística **corre**, no una calidad matemática medida.
+* **F1 Markdown y F1 bloques = N/A** para todos: FUNSD no trae GT Markdown/LaTeX/
+  bloques, así que esas métricas titular no aportan información en esta run.
+* Y la letra pequeña importa: es un modelo **Tiny** contra los modelos por defecto
+  de `rapidocr`/`easyocr`, en **CPU** y con **10 imágenes**. Son indicios, no un
+  veredicto. Además `model_variant` es nominal y `provider_effective="unverified"`
+  no demuestra el provider ejecutado.
 
 **Qué mide de verdad y qué falta.** El banco de pruebas es reproducible (dataset
 real, CSV por imagen, `warmup` común y metadatos de la run). Lo siguiente es una

@@ -1,0 +1,77 @@
+{
+  "backend": "easyocr",
+  "dataset": "funsd",
+  "status": "ok",
+  "task_type": "text",
+  "model_name": "easyocr",
+  "model_variant": "default",
+  "device_requested": "cpu",
+  "provider_effective": "unverified",
+  "repeats": 1,
+  "load_ms": 9821.62960000278,
+  "warmup": 1,
+  "input": "identical re-encoded PNG bytes for every adapter; no per-backend resize or preprocess; conversion excluded from timing",
+  "image_sizes": {
+    "0": [
+      762,
+      1000
+    ],
+    "1": [
+      762,
+      1000
+    ],
+    "2": [
+      762,
+      1000
+    ],
+    "3": [
+      762,
+      1000
+    ],
+    "4": [
+      771,
+      1000
+    ],
+    "5": [
+      762,
+      1000
+    ],
+    "6": [
+      754,
+      1000
+    ],
+    "7": [
+      762,
+      1000
+    ],
+    "8": [
+      762,
+      1000
+    ],
+    "9": [
+      762,
+      1000
+    ]
+  },
+  "inference_ms": [
+    6999.33880000026,
+    11414.174399993499,
+    7781.967399998393,
+    9997.138700004143,
+    2567.504700004065,
+    5903.953599998204,
+    9328.460900003847,
+    10785.341099996003,
+    17098.829699993075,
+    11685.47380000382
+  ],
+  "p95_ms": 17098.829699993075,
+  "markdown_quality": "not_evaluated",
+  "n_images": 10,
+  "n_ok": 10,
+  "n_error": 0,
+  "errors": [],
+  "mean_cer": 0.5272274180588089,
+  "mean_word_f1": 0.34356675754160443,
+  "mean_ms": 9356.218400000002
+}

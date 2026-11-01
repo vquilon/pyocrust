@@ -421,21 +421,32 @@ ejecutados). Documentación completa y resultados en
 `benchmarks/results/<timestamp>/` y los artefactos publicables en
 `benchmarks/output_examples/`.
 
-Última ejecución registrada (`benchmarks/results/2026-10-31_23-37-34`: FUNSD
-`train`, 5 imágenes por backend, CPU, modelo Tiny), tal cual la produce
-`benchmarks/report_benchmarks.py --run benchmarks/results/2026-10-31_23-37-34`:
+Última ejecución registrada (`benchmarks/results/2026-11-01_15-04-00`: FUNSD
+`train`, **10 imágenes por backend**, CPU, `warmup=1`, `repeats=1`, modelo Tiny en
+`text`, **las seis familias que producen filas**, tal cual la produce
+`benchmarks/report_benchmarks.py --run benchmarks/results/2026-11-01_15-04-00`:
 
 | Backend | task_type | n | F1 palabra ↑ | WER ord. ↓ | CER ↓ | WER ↓ | ms/pág. ↓ | págs/s ↑ |
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| **pyocrust** | `text` | 5 | **0.734** | **0.340** | 0.402 | 0.628 | **1290** | **0.78** |
-| **rapidocr** | `text` | 5 | 0.660 | 0.431 | 0.400 | 0.654 | 9355 | 0.11 |
-| **pyocrust_indra** | `full_page` | 5 | 0.457 | 0.648 | 1.552 | 0.815 | 644 | 1.55 |
+| **pyocrust** (tiny) | `text` | 10 | **0.694** | **0.392** | 0.470 | **0.685** | _751_ | _1.33_ |
+| **rapidocr** (default) | `text` | 10 | _0.590_ | _0.502_ | **0.463** | 0.699 | 9472 | 0.11 |
+| **easyocr** (default) | `text` | 10 | 0.344 | 0.745 | 0.527 | 0.819 | 9356 | 0.11 |
+| **pyocrust_indra** (math) | `full_page` | 10 | 0.444 | 0.658 | 1.560 | 0.824 | **310** | **3.22** |
+| **pyocrust_structure** (default) | `structure` | 10 | 0.471 | 0.622 | 1.131 | 0.823 | 2643 | 0.38 |
+| **pyocrust_formula** (pp-formulanet-s) | `formula` | 10 | 0.000 | 1.000 | 1.000 | 1.000 | 3133 | 0.32 |
 
-`pyocrust_structure` y `pyocrust_formula` quedaron `skipped` (faltan artefactos
-PP-StructureV3 en offline). `easyocr`/`tesseract` no se incluyeron en esta run.
-Las columnas `F1 palabra` y `WER ord.` son las que deciden la marca: `CER`/`WER`
-crudos miden también el orden de lectura y se publican solo como referencia.
-`markdown_f1` y `block_f1` son **N/A** en esta run: FUNSD no trae GT Markdown/bloques.
+`tesseract` queda `skipped` (`pip install pytesseract + binario Tesseract`), nunca
+como ejecutado. Por primera vez corren **`structure`, `formula` y `full_page`**
+(10/10 cada uno): los artefactos PP-StructureV3 que la run del 31-10 reportaba
+ausentes ya están en la caché `~/.oar`. Las columnas `F1 palabra` y `WER ord.` son
+las que deciden la marca: `CER`/`WER` crudos miden también el orden de lectura y se
+publican solo como referencia. `markdown_f1` y `block_f1` son **N/A** en esta run
+(**FUNSD no trae GT Markdown/LaTeX/bloques**, y no se inventa). La comparación de
+velocidad **entre `task_type` distintos no es un ranking general** (cada tarea
+produce una salida distinta); la marca de ms/pág. solo tiene sentido dentro de
+`text` (`pyocrust` 751 ms ≈ **12,6×** los 9472 ms de `rapidocr`). En `formula` la
+salida es LaTeX y el GT de FUNSD es texto plano, así que su `CER=1,0`/`F1=0,0`
+demuestran que la casuística **ejecuta**, no una medida de calidad matemática.
 
 ## Publicación a PyPI (CI/CD)
 

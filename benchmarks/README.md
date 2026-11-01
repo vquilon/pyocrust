@@ -1,6 +1,52 @@
 # Benchmarking de `pyocrust`
 
-## Estado vigente B9 (2026-10-31; prevalece sobre el histórico)
+## Estado vigente — comparativa multi-tarea (2026-11-01)
+
+Run `results/2026-11-01_15-04-00`: FUNSD `train`, **10 imágenes por backend**,
+**CPU**, `warmup=1`, `repeats=1`, `device=cpu`, Tiny en `text`. CSV de **22
+columnas** con **60 filas** (`pyocrust`, `pyocrust_structure`, `pyocrust_formula`,
+`pyocrust_indra`, `rapidocr`, `easyocr`), `task_type`/`model_name`/`model_variant`
+rellenos en todas las filas; `tesseract` **skipped** (no instalado). Por primera
+vez corren las cuatro casuísticas del wrapper (10/10 cada una): los artefactos
+PP-StructureV3 que la nota B9 daba por ausentes ya están en `~/.oar`.
+
+| Backend (variante; tarea) | n | F1 Markdown ↑ | F1 bloques ↑ | F1 palabra ↑ | WER ord. ↓ | CER ↓ | WER ↓ | ms/pág. | págs/s |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| easyocr (default; text) | 10 | N/A | N/A | 0.344 | 0.745 | 0.527 | 0.819 | _9356_ | _0.11_ |
+| **pyocrust** (tiny; text) | 10 | N/A | N/A | **0.694** | **0.392** | 0.470 | **0.685** | _751_ | _1.33_ |
+| pyocrust_formula (pp-formulanet-s; formula) | 10 | N/A | N/A | 0.000 | 1.000 | 1.000 | 1.000 | 3133 | 0.32 |
+| pyocrust_indra (math; full_page) | 10 | N/A | N/A | 0.444 | 0.658 | 1.560 | 0.824 | **310** | **3.22** |
+| pyocrust_structure (default; structure) | 10 | N/A | N/A | 0.471 | 0.622 | 1.131 | 0.823 | 2643 | 0.38 |
+| **rapidocr** (default; text) | 10 | N/A | N/A | _0.590_ | _0.502_ | **0.463** | 0.699 | 9472 | 0.11 |
+
+Lectura honesta:
+
+* **`text` (igual a igual, los tres comparables)**: `pyocrust` gana **F1 palabra**
+  (0.694 vs 0.590 `rapidocr` vs 0.344 `easyocr`), **WER orden-neutralizado**
+  (0.392) y **velocidad** (751 ms/página ≈ **12,6×** más rápido que `rapidocr` y
+  ≈ 12,5× que `easyocr`). El **CER crudo** lo gana `rapidocr` por 0.007
+  (0.463 vs 0.470), pero esa columna también mide el orden de lectura y no decide
+  la marca.
+* **`structure`/`formula`/`full_page`**: ejecutan y quedan registradas. **No hay
+  GT Markdown/LaTeX/bloques** en FUNSD, así que `markdown_f1`/`block_f1` son
+  **N/A** (no se inventan) y las métricas textuales de estas filas comparan contra
+  un GT de texto plano, no contra su modalidad real: `pyocrust_formula` emite
+  LaTeX (`"\n".join(result.formulas)`), de ahí su `CER=1,0`/`F1=0,0` — demuestra
+  que la casuística corre, **no** una calidad matemática medida.
+* **Velocidad entre tareas distintas no es un ranking.** `pyocrust_indra` es el
+  más rápido (310 ms) porque devuelve Markdown estructurado; comparar su ms/pág.
+  con `pyocrust` `text` no es justo. La marca de velocidad solo tiene sentido
+  dentro de `text`.
+* **`tesseract` skipped** con motivo; `model_variant` es nominal y
+  `provider_effective="unverified"` no demuestra el provider ejecutado (B8).
+
+**Defectos B8 que siguen abiertos** (no invalidan los números medidos, sí la
+lectura de las columnas de Markdown como titular): `markdown_f1`/`block_f1` solo
+son evaluables con GT legítimo de la misma modalidad; `markdown_f1` es LCS de
+tokens ordenados, no equivalencia de documento; `block_f1` compara etiquetas
+crudas; memoria/CPU-RAM y versiones de datasets/pesos no se registran.
+
+## Estado anterior B9 (2026-10-31; superado por la comparativa multi-tarea de 2026-11-01)
 
 Crítico R2: **APROBADO acotado** al banco. Regresiones comunicadas:
 **21 pass, 17 deselected**, no suite global ni reejecución del escriba.
