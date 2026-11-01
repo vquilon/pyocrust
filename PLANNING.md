@@ -399,6 +399,67 @@ Dependencias: `S2.0` (modelos) → `S2.1` (fórmulas en structure) → `S2.2` (i
   con `hermes kanban list`; directorio de modelos coincide con
   `pyocrust.models_status()`.
 
+## Fase 9 — Catálogo y resolvedor de pipeline
+
+> **Contrato:** `S3.0` genera el catálogo en Rust (`src/storage/catalog.rs`);
+> `S3.1` añade el resolvedor Python (`pyocrust/hardware.py`, `pyocrust/resolver.py`);
+> `S3.2` verifica con tests; `S3.3` ataca; `S3.4` sign-off; `S3.5` reconcilia
+> `DESIGN.md`, `PLANNING.md` y `README.md`.
+
+|| Id | Fase | Título | Tarjeta | Responsable | Estado | Fecha de cambio ||
+|| :--- | :--- | :--- | :--- | :--- | :--- | :--- ||
+|| `S3.0` | 9 | Catálogo documentado de modelos y pipelines | `t_585372c9` | `coder` | Hecho | 2026-11-01 ||
+|| `S3.1` | 9 | Detección de hardware y resolvedor de pipeline | `t_edec41d8` | `coder` | Hecho | 2026-11-01 ||
+|| `S3.2` | 9 | Tests del catálogo, hardware y resolvedor | `t_223cb785` | `probador` | Hecho | 2026-11-01 ||
+|| `S3.3` | 9 | Atacar el catálogo y el resolvedor | `t_9c0acbbd` | `critico` | Hecho | 2026-11-01 ||
+|| `S3.4` | 9 | Sign-off del catálogo y el resolvedor | `t_f2064743` | `arquitecto` | Hecho | 2026-11-01 ||
+|| `S3.5` | 9 | Documentar el catálogo y el resolvedor | `t_f6ad65e6` | `escriba` | En curso | 2026-11-01 ||
+
+Dependencias: `S3.0` → `S3.1` → `S3.2` → `S3.3` → `S3.4` → `S3.5`.
+Además `S3.5` depende directamente de `S3.0` y `S3.1` (criterios de aceptación que requieren el catálogo y el resolvedor).
+
+### `S3.0` — Catálogo documentado de modelos y pipelines
+
+* **Tarjeta:** `t_585372c9`. **Responsable:** `coder`. **Estado:** Hecho (2026-11-01).
+* **Contenido:** `src/storage/catalog.rs` (catálogo estático `ModelEntry` + `PipelineProfile` leídos de `oar_ocr::download::REGISTRY` y `find(name)`); `src/storage/mod.rs` (re-export); `src/lib.rs` (`model_catalog()` y `pipeline_profiles()` como `#[pyfunction]`).
+* **Criterio de aceptación:** `cargo test` verde; `pyocrust.model_catalog()` devuelve 115 filas (98 registro + 17 Indra); `pyocrust.pipeline_profiles()` devuelve 16 filas (5 presets + 11 tareas); `size_bytes` coincide 98/98 con `oar_ocr::download::find`; Indra conserva `None`.
+* **Evidencia:** Rust 53/53; `pytest tests/test_catalog.py` 5 passed. Verificado en `EVIDENCIA_S3.0.md`.
+
+### `S3.1` — Detección de hardware y resolvedor de pipeline
+
+* **Tarjeta:** `t_edec41d8`. **Responsable:** `coder`. **Estado:** Hecho (2026-11-01).
+* **Contenido:** `pyocrust/hardware.py` (`GpuInfo`, `HardwareProfile`, `detect_hardware()` con stdlib); `pyocrust/resolver.py` (`TaskSpec`, `PipelineChoice`, `resolve_pipeline`); `pyocrust/__init__.pyi` (re-export).
+* **Criterio de aceptación:** `cargo test` verde; `pytest tests/ -q` verde (138 passed, 1 skipped, 1 failed — fallo ajeno a S3); `resolve_pipeline(TaskSpec(ocr_only=True, quality='speed'))` → `pp_ocrv6/tiny`; `TaskSpec(formulas='with_text')` → `pp_structurev3`; `TaskSpec(document_kind='scanned')` → orientación + rectificación; `detect_hardware()` → `cpu_count=20`, `ram_bytes=68111413248`, `gpu=RTX PRO 4000 Blackwell/17094934528`.
+* **Evidencia:** Rust 53/53; S3 focal 49 passed, 1 skipped (skip: `test_hardware.py:88`). Delta propio: commit `58385e6` (`pyocrust/__init__.pyi`).
+
+### `S3.2` — Tests del catálogo, hardware y resolvedor
+
+* **Tarjeta:** `t_223cb785`. **Responsable:** `probador`. **Estado:** Hecho (2026-11-01).
+* **Contenido:** `tests/test_catalog.py`, `tests/test_hardware.py`, `tests/test_resolver.py`.
+* **Criterio de aceptación:** `pytest tests/ -q` en verde, distinguiendo pasados/skipped/fallados. Tests focales S3: 49 passed, 1 skipped.
+* **Evidencia:** S3 focal 49/1; suite completa 138 passed, 1 skipped, 1 failed (fallo ajeno `test_el_latex...`, reportado en `t_cbcf46e1`).
+
+### `S3.3` — Atacar el catálogo y el resolvedor
+
+* **Tarjeta:** `t_9c0acbbd`. **Responsable:** `critico`. **Estado:** Hecho (2026-11-01).
+* **Contenido:** ataque adversarial a las 6 categorías de la tarjeta.
+* **Criterio de aceptación:** comentario con lista numerada de defectos, cada uno con `fichero:línea`, por qué es un defecto y corrección concreta.
+* **Resultado:** 1 defecto (D0: `output_format="json"` no fuerza `pp_structurev3`, `resolver.py:68`) + 5 categorías sin defectos. D0 justificado por `DESIGN.md` §3.1.3 ("JSON solo no fuerza estructura"). Suite S3.2: 49 passed, 1 skipped.
+
+### `S3.4` — Sign-off del catálogo y el resolvedor
+
+* **Tarjeta:** `t_f2064743`. **Responsable:** `arquitecto`. **Estado:** Hecho (2026-11-01).
+* **Contenido:** verificación de `src/storage/catalog.rs`, `pyocrust/hardware.py`, `pyocrust/resolver.py`, `src/storage/registry.rs`, `pyocrust/__init__.py`, `pyocrust/__init__.pyi`, `DESIGN.md`, `PLANNING.md` y tests.
+* **Criterio de aceptación:** veredicto `APROBADO` o `RECHAZADO` con lista de ficheros revisados, pruebas ejecutadas, desviaciones y defectos de S3.3 corregidos/justificados.
+* **Veredicto:** **APROBADO**. D0 justificado; sin segundo sistema de rutas/descargador, sin `psutil`/`GPUtil`, sin `#[pyclass]` nuevo, sin tamaños duplicados. Tareas canónicas S2.3/S2.4: 11 nombres coinciden.
+
+### `S3.5` — Documentar el catálogo y el resolvedor
+
+* **Tarjeta:** `t_f6ad65e6`. **Responsable:** `escriba`. **Estado:** En curso (2026-11-01).
+* **Contenido:** `DESIGN.md` (API pública §3.1.4, ADR-014/015/016, §2 y §9), `PLANNING.md` (Fase 9), `README.md` (Modelos y resolvedor, tabla de `pipeline_profiles()`, Variables de entorno).
+* **Criterio de aceptación:** los tres documentos describen el código real; cada ruta/símbolo verificable con `read_file`; `disk_bytes`/`ram_bytes` de README coinciden con `pyocrust.pipeline_profiles()` en este host; estado del board coincide con `hermes kanban list`.
+* **Evidencia:** this card.
+
 ## 6. Qué quedó fuera de alcance y por qué
 
 | Punto | Estado | Motivo | Cómo se documenta |

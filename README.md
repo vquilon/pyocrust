@@ -183,6 +183,93 @@ engine = VeloceOCR("pp_ocrv6")
 No hay una API pública de "prefetch only": la descarga se produce como efecto
 secundario del preflight conectado (`S2.0` cierra `S1.4`).
 
+## Modelos y resolvedor
+
+### Resolver de pipeline
+
+`resolve_pipeline` elige un preset/tarea sin cargar modelos ni descargar.
+Tres casos típicos:
+
+```python
+# 1) OCR rápido en CPU
+from pyocrust import TaskSpec, resolve_pipeline
+
+choice = resolve_pipeline(TaskSpec(ocr_only=True, quality="speed"))
+print(choice.id)       # pp_ocrv6_tiny
+print(choice.preset)   # pp_ocrv6
+print(choice.size)     # tiny
+```
+
+```python
+# 2) Documento escaneado con fórmulas
+from pyocrust import TaskSpec, resolve_pipeline
+
+choice = resolve_pipeline(
+    TaskSpec(document_kind="scanned", formulas="with_text", output_format="markdown")
+)
+print(choice.id)                # pp_structurev3
+print(choice.tasks)             # ('document_orientation', 'document_rectification')
+```
+
+```python
+# 3) Precisión en GPU
+from pyocrust import TaskSpec, HardwareProfile, GpuInfo, resolve_pipeline
+
+hardware = HardwareProfile(
+    cpu_count=20,
+    ram_bytes=64 * 1024**3,
+    gpu=GpuInfo(name="RTX PRO 4000 Blackwell", vram_bytes=16 * 1024**3),
+)
+choice = resolve_pipeline(
+    TaskSpec(ocr_only=True, quality="accuracy"), hardware=hardware
+)
+print(choice.id)        # pp_ocrv6_medium
+print(choice.tasks)     # ('indra',) — alternativa recomendada, no ejecución automática
+```
+
+`PipelineChoice` expone `preset`, `size`, `tasks`, `models_dir` y `offline`;
+la propiedad `id` se pasa directamente a `VeloceOCR(preset=choice.id)`.
+Las tareas recomendadas no se ejecutan automáticamente.
+
+### Huella de pipelines
+
+`pipeline_profiles()` devuelve la huella exacta de cada preset y tarea
+registrada. `disk_bytes` suma los tamaños del registro upstream; `ram_bytes`
+es siempre `None` (no se mide en runtime). Indra conserva `None` porque
+alguno de sus artefactos no está en `oar-ocr`.
+
+| ID | Familia | disk_bytes | ram_bytes |
+| :--- | :--- | :--- | :--- |
+| `pp_ocrv6_tiny` | `pp_ocrv6` | 6 270 385 | — |
+| `pp_ocrv6_small` | `pp_ocrv6` | 31 114 837 | — |
+| `pp_ocrv6_medium` | `pp_ocrv6` | 138 662 763 | — |
+| `pp_structurev3` | `pp_structurev3` | 881 880 022 | — |
+| `indra` | `indra` | — | — |
+| `text_detection` | `task` | 1 780 590 | — |
+| `text_recognition` | `task` | 4 489 795 | — |
+| `layout_detection` | `task` | 129 955 811 | — |
+| `document_orientation` | `task` | 6 787 248 | — |
+| `document_rectification` | `task` | 31 684 150 | — |
+| `text_line_orientation` | `task` | 6 776 997 | — |
+| `seal_text_detection` | `task` | 4 826 518 | — |
+| `formula_recognition` | `task` | 234 018 918 | — |
+| `table_classification` | `task` | 6 776 998 | — |
+| `table_structure_recognition` | `task` | 367 743 951 | — |
+| `table_cell_detection` | `task` | 129 331 821 | — |
+
+### Variables de entorno
+
+| Variable | Efecto |
+| :--- | :--- |
+| `OAR_HOME` | Directorio primario de modelos. Gana a `OCR_MODELS_CACHE_DIR` y a `~/.oar`. |
+| `OCR_MODELS_CACHE_DIR` | Directorio compartido de modelos. Usado solo si `OAR_HOME` no está definida. |
+| `PYOCRUST_OFFLINE` | Si es `1`, `true` o `yes` (case-insensitive), bloquea descargas. El resolvedor lo lee para reflejar el modo en `PipelineChoice.offline`. |
+| `CUDA_LAUNCH_BLOCKING` | Depuración de CUDA. La propaga `oar-ocr` / ONNX Runtime. |
+| `RUST_LOG` | Logging del crate Rust (`oar-ocr`, `reqwest`). |
+| `OAR_VL_DTYPE` | Documentada en `oar-ocr` para VLM. **Sin efecto en v1** (feature `vl` reservada para v2, ADR-001). |
+| `OAR_VL_ATTN_FULL_SEQ_THRESHOLD` | Ídem. **Sin efecto en v1**. |
+| `OAR_VL_DISABLE_*` | Familia de flags de VLM. **Sin efecto en v1**. |
+
 ## Catálogo y recomendación (`S3`, aprobación acotada)
 
 `model_catalog()` describe modelos/diccionarios/tokenizers; `pipeline_profiles()`

@@ -342,9 +342,9 @@ Evidencia acotada comunicada: hardware **15 pass, 1 skip**, resolver **29 pass**
 catálogo **5 pass**, Rust **53 pass previos** (`PLANNING.md`). No certifica GPU,
 modelos disponibles, rendimiento ni sign-off global.
 
-### 3.1.4 API pública: dos superficies (`S2.3`-`S2.6`)
+### 3.1.4 API pública: tres superficies (`S2.3`-`S3.5`)
 
-`pyocrust` expone dos superficies de inferencia, además de las consultas de
+`pyocrust` expone tres superficies de inferencia, además de las consultas de
 catálogo y hardware de §3.1.3:
 
 **Superficie 1 — pipelines tipados:**
@@ -394,6 +394,28 @@ consumidor pierde el autocompletado de tipos en Rust, pero gana una superficie
 
 Fuente normativa: `src/tasks/mod.rs` (whitelist/defaults: líneas 50-128;
 mappers: 214-312) y `src/storage/registry.rs::task_artifacts`.
+
+**Superficie 3 — catálogo + resolvedor (`S3`):**
+
+```python
+from pyocrust import (
+    model_catalog, pipeline_profiles,
+    detect_hardware, HardwareProfile, GpuInfo,
+    TaskSpec, PipelineChoice, resolve_pipeline,
+)
+```
+
+`model_catalog() -> dict[str, dict]` y `pipeline_profiles() -> dict[str, dict]`
+son consultas estáticas sin escaneo de disco, red ni inferencia (§3.1.3).
+`detect_hardware() -> HardwareProfile` usa solo stdlib (`pyocrust/hardware.py`);
+`HardwareProfile` y `GpuInfo` son dataclasses inmutables que aceptan overrides
+explícitos.
+
+`resolve_pipeline(task: TaskSpec, hardware: HardwareProfile | None=None) -> PipelineChoice`
+elige un preset/tarea sin cargar modelos ni descargar (`pyocrust/resolver.py`).
+`PipelineChoice` expone `preset`, `size`, `tasks`, `models_dir` y `offline`;
+la propiedad `id` devuelve el identificador listo para pasar a
+`VeloceOCR(preset=choice.id)`.
 
 ### 3.2 Estrategia de Resolución de Modelos (Paths) y Autodescarga
 
@@ -558,6 +580,60 @@ cumplimiento verificado; el cuadro completo está en §9.1.
   `src/tasks/mod.rs:249-336` construye los 11 esquemas; `predict_batch` reutiliza
   el mismo predictor y devuelve un `dict` por imagen (`:181-198`).
 
+### ADR-014: el catálogo vive en Rust y lee tamaños de `oar_ocr::download::find`
+
+* **Contexto.** `S3.0` debía documentar el ecosistema de `oar-ocr` dentro del
+  propio código, sin duplicar tamaños ni parámetros. El upstream publica
+  tamaños en `docs/models.md` y `oar_ocr::download::find`, pero no parámetros
+  para los modelos ONNX de PP-OCR/PP-Structure.
+* **Decisión.** El catálogo se implementa en Rust (`src/storage/catalog.rs`)
+  como tablas estáticas generadas contra `oar_ocr::download::REGISTRY` y
+  `find(name)`. `size_bytes` viene de `find(name).map(|e| e.size)`; `params`
+  es siempre `None`; los artefactos no registrados (p. ej. los de `indra`,
+  que vienen de HuggingFace) tienen `size_bytes: None`.
+* **Consecuencias.** Un solo origen de verdad para tamaños; sin drift entre
+  documentación y código. Indra permanece con `disk_bytes: None` en
+  `pipeline_profiles()` porque al menos uno de sus artefactos no está en el
+  registro de `oar-ocr`.
+* **Estado (S3.0, commit `113a490`).** Cumplido: `model_catalog()` devuelve
+  115 filas (98 registro + 17 Indra) y `pipeline_profiles()` devuelve 16
+  perfiles (5 presets + 11 tareas). `size_bytes` coincide 98/98 con
+  `oar_ocr::download::find`; Indra conserva `None`.
+
+### ADR-015: el resolvedor es un módulo Python puro, no un subproceso ni un `#[pyclass]`
+
+* **Contexto.** El usuario pidió un "proceso a parte" para elegir pipeline.
+  Un subproceso añade latencia y fragilidad para una decisión que cabe en una
+  tabla; `#[pyclass]` nuevo habría requerido envolver cada resultado del
+  resolvedor en una clase Rust.
+* **Decisión.** `pyocrust/resolver.py` implementa `TaskSpec`, `PipelineChoice`
+  y `resolve_pipeline` como dataclasses/función Python puras. Los resultados
+  cruzan a Python como `dict` (siguiendo ADR-013).
+* **Consecuencias.** Sin dependencias nuevas en `hardware.py` (solo stdlib);
+  sin subprocesos; sin `#[pyclass]` adicional. El resolvedor delega la
+  resolución de rutas en `pyocrust.resolve_models_dir()` para no reimplementar
+  la prioridad `OAR_HOME`/`OCR_MODELS_CACHE_DIR`/`~/.oar` (`src/storage/config.rs`).
+* **Estado (S3.1, commit `58385e6`).** Cumplido: 49 passed/1 skipped en tests
+  focales de S3.
+
+### ADR-016: variables de entorno documentadas (`OAR_HOME`, `PYOCRUST_OFFLINE`, `OAR_VL_*`)
+
+* **Contexto.** `pyocrust` se apoya en variables de entorno para rutas de
+  modelos y control de descarga. El upstream `oar-ocr` define además la familia
+  `OAR_VL_*` para VLM, que queda fuera de v1 pero que el usuario puede
+  encontrar en la documentación de `oar-ocr`.
+* **Decisión.** Se documentan `OAR_HOME` (primaria), `OCR_MODELS_CACHE_DIR`,
+  `PYOCRUST_OFFLINE`, `CUDA_LAUNCH_BLOCKING`, `RUST_LOG` y la familia
+  `OAR_VL_DTYPE`, `OAR_VL_ATTN_FULL_SEQ_THRESHOLD`, `OAR_VL_DISABLE_*`.
+  `OAR_HOME` manda sobre el resto en la resolución de rutas; `PYOCRUST_OFFLINE`
+  se lee en el resolvedor y en el preflight nativo; `OAR_VL_*` se documenta
+  pero no tiene efecto en v1.
+* **Consecuencias.** El usuario no busca controles de VLM en v1 y sabe que
+  están reservados para v2 (`oar-ocr-vl`, ADR-001). No se añaden lecturas
+  implícitas de `OAR_VL_*` en el código de v1.
+* **Estado (S3.0-S3.1, commits `113a490`/`58385e6`).** Cumplido: las variables
+  aparecen en `model_catalog().env_vars`, en `resolver.py` y en `DESIGN.md`.
+
 ## 5. Riesgos Conocidos
 
 | Id | Riesgo | Impacto | Mitigación | Estado (D1) |
@@ -659,7 +735,10 @@ Verificado leyendo el árbol real de `src/` (no las intenciones).
 | ADR-009 | Tiling opt-in | Cumplido con defecto | `src/core/image_processor.rs:147-185`; adaptador con defecto de memoria (`S1.1`) |
 | ADR-010 | Dependencias y features | Cumplido | `Cargo.toml:13-36,45` |
 | ADR-011 | Nomenclatura | Cumplido | `pyproject.toml:23`; `src/lib.rs:106` |
-| ADR-012 | Sesiones con `Arc`, sin `Drop` | Cumplido | `src/engines/oar_text.rs:50`; `src/engines/oar_structure.rs:32` |
+| ADR-012 | Sesiones con `Arc`, sin `Drop` | Cumplido | `src/engines/oar_text.rs:50`; `src/engines/oar_structure.rs:32` ||
+| ADR-014 | Catálogo en Rust lee tamaños de `find()` | Cumplido | `src/storage/catalog.rs:58-70`; 98/98 `size_bytes` exactos; Indra `None` ||
+| ADR-015 | Resolvedor como módulo Python puro | Cumplido | `pyocrust/resolver.py:1-87`; `TaskSpec`/`PipelineChoice`/`resolve_pipeline` ||
+| ADR-016 | Variables de entorno documentadas | Cumplido | `catalog.rs:37` (`ENV`), `resolver.py:83` (`PYOCRUST_OFFLINE`), `README.md` Variables de entorno ||
 
 ### 9.2 Condiciones abiertas del sign-off `S1` (tarjeta `t_d005409b`, RECHAZADO)
 
