@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-"""Genera tablas y graficos listos para publicar (LinkedIn, paper, README).
+"""Genera tablas y graficos listos para publicar (paper, README).
 
 Lee los CSV de `benchmarks/results/` producidos por `run_benchmarks.py` y
 escribe en `benchmarks/output_examples/`:
 
-* `benchmark_table.md`      — tabla markdown (para README / LinkedIn texto)
+* `benchmark_table.md`      — tabla markdown (para README)
 * `benchmark_table.tex`     — tabla LaTeX standalone
 * `benchmark_table.png|svg` — la misma tabla renderizada
 * `benchmark_quality.png`   — CER y F1 de palabra por backend

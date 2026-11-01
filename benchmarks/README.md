@@ -195,7 +195,7 @@ prevalece la nota B9 y su contrato de 22 columnas.
 
 Banco de pruebas **fuera de `src/`** que mide la **calidad** y la **velocidad** de
 `pyocrust` frente a otros OCR sobre un dataset real, y genera la tabla y los
-gráficos que se publican (README del repositorio, post de LinkedIn).
+gráficos que se publican (README del repositorio).
 
 Todo se ejecuta con el intérprete del venv local `.venv/Scripts/python.exe`
 desde la **raíz del repositorio**.
