@@ -1,0 +1,12 @@
+{
+  "backend": "tesseract",
+  "dataset": "omnidocbench",
+  "status": "skipped",
+  "reason": "pip install pytesseract + binario Tesseract",
+  "task_type": "text",
+  "model_name": "tesseract",
+  "model_variant": "default",
+  "device_requested": "cpu",
+  "provider_effective": "unverified",
+  "repeats": 1
+}

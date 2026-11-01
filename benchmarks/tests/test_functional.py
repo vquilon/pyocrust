@@ -555,3 +555,41 @@ def test_b6_tesseract_adapter_decodes_the_same_png_bytes(b7_sample, monkeypatch)
     assert len(seen) == 1
     decoded = Image.open(io.BytesIO(expected)).convert("RGB")
     assert list(seen[0].convert("RGB").getdata()) == list(decoded.getdata())
+
+
+# B9: dataset documental (OmniDocBench) — GT por anotaciones, sin inventar nada.
+def test_b9_omnidocbench_page_gt_usa_anotaciones_en_orden_de_lectura():
+    from run_benchmarks import _odb_page_formulas, _odb_page_text
+
+    page = {
+        "layout_dets": [
+            {"category_type": "text_block", "ignore": False, "order": 2, "text": "second"},
+            {"category_type": "equation_isolated", "ignore": False, "order": 1, "latex": "$$E=mc^2$$"},
+            {"category_type": "title", "ignore": False, "order": None, "text": "first"},
+            {"category_type": "header", "ignore": True, "order": 0, "text": "ignored"},
+        ],
+        "page_info": {},
+        "extra": {},
+    }
+    # Las formulas (solo `latex`) quedan fuera del GT de texto; los `ignore`
+    # no cuentan; `order=None` va al final.
+    assert _odb_page_text(page) == "second first"
+    assert _odb_page_formulas(page) == "$$E=mc^2$$"
+
+
+def test_b9_gt_por_tarea_puntua_la_tarea_formula_contra_su_referencia(b7_sample):
+    from dataclasses import replace
+    from run_benchmarks import OcrOutput, run_benchmark
+
+    sample = replace(b7_sample, gt_text="prosa de pagina", gt_markdown=None,
+                     gt_blocks=None, gt_by_task={"formula": "X^2"})
+    rows, meta = run_benchmark(
+        [sample], "pyocrust_formula", "local", warmup=0,
+        backend_factory=lambda: lambda image: OcrOutput("X^2"),
+    )
+    assert meta["n_ok"] == 1
+    # `normalize` baja a minusculas: "X^2" -> "x^2" (3 chars) como GT de formula.
+    assert rows[0]["n_chars_gt"] == len("x^2")
+    assert rows[0]["exact_match"] == 1.0
+    assert rows[0]["markdown_f1"] == "" and rows[0]["block_f1"] == ""
+    assert meta["markdown_quality"] == "not_evaluated"

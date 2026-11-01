@@ -1,6 +1,36 @@
 # Borrador de post para LinkedIn
 
-## Nota vigente — comparativa multi-tarea (2026-11-01)
+## Nota vigente B10 — dataset documental (2026-11-01)
+
+Run `benchmarks/results/2026-11-01_15-13-03`: **`opendatalab/OmniDocBench`** v1.6
+(páginas de documentos reales: artículos, informes, periódicos, libros, exámenes,
+notas manuscritas; 10 tipos, 5 idiomas), **25 imágenes por backend**, CPU,
+`warmup=1`, `repeats=1`, un backend/modelo cargado a la vez. Es la primera vez
+que el banco corre sobre un **dataset documental con GT** (no solo FUNSD). CSV de
+22 columnas y **150 filas `ok`** (0 errores): **`text` 75** (tres motores),
+**`structure` 25**, **`formula` 25**, **`full_page` 25** — todas ≥ 20.
+`tesseract` **skipped** (no instalado).
+
+**GT sin inventar.** El GT de texto de cada página es el **texto anotado de sus
+bloques en orden de lectura**; la tarea `formula` se puntúa contra el **LaTeX
+anotado** de las fórmulas de la página. OmniDocBench **no** trae un Markdown de
+página ya renderizado, así que `markdown_f1`/`block_f1` son **N/A** y la calidad
+Markdown/bloques se marca **no evaluada** (no se inventa GT).
+
+**Números (`text`, igual a igual):** `pyocrust` (Tiny) **F1 palabra 0.274**,
+WER ord. 1.661, **1551 ms/página**; `rapidocr` (default) F1 0.251, **WER ord.
+1.380**, 8445 ms; `easyocr` (default) F1 0.261, WER ord. 1.685, 10937 ms.
+`pyocrust_indra` (`full_page`) 1045 ms/página (el más rápido); `pyocrust_structure`
+8288 ms; `pyocrust_formula` 8681 ms (su F1 0.004 es formato LaTeX, no calidad).
+
+**Lectura honesta:** en reconocimiento los tres motores de `text` **empatan** en
+la práctica (0.25-0.27 de F1; `rapidocr` gana el WER neutralizado). Lo que
+**separa** es la **velocidad**: `pyocrust` es **≈5,4× más rápido que `rapidocr`**
+y **≈7,0× que `easyocr`**. Sobre documentos reales y difíciles, **sin ganador
+general**: la calidad de tabla/matemática de `structure`/`formula` sigue **sin
+medir** porque no hay GT Markdown/LaTeX de página como referencia.
+
+## Nota anterior — comparativa multi-tarea (2026-11-01)
 
 Run `benchmarks/results/2026-11-01_15-04-00`: FUNSD `train`, **10 imágenes por
 backend**, CPU, `warmup=1`, `repeats=1`. Corren por primera vez **las cuatro
