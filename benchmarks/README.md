@@ -13,6 +13,10 @@ no generan filas. FUNSD sin GT Markdown/bloques: **calidad Markdown N/A / no eva
 CPU solicitado, `provider_effective=unverified`, `warmup=1`, `repeats=1`:
 **sin ganador general, claims GPU ni comparación publicable con cinco muestras**.
 
+> **Nota (`B6`, ver `README.md` §Uso).** El eje `task_type` (columna 18 del CSV)
+> se define en el contrato de 22 columnas anterior. La tabla de cobertura de
+> `README.md` explica qué `task_type` produce cada predictor y pipeline.
+
 ### Contrato vigente (sustituye las definiciones históricas inferiores)
 
 * **22 columnas**, cabecera exacta:
