@@ -21,6 +21,14 @@ Eje `task_type`: `text` (pp_ocrv6 tiny), `structure` (pp_structurev3 → Markdow
 `formula` (pp_structurev3 + pp-formulanet-s → LaTeX), `full_page` (indra con math
 → Markdown + LaTeX). `markdown_f1`/`block_f1` van vacíos (`""`) en `text`.
 
+Dataset `--dataset omnidocbench_formula` (analisis de formulas, no de pagina): toma
+cada bloque `equation_isolated` de OmniDocBench como **una muestra** —recorte de la
+imagen + su **LaTeX anotado** como GT— y fuerza `task_type=formula` en **todos** los
+adaptadores, para que motores que no emiten LaTeX (`rapidocr`, `easyocr`, `pyocrust`
+tiny, `tesseract`) compitan sobre la **misma entrada** y quede medido, no supuesto,
+qué reproduce cada uno el LaTeX. El recorte usa el `poly` anotado con 4 px de margen;
+el GT se normaliza quitando los `$` de delimitador (`$$...$$` → `...`).
+
 Fairness (representación elegida): **todos los adaptadores reciben la MISMA entrada,
 los mismos bytes PNG re-codificados** (`_image_bytes`). `pyocrust.recognize` solo
 admite ruta/`bytes`/PathLike, así que el denominador común es `bytes`; cada adaptador
@@ -364,6 +372,76 @@ def load_omnidocbench(limit: int | None = None, cache_dir: Path | None = None) -
 
 
 # ---------------------------------------------------------------------------
+# Dataset de formulas: un recorte por bloque `equation_isolated`
+# ---------------------------------------------------------------------------
+#
+# La tarea `formula` de `load_omnidocbench` puntúa el **LaTeX de todas las formulas
+# de la pagina** contra lo que emite el motor para la pagina entera: mide, sobre
+# todo, diferencia de formato y de granularidad. Para medir reconocimiento de
+# formulas de verdad —y de forma comparable entre motores— la unidad aqui es cada
+# formula anotada: se recorta su region (`poly`) y el GT es su `latex`.
+
+def _odb_formula_pages(pages: list, limit: int | None) -> list[tuple]:
+    """Paginas con formulas (en orden de anotacion), recortadas a `limit` bloques."""
+    selected: list[tuple] = []
+    total = 0
+    for page in pages:
+        dets = [d for d in page["layout_dets"]
+                if not d.get("ignore") and d["category_type"] == "equation_isolated" and d.get("latex")]
+        if not dets:
+            continue
+        if limit is not None:
+            dets = dets[: max(0, limit - total)]
+            if not dets:
+                break
+        total += len(dets)
+        selected.append((str(page["page_info"]["image_path"]), page, dets))
+        if limit is not None and total >= limit:
+            break
+    return selected
+
+
+def _crop_poly(image: Image.Image, poly: Sequence[float], pad: int = 4) -> Image.Image:
+    """Recorte del poligono anotado (caja envolvente) con `pad` px de margen."""
+    xs, ys = poly[0::2], poly[1::2]
+    x1, y1 = max(0, int(min(xs)) - pad), max(0, int(min(ys)) - pad)
+    x2, y2 = min(image.width, int(max(xs)) + pad), min(image.height, int(max(ys)) + pad)
+    return image.crop((x1, y1, x2, y2))
+
+
+def load_omnidocbench_formulas(limit: int | None = None, cache_dir: Path | None = None) -> list[Sample]:
+    """Una muestra por formula: recorte de la imagen + su LaTeX anotado como GT."""
+    try:
+        from huggingface_hub import hf_hub_download
+    except ImportError as exc:  # pragma: no cover - entorno sin huggingface_hub
+        raise ProviderUnavailable(
+            "pip install huggingface_hub para descargar OmniDocBench"
+        ) from exc
+
+    cache = cache_dir or (HERE / "data_cache")
+    cache.mkdir(parents=True, exist_ok=True)
+    ann = hf_hub_download(OMNIDOCBENCH_REPO, "OmniDocBench.json",
+                          repo_type="dataset", cache_dir=str(cache))
+    pages = json.loads(Path(ann).read_text(encoding="utf-8"))
+
+    samples: list[Sample] = []
+    for name, _page, dets in _odb_formula_pages(pages, limit):
+        path = hf_hub_download(OMNIDOCBENCH_REPO, f"images/{name}",
+                               repo_type="dataset", cache_dir=str(cache))
+        image = Image.open(path).convert("RGB")
+        for det in dets:
+            # GT sin delimitadores `$`: el motor de formulas emite LaTeX "desnudo".
+            gt = " ".join(str(det["latex"]).replace("$", "").split())
+            samples.append(Sample(
+                image_id=f"{Path(name).stem}::{det.get('anno_id', 'eq')}",
+                image=_crop_poly(image, det["poly"]),
+                gt_text=gt,
+            ))
+    (cache / "omnidocbench_formulas.ok").write_text(f"{len(samples)} samples\n", encoding="utf-8")
+    return samples
+
+
+# ---------------------------------------------------------------------------
 # Proveedores (adaptadores de backends OCR)
 # ---------------------------------------------------------------------------
 
@@ -475,6 +553,30 @@ def _easyocr_backend(languages: Sequence[str] = ("en",)) -> Callable[[Image.Imag
     return run
 
 
+def _pyocrust_formulanet_backend() -> Callable[[Image.Image], OcrOutput]:
+    """PP-FormulaNet-S **directo** (`TaskPredictor('formula_recognition')`).
+
+    Sin layout propio: recibe el recorte de la formula tal cual. Aisla el modelo de
+    formulas del pipeline de pagina, que sobre un recorte puede no detectar bloque.
+    """
+    import pyocrust  # noqa: PLC0415
+
+    predictor = pyocrust.TaskPredictor(task="formula_recognition")
+
+    def run(image: Image.Image) -> OcrOutput:
+        data = _image_bytes(image)
+        start = time.perf_counter()
+        result = predictor.predict(data)
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+        return OcrOutput(
+            text=str(result.get("formula", "") or ""),
+            elapsed_ms=elapsed_ms,
+            extra={"kind": "formula_recognition"},
+        )
+
+    return run
+
+
 def _tesseract_backend() -> Callable[[Image.Image], OcrOutput]:
     try:
         import pytesseract
@@ -498,6 +600,7 @@ PROVIDERS: dict[str, Callable[[], Callable[[Image.Image], OcrOutput]]] = {
     "pyocrust": lambda: _pyocrust_backend("pp_ocrv6"),
     "pyocrust_structure": lambda: _pyocrust_backend("pp_structurev3"),
     "pyocrust_formula": lambda: _pyocrust_backend("pp_structurev3", formula_only=True),
+    "pyocrust_formulanet": _pyocrust_formulanet_backend,
     "pyocrust_indra": lambda: _pyocrust_backend("indra"),
     "rapidocr": _rapidocr_backend,
     "easyocr": _easyocr_backend,
@@ -521,9 +624,10 @@ def _describe_runtime() -> dict:
     }
 
 
-TASK_TYPES = {"pyocrust_structure": "structure", "pyocrust_formula": "formula", "pyocrust_indra": "full_page"}
+TASK_TYPES = {"pyocrust_structure": "structure", "pyocrust_formula": "formula", "pyocrust_formulanet": "formula", "pyocrust_indra": "full_page"}
 MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"), "pyocrust_structure": ("pp_structurev3", "default"),
-               "pyocrust_formula": ("pp_structurev3", "pp-formulanet-s"), "pyocrust_indra": ("indra", "math")}
+               "pyocrust_formula": ("pp_structurev3", "pp-formulanet-s"), "pyocrust_formulanet": ("pp-formulanet-s", "direct"),
+               "pyocrust_indra": ("indra", "math")}
 
 
 def run_benchmark(
@@ -534,9 +638,18 @@ def run_benchmark(
     backend_factory: Callable[[], Callable[[Image.Image], OcrOutput]] | None = None,
     repeats: int = 1,
     device: str = "cpu",
+    task_override: str | None = None,
+    dump: list[dict] | None = None,
 ) -> tuple[list[dict], dict]:
-    """Ejecuta un backend sobre todas las muestras y devuelve (filas, metadatos)."""
-    task_type = TASK_TYPES.get(backend, "text")
+    """Ejecuta un backend sobre todas las muestras y devuelve (filas, metadatos).
+
+    `task_override` fuerza el `task_type` de las filas (p. ej. `formula` sobre el
+    dataset de recortes de formula) aunque el backend sea de otra familia; el GT
+    sigue siendo el de la muestra. Si `dump` no es None, se rellena con
+    `{image_id, text}` de cada muestra medida: la salida cruda no cabe en el CSV de
+    contrato fijo y hace falta para medir, p. ej., quien emite LaTeX de verdad.
+    """
+    task_type = task_override or TASK_TYPES.get(backend, "text")
     model_name, model_variant = MODEL_NAMES.get(backend, (backend, "default"))
     provenance = {"task_type": task_type, "model_name": model_name, "model_variant": model_variant,
                   "device_requested": device, "provider_effective": "unverified", "repeats": repeats}
@@ -603,6 +716,8 @@ def run_benchmark(
         # Tareas con GT propio (p. ej. `formula` -> LaTeX anotado) se puntuan
         # contra su referencia; el resto usa el GT de texto de la pagina.
         gt = sample.gt_by_task.get(task_type, sample.gt_text) if sample.gt_by_task else sample.gt_text
+        if dump is not None:
+            dump.append({"image_id": sample.image_id, "text": output.text})
         rows.append(
             {
                 "backend": backend,
@@ -675,7 +790,7 @@ def write_csv(rows: Sequence[dict], out_dir: Path, timestamp: str) -> Path:
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Benchmark de OCR sobre FUNSD")
-    parser.add_argument("--dataset", default=DEFAULT_DATASET, choices=["funsd", "omnidocbench"])
+    parser.add_argument("--dataset", default=DEFAULT_DATASET, choices=["funsd", "omnidocbench", "omnidocbench_formula"])
     parser.add_argument("--split", default="train")
     parser.add_argument("--limit", type=int, default=20, help="imagenes a evaluar")
     parser.add_argument(
@@ -689,6 +804,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--repeats", type=int, default=1)
     parser.add_argument("--device", choices=["cpu", "gpu"], default="cpu")
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_RESULTS_DIR)
+    parser.add_argument("--dump-outputs", action="store_true",
+                        help="escribe <backend>.outputs.json con la salida cruda de cada muestra")
     args = parser.parse_args(argv)
     tasks = set(args.task_types.split(","))
     if not tasks <= {"text", "structure", "formula", "full_page"} or args.limit < 0 or args.warmup < 0 or args.repeats < 1:
@@ -703,8 +820,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         samples = load_local(args.manifest, args.limit)
     elif args.dataset == "omnidocbench":
         samples = load_omnidocbench(limit=args.limit)
+    elif args.dataset == "omnidocbench_formula":
+        samples = load_omnidocbench_formulas(limit=args.limit)
     else:
         samples = load_funsd(split=args.split, limit=args.limit)
+    # Los recortes de formula se evaluan con `task_type=formula` en TODOS los
+    # adaptadores: la entrada ya es una formula, no una pagina que haya que tipar.
+    force_task = "formula" if args.dataset == "omnidocbench_formula" else None
     if args.manifest:
         args.dataset = str(args.manifest.resolve())
     print(f"[dataset] {len(samples)} muestras cargadas")
@@ -716,13 +838,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"[skip] backend desconocido: {backend}")
             summary[backend] = {"status": "skipped", "reason": "no registrado"}
             continue
-        if TASK_TYPES.get(backend, "text") not in tasks:
+        if (force_task or TASK_TYPES.get(backend, "text")) not in tasks:
             summary[backend] = {"status": "skipped", "reason": "task type excluded"}
             continue
         print(f"\n[run] {backend} ...")
-        rows, meta = run_benchmark(samples, backend, args.dataset, warmup=args.warmup, repeats=args.repeats, device=args.device)
+        dump: list[dict] | None = [] if args.dump_outputs else None
+        rows, meta = run_benchmark(samples, backend, args.dataset, warmup=args.warmup, repeats=args.repeats, device=args.device, task_override=force_task, dump=dump)
         all_rows.extend(rows)
         summary[backend] = meta
+        if dump:
+            (out_dir / f"{backend}.outputs.json").write_text(
+                json.dumps({"backend": backend, "outputs": dump}, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
         if meta.get("status") == "skipped":
             print(f"  skipped: {meta['reason']}")
         elif not meta.get("n_ok"):

@@ -593,3 +593,65 @@ def test_b9_gt_por_tarea_puntua_la_tarea_formula_contra_su_referencia(b7_sample)
     assert rows[0]["exact_match"] == 1.0
     assert rows[0]["markdown_f1"] == "" and rows[0]["block_f1"] == ""
     assert meta["markdown_quality"] == "not_evaluated"
+
+
+# Formula crops (`omnidocbench_formula`): recorte por `poly` + GT sin `$`, y la
+# metrica de similitud acotada del reporte. Todo offline (sin dataset ni modelos).
+def test_formula_crops_select_equation_blocks_and_crop_poly():
+    from PIL import Image
+    from run_benchmarks import _crop_poly, _odb_formula_pages
+
+    page = {
+        "layout_dets": [
+            {"category_type": "equation_isolated", "ignore": False, "latex": "$$x$$",
+             "poly": [0, 0, 10, 0, 10, 10, 0, 10], "anno_id": "a"},
+            {"category_type": "text_block", "ignore": False, "text": "t"},
+            {"category_type": "equation_isolated", "ignore": True, "latex": "$$y$$",
+             "poly": [0, 0, 1, 0, 1, 1, 0, 1]},
+            {"category_type": "equation_isolated", "ignore": False,
+             "poly": [0, 0, 1, 0, 1, 1, 0, 1]},  # sin `latex`: no es muestra
+        ],
+        "page_info": {"image_path": "p.png"},
+    }
+    # solo el bloque `equation_isolated` con `latex`, no ignorado
+    selected = _odb_formula_pages([page, page], None)
+    assert [len(dets) for _n, _p, dets in selected] == [1, 1]
+    # `limit` corta a un total de bloques, no a un total de paginas
+    limited = _odb_formula_pages([page, page], 1)
+    assert len(limited) == 1 and len(limited[0][2]) == 1
+    # `_crop_poly` usa la caja envolvente del poligono `poly` con margen
+    image = Image.new("RGB", (20, 20), "white")
+    poly = [2, 3, 8, 3, 8, 9, 2, 9]
+    assert _crop_poly(image, poly, pad=0).size == (6, 6)
+    assert _crop_poly(image, poly, pad=4).size == (12, 13)
+
+
+def test_formula_report_similarity_and_latex_coverage_offline(tmp_path):
+    import json
+    from run_benchmarks import write_csv
+    from report_formula import build, latex_coverage, summarize
+
+    row = {"backend": "motor", "model_variant": "v", "dataset": "local", "image_id": "a",
+           "task_type": "formula", "status": "ok", "cer": 0.5, "n_chars_gt": 10.0,
+           "n_chars_pred": 20.0, "exact_match": 0.0, "elapsed_ms": 100.0, "error": ""}
+    data, = summarize([row]).values()
+    # lev = cer * |GT| = 5; normalizado por max(10, 20) -> 0.25 -> similitud 0.75
+    assert data["lev_norm"] == pytest.approx(0.25)
+    assert data["similarity"] == pytest.approx(0.75)
+    assert summarize([dict(row, status="error")]) == {}  # las filas no medidas no cuentan
+
+    (tmp_path / "motor.outputs.json").write_text(
+        json.dumps({"backend": "motor", "outputs": [
+            {"image_id": "a", "text": r"x^2"},
+            {"image_id": "b", "text": r"\begin{matrix}1\end{matrix}"},
+            {"image_id": "c", "text": ""},
+        ]}), encoding="utf-8")
+    coverage = latex_coverage(tmp_path)
+    assert coverage["motor"]["latex_any"] == pytest.approx(1 / 3)
+    assert coverage["motor"]["latex_block"] == pytest.approx(1 / 3)
+    assert coverage["motor"]["empty"] == pytest.approx(1 / 3)
+
+    write_csv([row], tmp_path, "formula")
+    md = build(tmp_path)
+    assert "motor (v; formula)" in md
+    assert "Salidas con LaTeX" in md and "## Limitaciones" in md
