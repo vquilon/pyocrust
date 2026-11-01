@@ -209,4 +209,12 @@ __all__: list[str] = [
     "VeloceOCR",
     "resolve_models_dir",
     "models_status",
+    "model_catalog",
+    "pipeline_profiles",
+    "GpuInfo",
+    "HardwareProfile",
+    "detect_hardware",
+    "TaskSpec",
+    "PipelineChoice",
+    "resolve_pipeline",
 ]
