@@ -27,3 +27,6 @@ dist/
 # Resultados de benchmark y material de difusión: no se versionan
 /benchmarks/results/
 /benchmarks/LINKEDIN.md
+
+# Laboratorio local (comparativas y exploraciones): no se versiona
+/laboratories/
