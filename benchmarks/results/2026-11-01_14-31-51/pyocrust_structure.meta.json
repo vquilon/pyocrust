@@ -1,0 +1,52 @@
+{
+  "backend": "pyocrust_structure",
+  "dataset": "funsd",
+  "status": "ok",
+  "task_type": "structure",
+  "model_name": "pp_structurev3",
+  "model_variant": "default",
+  "device_requested": "cpu",
+  "provider_effective": "unverified",
+  "repeats": 1,
+  "load_ms": 2801.233800004411,
+  "warmup": 1,
+  "input": "identical re-encoded PNG bytes for every adapter; no per-backend resize or preprocess; conversion excluded from timing",
+  "image_sizes": {
+    "0": [
+      762,
+      1000
+    ],
+    "1": [
+      762,
+      1000
+    ],
+    "2": [
+      762,
+      1000
+    ],
+    "3": [
+      762,
+      1000
+    ],
+    "4": [
+      771,
+      1000
+    ]
+  },
+  "inference_ms": [
+    2032.4254999941331,
+    2610.997199997655,
+    2024.4427000070573,
+    2947.9441000003135,
+    6442.274400003953
+  ],
+  "p95_ms": 6442.274400003953,
+  "markdown_quality": "not_evaluated",
+  "n_images": 5,
+  "n_ok": 5,
+  "n_error": 0,
+  "errors": [],
+  "mean_cer": 1.0622800208397598,
+  "mean_word_f1": 0.47631497740475404,
+  "mean_ms": 3211.6166000000003
+}

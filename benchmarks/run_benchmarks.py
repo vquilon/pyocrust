@@ -12,9 +12,22 @@ Los backends que no esten instalados (o cuyos modelos falten) se registrarán co
 `status=skipped` y un motivo; nunca como si hubieran corrido.
 
 Salida: `benchmarks/results/<timestamp>/<timestamp>.csv`
-Esquema de columnas (contrato con `report_benchmarks.py`):
-    run_timestamp,backend,dataset,image_id,cer,wer,exact_match,elapsed_ms,
-    n_regions,mean_confidence,n_chars_gt,n_chars_pred,status,error
+Esquema de columnas (contrato con `report_benchmarks.py`, 22 columnas):
+    run_timestamp,backend,dataset,image_id,cer,wer,cer_ord,wer_ord,word_f1,
+    exact_match,elapsed_ms,n_regions,mean_confidence,n_chars_gt,n_chars_pred,
+    status,error,task_type,model_name,model_variant,markdown_f1,block_f1
+
+Eje `task_type`: `text` (pp_ocrv6 tiny), `structure` (pp_structurev3 → Markdown),
+`formula` (pp_structurev3 + pp-formulanet-s → LaTeX), `full_page` (indra con math
+→ Markdown + LaTeX). `markdown_f1`/`block_f1` van vacíos (`""`) en `text`.
+
+Fairness (representación elegida): **todos los adaptadores reciben la MISMA entrada,
+los mismos bytes PNG re-codificados** (`_image_bytes`). `pyocrust.recognize` solo
+admite ruta/`bytes`/PathLike, así que el denominador común es `bytes`; cada adaptador
+entrega esos bytes a su motor y es el motor quien los decodifica (tesseract vía
+`io.BytesIO`). Sin reescalado ni preproceso por backend. La conversión de la entrada
+queda fuera del cronómetro: `elapsed_ms` mide solo la inferencia, sin carga de modelo
+ni descarga. El *warmup* es idéntico para todos los backends.
 """
 
 from __future__ import annotations
@@ -306,7 +319,6 @@ def _pyocrust_backend(preset: str, formula_only: bool = False) -> Callable[[Imag
 
 def _rapidocr_backend() -> Callable[[Image.Image], OcrOutput]:
     try:
-        import numpy as np
         from rapidocr_onnxruntime import RapidOCR
     except ImportError as exc:
         raise ProviderUnavailable("pip install rapidocr-onnxruntime") from exc
@@ -314,11 +326,12 @@ def _rapidocr_backend() -> Callable[[Image.Image], OcrOutput]:
     engine = RapidOCR()
 
     def run(image: Image.Image) -> OcrOutput:
-        # Preparación de la entrada fuera del cronómetro (B4/D12).
-        array = np.array(image.convert("RGB"))
+        # Fairness (B6): los MISMOS bytes PNG que el resto de adaptadores; rapidocr
+        # los decodifica dentro de su propia llamada. Codificar queda fuera del cronómetro.
+        data = _image_bytes(image)
         start = time.perf_counter()
         # rapidocr 1.2.x devuelve (result, elapse): result = [[box, texto, score]]
-        result, _elapse = engine(array)
+        result, _elapse = engine(data)
         elapsed_ms = (time.perf_counter() - start) * 1000.0
         if not result:
             return OcrOutput(text="", elapsed_ms=elapsed_ms)
@@ -344,12 +357,11 @@ def _easyocr_backend(languages: Sequence[str] = ("en",)) -> Callable[[Image.Imag
     reader = easyocr.Reader(list(languages), gpu=False, verbose=False)
 
     def run(image: Image.Image) -> OcrOutput:
-        import numpy as np
-
-        # Preparación de la entrada fuera del cronómetro (B4/D12).
-        array = np.array(image.convert("RGB"))
+        # Fairness (B6): los MISMOS bytes PNG que el resto de adaptadores; easyocr
+        # acepta `bytes` y los decodifica dentro de su propia llamada.
+        data = _image_bytes(image)
         start = time.perf_counter()
-        result = reader.readtext(array)
+        result = reader.readtext(data)
         elapsed_ms = (time.perf_counter() - start) * 1000.0
         if not result:
             return OcrOutput(text="", elapsed_ms=elapsed_ms)
@@ -373,8 +385,11 @@ def _tesseract_backend() -> Callable[[Image.Image], OcrOutput]:
         raise ProviderUnavailable("pip install pytesseract + binario Tesseract") from exc
 
     def run(image: Image.Image) -> OcrOutput:
+        # Fairness (B6): los MISMOS bytes PNG que el resto de adaptadores; el
+        # decodificado a PIL (lo que consume pytesseract) queda fuera del cronómetro.
+        data = Image.open(io.BytesIO(_image_bytes(image)))
         start = time.perf_counter()
-        text = pytesseract.image_to_string(image)
+        text = pytesseract.image_to_string(data)
         elapsed_ms = (time.perf_counter() - start) * 1000.0
         return OcrOutput(text=text, elapsed_ms=elapsed_ms, extra={"engine": "tesseract"})
 
@@ -520,7 +535,7 @@ def run_benchmark(
         **provenance,
         "load_ms": load_ms,
         "warmup": warmup,
-        "input": "identical RGB pixels; adapter conversion excluded from timing",
+        "input": "identical re-encoded PNG bytes for every adapter; no per-backend resize or preprocess; conversion excluded from timing",
         "image_sizes": {s.image_id: list(s.image.size) for s in samples},
         "inference_ms": timings,
         "p95_ms": sorted(timings)[min(len(timings) - 1, int(0.95 * len(timings)))] if timings else None,
