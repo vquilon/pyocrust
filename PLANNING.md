@@ -7,7 +7,7 @@ Este documento detalla la hoja de ruta secuencial para la implementación del pa
 > Cada entrada lleva identificador, tarjeta del board (`pyocrust`), estado y criterio de aceptación.
 > Estados: `Pendiente` / `En curso` / `Hecho` / `Bloqueado` / `Descartado`. Todo cambio de estado va fechado.
 >
-> **Estado global (D1, 2026-10-25; actualizado en `D2`):** las fases 0-5 están **Hechas**; `S1.2` (`b128566`), `S1.3` y `S1.5` (`c30a3a9`) quedaron **cerradas**, pero el sign-off `S1` sigue **RECHAZADO**, con `S1.1` pendiente y `S1.4`/`S1.6` parciales (§7). El proyecto **no** está aprobado: `D1`/`D2` reconcilian la documentación, no la implementación.
+> **Estado global (D1, 2026-10-25; actualizado en `D2` y `S2.0`):** las fases 0-5 están **Hechas**; `S1.2` (`b128566`), `S1.3`, `S1.4` (cerrada por `S2.0`) y `S1.5` (`c30a3a9`) quedaron **cerradas**, pero el sign-off `S1` sigue **RECHAZADO**, con `S1.1` pendiente y `S1.6` parcial (§7). El proyecto **no** está aprobado: `D1`/`D2` reconcilian la documentación, no la implementación.
 
 ### Actualización `S2.2` — Indra (parcial)
 
@@ -296,13 +296,116 @@ Dependencias: el código del banco (`benchmarks/*.py`, sin tarjeta) precede a `B
 * **Criterio de aceptación:** un comentario con la salida real de `pytest benchmarks/tests -q`, las medias de `pyocrust` de las dos runs y su diferencia, el recálculo del CER/F1 agregado frente a `benchmark_summary.json`, y evidencia de que ningún backend ausente apareció como ejecutado.
 * **Límite:** no modifica `src/` ni el runner/reportero salvo un bug de una línea, que reporta aparte.
 
+## Fase 8: Cobertura completa de `oar-ocr`
+
+Ampliar `pyocrust` de "dos presets fijos" a wrapper completo de `oar-ocr` `0.10.1`:
+gestor de modelos conectado (S2.0), once tareas individuales (S2.3-S2.4),
+indra (S2.2), fórmulas (S2.1) y verificación de exposición (S2.5).
+
+> **Contrato:** cada tarjeta cierra código + evidencia. `S2.5` verifica exposición
+> (11/11 predictores + 3/3 pipelines); `S2.6` reconcilia la documentación con ese
+> cierre. La inferencia real de las 14 entradas y la descarga fría permanecen
+> como limitaciones explícitas, no como defectos no detectados.
+
+| Id | Fase | Título | Tarjeta | Responsable | Estado | Fecha de cambio |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `S2.0` | 8 | Gestor de modelos: registro único, auto-descarga paralela y caché verificada | `t_54cab62c` | `hefesto` | Hecho | 2026-10-31 |
+| `S2.1` | 8 | Exponer fórmulas (LaTeX) en `pp_structurev3` y cerrar el test pendiente | `t_423d391f` | `coder` | Hecho | 2026-10-26 |
+| `S2.2` | 8 | Exponer el backend `indra` (markdown de página + LaTeX) en pyocrust | `t_027743e2` | `coder` | Hecho | 2026-10-31 |
+| `S2.3` | 8 | TaskPredictor: las 5 capacidades que faltan (orientación, rectificación, línea, sello, fórmula) | `t_f6168e7b` | `coder` | Hecho | 2026-10-31 |
+| `S2.4` | 8 | TaskPredictor: las 6 tareas restantes + `predict_batch` (cobertura 11/11) | `t_ce72cb5b` | `coder` | Hecho | 2026-11-01 |
+| `S2.5` | 8 | Verificar la cobertura completa de `oar-ocr` (11 predictores + 3 pipelines) | `t_6c79980d` | `probador` | Hecho | 2026-11-01 |
+| `S2.6` | 8 | Documentar la API de cobertura completa (DESIGN, PLANNING, README) | `t_524c734e` | `escriba` | En curso | 2026-11-01 |
+
+Dependencias: `S2.0` (modelos) → `S2.1` (fórmulas en structure) → `S2.2` (indra) → `S2.3` (5 tareas) → `S2.4` (6 tareas restantes + batch) → `S2.5` (verificación) → `S2.6` (documentación). `S2.1` y `S2.2` comparten `S2.0` como prerequisito de artefactos.
+
+### `S2.0` — Gestor de modelos: registro único, auto-descarga paralela y caché verificada
+
+* **Tarjeta:** `t_54cab62c`. **Responsable:** `hefesto`. **Estado:** Hecho (2026-10-31, commit `113a490`).
+* **Contenido:** `src/storage/registry.rs` (registro único ModelScope + HuggingFace),
+  `src/storage/models.rs` (preflight + auto-descarga paralela con `rayon`, 4 hilos),
+  sidecar `<name>.sha256` para no re-hashear en caliente, `PYOCRUST_OFFLINE=1`.
+  Cierra `S1.4`: `ensure_models` conecta el descargador nativo al pipeline.
+* **Criterio de aceptación:** `cargo test` verde, `pytest tests/test_models.py` verde,
+  `models_status()` refleja el directorio resuelto, descarga paralela acotada.
+* **Evidencia:** Rust 53/53; Python `test_models` 4 pass/2 skip. `ensure_models`
+  ejecuta preflight, descarga en paralelo y re-verifica.
+
+### `S2.1` — Exponer fórmulas (LaTeX) en `pp_structurev3`
+
+* **Tarjeta:** `t_423d391f`. **Responsable:** `coder`. **Estado:** Hecho (2026-10-26).
+* **Contenido:** `pp_formulanet-s.onnx` + tokenizer en el registro de ModelScope;
+  `ModelPaths` gana campos de fórmula; `OARStructureBuilder` encadena
+  `.with_formula_recognition(...)` cuando los artefactos están presentes.
+* **Criterio de aceptación:** `cargo test` verde; test de LaTeX pasa o salta con
+  comando exacto.
+* **Evidencia:** Rust 39/39; Python 8 passed/2 skipped.
+
+### `S2.2` — Exponer el backend `indra`
+
+* **Tarjeta:** `t_027743e2`. **Responsable:** `coder`. **Estado:** Hecho (2026-10-31).
+* **Contenido:** `src/engines/oar_indra.rs` como tercer backend del trait
+  `OcrEngineBackend`; nueve artefactos HuggingFace (`datalab-to/indra-ocr`,
+  revisión `bd02167f...`) en el registro; `VeloceOCR('indra')` devuelve
+  `StructureResult` con Markdown, regiones y bloques.
+* **Criterio de aceptación:** constructor y smoke CPU con dos regiones, dos
+  elementos y Markdown; prueba Python y Rust de giro inverso pasadas.
+* **Evidencia:** 1 pass en `test_indra.py`; `models_status()` reporta los 9
+  artefactos. No certifica GPU, calidad matemática ni descarga fría.
+
+### `S2.3` — TaskPredictor: las 5 capacidades que faltan
+
+* **Tarjeta:** `t_f6168e7b`. **Responsable:** `coder`. **Estado:** Hecho (2026-10-31).
+* **Contenido:** cinco tareas (`document_orientation`, `document_rectification`,
+  `text_line_orientation`, `seal_text_detection`, `formula_recognition`),
+  entradas `str`/`Path`/`bytes`, salidas `dict`, PNG como `PyBytes`.
+* **Criterio de aceptación:** 53 tests Rust; `tests/test_tasks.py` 21 passed/0 skip.
+* **Evidencia:** 53/53 Rust; 21/21 Python focal. Inferencias offline reales.
+
+### `S2.4` — TaskPredictor: las 6 tareas restantes + `predict_batch`
+
+* **Tarjeta:** `t_ce72cb5b`. **Responsable:** `coder`. **Estado:** Hecho (2026-11-01, commit `1349296`).
+* **Contenido:** seis tareas adicionales (`text_detection`, `text_recognition`,
+  `layout_detection`, `table_classification`, `table_structure_recognition`,
+  `table_cell_detection`): once nombres, esquemas, whitelist/defaults y artefactos
+  exactos en `DESIGN.md` §3.1.2. Batch ordenado, vacío `[]`, inferencia sin GIL.
+* **Criterio de aceptación:** 53 tests Rust; `tests/test_tasks.py` 44 passed;
+  batch de 2 imágenes = 2 dicts.
+* **Evidencia:** 53/53 Rust; 44/44 Python focal. `predict_batch` reutiliza el
+  predictor (modelo construido una vez).
+
+### `S2.5` — Verificar la cobertura completa de `oar-ocr`
+
+* **Tarjeta:** `t_6c79980d`. **Responsable:** `probador`. **Estado:** Hecho (2026-11-01).
+* **Contenido:** matriz de 14 filas (11 predictores + 3 pipelines), prueba de 11
+  nombres canónicos, comprobación de claves de `dict` contra `__init__.pyi`,
+  gestión de modelos (preflight, bypass offline, truncado, hash incorrecto),
+  sin carga duplicada (`predict_batch` 2 dicts).
+* **Criterio de aceptación:** comentario con matriz 14 filas, `cargo test` 53/53,
+  `pytest tests/` 138 passed/2 skipped, evidencia de puntos 2-6.
+* **Evidencia:** 53/53 Rust; 138 passed/2 skipped Python. Matriz 11/11+3/3.
+  Cuatro skips focales: estructura (6/11 artefactos ausentes), LaTeX (fixture
+  sin fórmula), descarga fría y redescarga (excluidas por offline).
+
+### `S2.6` — Documentar la API de cobertura completa
+
+* **Tarjeta:** `t_524c734e`. **Responsable:** `escriba`. **Estado:** En curso (2026-11-01).
+* **Contenido:** `DESIGN.md` (API pública §3.1.4, ADR-013, ADR-007 actualizado,
+  §2 ampliado), `PLANNING.md` (Fase 8, S1.4 cerrada por S2.0), `README.md`
+  (ejemplos TaskPredictor, tabla de cobertura 14 filas, apartado Modelos),
+  `benchmarks/README.md` (enlace a eje `task_type`).
+* **Criterio de aceptación:** los cuatro documentos describen el código real;
+  tabla de cobertura coincide con la matriz de `S2.5`; estado del board coincide
+  con `hermes kanban list`; directorio de modelos coincide con
+  `pyocrust.models_status()`.
+
 ## 6. Qué quedó fuera de alcance y por qué
 
 | Punto | Estado | Motivo | Cómo se documenta |
 | :--- | :--- | :--- | :--- |
 | `StructureResult` / `to_markdown()` (ADR-003) | **Implementado (`D2`, `b128566`)** | `I4` lo aplanó y `S1` lo marcó bloqueante; lo implementó `t_ab6ff8d0` | `DESIGN.md` ADR-003 y §9.1; `S1.2` cerrada en §7 |
 | Preflight conectado al constructor | **Implementado (`b128566`)** | `VeloceOCR::new` invoca `preflight_paths(...).ensure_ready()` (`src/lib.rs:60`) | `DESIGN.md` §7.2; mitad preflight de `S1.4` resuelta en §7 |
-| Descargador HF conectado al pipeline | No implementado | el módulo existe y se testea, pero nadie lo llama; descarga `oar-ocr` | `DESIGN.md` ADR-007 y §7.3 |
+| Descargador HF conectado al pipeline | **Implementado (`S2.0`)** | `ensure_models` conecta el descargador nativo al pipeline (`src/storage/models.rs:224-242`) | `DESIGN.md` ADR-007 y §7.3 |
 | `rayon` en uso real | No implementado | no hay bucle de preprocesamiento que paralelizar | `DESIGN.md` ADR-008 y §9.1 |
 | Tarea `Formula` / LaTeX accesible desde Python | No implementado | `OcrTask` no tiene la variante y `recognize` devuelve `OcrResult` | `tests/test_recognize.py:144-155` (`skip` con motivo) |
 
@@ -315,14 +418,14 @@ Condiciones abiertas del dictamen `S1` (comentario de `t_d005409b`, 2026-10-25).
 | S1.1 | `pyapi::full_page_tiling` materializa los mosaicos y los descarta (OOM con `overlap` alto) | Bloqueante | Pendiente | `src/core/image_processor.rs:229-249` |
 | S1.2 | `StructureResult` (ADR-003) no existía ni cruzaba a Python | Bloqueante | **Cerrada (`D2`, `b128566`)** | `src/core/types.rs:400-409`; `src/engines/oar_structure.rs:148-171` |
 | S1.3 | `PyOcrValueError`/`PyOcrRuntimeError` no heredan de `PyOcrError` | Mayor | **Cerrada (`c30a3a9`)** | `src/core/error.rs:147-149` |
-| S1.4 | `VeloceOCR::new` no ejecuta el preflight (ni el descargador) | Mayor | Parcial (`D2`) | `src/lib.rs:58-62` (preflight sí, descargador no) |
+| S1.4 | `VeloceOCR::new` no ejecuta el preflight (ni el descargador) | Mayor | **Cerrada (`S2.0`, `t_54cab62c`)** | `src/storage/models.rs:224-242` (`ensure_models` conectado); `DESIGN.md` ADR-007 |
 | S1.5 | `OAR_HOME` relativa rompe la autodescarga de `oar-ocr` | Mayor | **Cerrada (`c30a3a9`)** | `src/storage/config.rs:115-126,144-155` |
 | S1.6 | `VeloceOCR::new` retiene el GIL durante la carga | Menor | Parcial (`D2`) | `src/lib.rs:35-65` |
 | S1.7 | Retirar de `DESIGN.md` las capacidades de VRAM inexistentes | Menor | **Hecho en `D1`** | `DESIGN.md` §3.3 y ADR-005 |
 
 `S1.2` la resolvió `arquitecto` por la opción A (implementar `StructureResult`) y la cerró `t_ab6ff8d0` (`b128566`, `D2`); `S1.3` y `S1.5` las cerró `c30a3a9`, que aterrizó mientras `D2` corría.
 
-> **Nota (`D2`).** Quedan `S1.1` (pendiente) y `S1.4`/`S1.6` (parciales): el descargador sigue sin conectar (`src/storage/models.rs`, `src/storage/download.rs`) y las rutas/preflight aún retienen el GIL (`src/lib.rs:35-60`). Debe re-verificarlas quien las posee.
+> **Nota (`D2`).** Quedan `S1.1` (pendiente) y `S1.6` (parcial): las rutas/preflight aún retienen el GIL (`src/lib.rs:35-60`). `S1.4` la cerró `S2.0` (`t_54cab62c`): `ensure_models` conecta el descargador nativo con paralelismo de 4 hilos y sidecar SHA-256. Debe re-verificar `S1.6` quien la posea.
 
 ## 8. Disciplina de commits (verificada en `D1`)
 

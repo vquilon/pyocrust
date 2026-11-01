@@ -62,6 +62,127 @@ results = predictor.predict_batch(["document.png", "otra.png"])
 gestiona artefactos registrados y puede descargar; rutas explícitas deben existir.
 Exposición no certifica inferencia de las once tareas, calidad ni GPU.
 
+### Ejemplos por familia
+
+**Detección** (`text_detection`, `seal_text_detection`):
+
+```python
+from pyocrust import TaskPredictor
+
+predictor = TaskPredictor("text_detection", models="/ruta/pp-ocrv6_tiny_det.onnx")
+print(predictor.predict("document.png")["detections"])
+# [{"bbox": [[x1,y1],[x2,y1],[x2,y2],[x1,y2]], "score": 0.95}, ...]
+```
+
+**Fórmula** (`formula_recognition`):
+
+```python
+predictor = TaskPredictor("formula_recognition")
+print(predictor.predict("formula.png")["formula"])
+# "E = mc^2"
+```
+
+**Orientación** (`document_orientation`, `text_line_orientation`):
+
+```python
+predictor = TaskPredictor("document_orientation")
+print(predictor.predict("page.png")["orientations"])
+# [{"class_id": 0, "label": "0°", "score": 0.98}, ...]
+```
+
+## Cobertura de la API
+
+Once predictores individuales más tres familias de pipelines:
+
+| Tipo | Identificador | Símbolo público | Estado |
+| :--- | :--- | :--- | :--- |
+| Predictor | `text_detection` | `TaskPredictor("text_detection")` | Expuesto |
+| Predictor | `text_recognition` | `TaskPredictor("text_recognition")` | Expuesto |
+| Predictor | `layout_detection` | `TaskPredictor("layout_detection")` | Expuesto |
+| Predictor | `table_classification` | `TaskPredictor("table_classification")` | Expuesto |
+| Predictor | `table_structure_recognition` | `TaskPredictor("table_structure_recognition")` | Expuesto |
+| Predictor | `table_cell_detection` | `TaskPredictor("table_cell_detection")` | Expuesto |
+| Predictor | `document_orientation` | `TaskPredictor("document_orientation")` | Expuesto |
+| Predictor | `document_rectification` | `TaskPredictor("document_rectification")` | Expuesto |
+| Predictor | `text_line_orientation` | `TaskPredictor("text_line_orientation")` | Expuesto |
+| Predictor | `seal_text_detection` | `TaskPredictor("seal_text_detection")` | Expuesto |
+| Predictor | `formula_recognition` | `TaskPredictor("formula_recognition")` | Expuesto |
+| Pipeline | `pp_ocrv6` | `VeloceOCR("pp_ocrv6")` | Expuesto |
+| Pipeline | `pp_structurev3` | `VeloceOCR("pp_structurev3")` | Expuesto |
+| Pipeline | `indra` | `VeloceOCR("indra")` | Expuesto |
+
+La exposición por constructor/introspección no equivale a inferencia verificada de
+las 14 entradas. Detalles y límites en `PLANNING.md`, actualización `S2.5/S2.6`.
+
+## Modelos
+
+### Dónde se guardan
+
+`pyocrust` resuelve el directorio de modelos en este orden de prioridad:
+
+1. Parámetro `custom_path` en `VeloceOCR(preset, custom_path=...)`.
+2. Variable de entorno `OAR_HOME`.
+3. Variable de entorno `OCR_MODELS_CACHE_DIR`.
+4. `~/.oar` (ruta por defecto de `oar-ocr`).
+
+`pyocrust.models_status()` devuelve el directorio resuelto en `models_dir`. En
+este host, el valor real es `C:\Users\vquilon\.oar`.
+
+### Cómo se descargan solos
+
+Dos orígenes, según el preset o la tarea:
+
+* **ModelScope** (`greatv/oar-ocr`): provee los artefactos de los 11 predictores
+  individuales y de los presets `pp_ocrv6*` / `pp_structurev3`. Lo gestiona el
+  `auto-download` integrado en `oar-ocr` o el preflight nativo de `pyocrust`
+  (`src/storage/models.rs:224-242`).
+* **HuggingFace** (`datalab-to/indra-ocr`, revisión `bd02167f...`): provee los
+  nueve artefactos de `indra`. La descarga la ejecuta el preflight nativo cuando
+  `ensure_models` detecta faltantes.
+
+El preflight (`VeloceOCR::new` / `TaskPredictor::new`) comprueba tamaño y,
+para Indra, hash SHA-256 antes de cargar. Si todo está en disco, no toca la red.
+
+### Cuánto ocupan
+
+Los tamaños son los del registro y del disco local; no son memoria de ejecución.
+
+| Preset / tarea | Artefactos | Tamaño aproximado |
+| :--- | :--- | :--- |
+| `pp_ocrv6` (Tiny) | 3 | ~6,3 MB |
+| `pp_structurev3` | 11 | ~936 MB |
+| `indra` (requeridos) | 9 | ~27 MB |
+
+Los diccionarios de texto y tabla, el tokenizer de fórmulas y los JSON de
+metadatos son compañeros del modelo, no modelos separados.
+
+### Forzar offline
+
+```bash
+PYOCRUST_OFFLINE=1 python -c "from pyocrust import VeloceOCR; VeloceOCR('pp_ocrv6')"
+```
+
+Con `PYOCRUST_OFFLINE=1` y artefactos ausentes, el constructor falla con
+`PyOcrRuntimeError` y el comando exacto para descargar. Unset, `0`, `false` o
+`no` (case-insensitive) desactiva el modo offline.
+
+### Prefetchear
+
+La forma honesta es construir el predictor/preset con `models=None` después de
+haberlo creado, o llamar a `models_status()` para inspeccionar el estado en
+disco sin descargar:
+
+```python
+from pyocrust import models_status, VeloceOCR
+
+print(models_status()["models_dir"])
+# Si faltan artefactos, la construcción implícita los descarga:
+engine = VeloceOCR("pp_ocrv6")
+```
+
+No hay una API pública de "prefetch only": la descarga se produce como efecto
+secundario del preflight conectado (`S2.0` cierra `S1.4`).
+
 ## Catálogo y recomendación (`S3`, aprobación acotada)
 
 `model_catalog()` describe modelos/diccionarios/tokenizers; `pipeline_profiles()`
@@ -111,12 +232,30 @@ pyocrust/
 ├── Cargo.toml          # Crate pyocrust_core (cdylib, edition 2024)
 ├── pyproject.toml      # Backend Maturin, module-name = "pyocrust._pyocrust_core"
 ├── src/
-│   └── lib.rs          # #[pymodule] #[pyo3(name = "_pyocrust_core")]
+│   ├── lib.rs          # #[pymodule] #[pyo3(name = "_pyocrust_core")]
+│   ├── core/
+│   │   ├── error.rs    # PyOcrError, PyOcrValueError, PyOcrRuntimeError
+│   │   ├── image_processor.rs  # TileStrategy, pre/post-procesado
+│   │   └── types.rs    # OcrResult, StructureResult, RecognitionResult
+│   ├── engines/
+│   │   ├── oar_text.rs       # motor pp_ocrv6 (tinta)
+│   │   ├── oar_structure.rs  # motor pp_structurev3 (tabla/Layout)
+│   │   └── oar_indra.rs      # motor indra (markdown + bloques)
+│   ├── storage/
+│   │   ├── registry.rs       # 11 artefactos ModelScope + 9 indra (HF)
+│   │   ├── models.rs         # ensure_models / preflight / paralelismo 4 hilos
+│   │   ├── download.rs       # descargas paralelas con sidecar SHA-256
+│   │   ├── catalog.rs        # model_catalog / pipeline_profiles
+│   │   └── config.rs         # OAR_HOME / OCR_MODELS_CACHE_DIR
+│   └── tasks/
+│       └── mod.rs            # TaskPredictor: 11 tareas + predict_batch
 ├── pyocrust/           # Paquete Python importable
 │   ├── __init__.py     # Fachada pública
 │   ├── __init__.pyi    # Stubs de tipos
+│   ├── hardware.py     # detect_hardware, HardwareProfile
+│   ├── resolver.py     # resolve_pipeline, TaskSpec
 │   └── py.typed        # Marcador PEP 561
-└── tests/              # Lo crea la tarjeta V1
+└── tests/              # Tarjeta V1
 ```
 
 ## Requisitos

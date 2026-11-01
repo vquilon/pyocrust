@@ -78,15 +78,21 @@ pyocrust/
 │   ├── storage/
 │   │   ├── mod.rs              # Re-exports
 │   │   ├── config.rs           # Resolución de rutas por prioridad estricta. Sin descarga
-│   │   ├── models.rs           # Preflight: ficheros esperados por preset y cuáles faltan
-│   │   └── download.rs         # Descargador Hugging Face resiliente (ADR-007)
+│   │   ├── models.rs           # Preflight: ficheros esperados por preset y cuáles faltan;
+│   │   │                       # auto-descarga paralela acotada a 4 hilos (S2.0)
+│   │   ├── download.rs         # Descargador Hugging Face resiliente (ADR-007)
+│   │   ├── registry.rs         # Registro único de artefactos: ModelScope + HuggingFace (S2.0)
+│   │   └── catalog.rs          # Catálogo de metadatos y perfiles de pipeline (S3.0)
 │   └── engines/
 │       ├── mod.rs              # Factoría: preset -> backend
 │       ├── oar_text.rs         # Adaptador sobre OAROCRBuilder (PP-OCRv6)
-│       └── oar_structure.rs    # Adaptador sobre OARStructureBuilder (PP-StructureV3)
+│       ├── oar_structure.rs    # Adaptador sobre OARStructureBuilder (PP-StructureV3)
+│       └── oar_indra.rs        # Adaptador sobre IndraOcrBuilder (indra) (S2.2)
 ├── pyocrust/                   # Paquete Python importable. Comparte nombre con el repositorio
 │   ├── __init__.py             # Fachada pública de alto nivel
 │   ├── __init__.pyi            # Stubs de tipos
+│   ├── hardware.py             # Inventario físico y dataclasses GPU/RAM (S3.1)
+│   ├── resolver.py             # TaskSpec, PipelineChoice, resolve_pipeline (S3.1)
 │   └── py.typed                # Marcador PEP 561
 └── tests/
     ├── conftest.py             # Utilidades comunes: PNG sintético con la stdlib y localización
@@ -94,6 +100,7 @@ pyocrust/
     ├── test_config.py          # Niveles de prioridad en la resolución de rutas
     ├── test_tiling.py          # Troceado con solapamiento
     ├── test_recognize.py       # recognize end-to-end (carga directa, env var y caché)
+    ├── test_indra.py           # Smoke Indra (S2.2)
     └── data/sample_text.png    # Imagen real de dos líneas para los tests de reconocimiento
 ```
 
@@ -101,9 +108,9 @@ pyocrust/
 | :--- | :--- | :--- |
 | `DECISIONS.md`, `DESIGN.md`, `PLANNING.md` | Existen | Documentación; `DESIGN.md` y `PLANNING.md` se reescribieron en `E1` y se reconcilian en `D1` y `D2` |
 | `Cargo.toml`, `pyproject.toml`, `LICENSE`, `README.md`, `.gitignore` | Existen | Introducidos en `I1` (commit `4ede5c7`) |
-| `src/**` | Existe | `core/` en `I2`, `storage/` en `I3`, `engines/` + `lib.rs` en `I4` |
-| `pyocrust/**` | Existe | Fachada y stubs en `I1`, ampliados en `I4` |
-| `tests/**` | Existe | `conftest.py`, `test_*` y `data/` introducidos en `V1` (commit `d2e445c`) |
+| `src/**` | Existe | `core/` en `I2`, `storage/` en `I3`, `engines/` + `lib.rs` en `I4`; ampliado en `S2.0`-`S2.4` |
+| `pyocrust/**` | Existe | Fachada y stubs en `I1`, ampliados en `I4`; `hardware.py`/`resolver.py` en `S3.1` |
+| `tests/**` | Existe | `conftest.py`, `test_*` y `data/` introducidos en `V1` (commit `d2e445c`); `test_indra.py` en `S2.2` |
 
 > **Ficheros enumerados y no existentes: ninguno.** Los únicos artefactos
 > presentes en el árbol y no listados arriba son de build y están ignorados por
@@ -335,6 +342,59 @@ Evidencia acotada comunicada: hardware **15 pass, 1 skip**, resolver **29 pass**
 catálogo **5 pass**, Rust **53 pass previos** (`PLANNING.md`). No certifica GPU,
 modelos disponibles, rendimiento ni sign-off global.
 
+### 3.1.4 API pública: dos superficies (`S2.3`-`S2.6`)
+
+`pyocrust` expone dos superficies de inferencia, además de las consultas de
+catálogo y hardware de §3.1.3:
+
+**Superficie 1 — pipelines tipados:**
+
+```python
+from pyocrust import VeloceOCR
+
+engine = VeloceOCR("pp_ocrv6")          # Tiny por defecto
+result = engine.recognize("page.png")    # OcrResult para texto
+
+engine = VeloceOCR("pp_structurev3")
+result = engine.recognize("doc.png")     # StructureResult con to_markdown()
+
+engine = VeloceOCR("indra")
+result = engine.recognize("page.png")    # StructureResult con Markdown + bloques
+```
+
+`VeloceOCR` acepta `"pp_ocrv6"`, `"pp_structurev3"` e `"indra"`. No hay variantes
+`Small`/`Medium` como símbolos públicos separados: se seleccionan con
+`PipelineChoice` + `resolve_pipeline`, o pasando `custom_path` al directorio del
+modelo. `recognize` acepta `str`, `PathLike` y `bytes`; libera el GIL durante la
+inferencia.
+
+**Superficie 2 — `TaskPredictor` (11 tareas):**
+
+```python
+from pyocrust import TaskPredictor
+
+predictor = TaskPredictor("text_detection")
+result = predictor.predict("page.png")           # dict
+results = predictor.predict_batch(["a.png", "b.png"])  # list[dict]
+```
+
+`TaskPredictor(task, models=None, **options)` acepta los 11 nombres de tarea en
+`snake_case`. `predict(image)` devuelve un `dict`; `predict_batch(images)` devuelve
+un `dict` por imagen, en orden de entrada, y `[]` para lote vacío. La inferencia
+libera el GIL con `py.detach`; lectura/decodificación y conversión a diccionarios
+lo retienen.
+
+**Por qué `dict` y no 11 `#[pyclass]` (ADR-013).** Los `XResult` del crate
+(`TextDetectionResult`, `TableClassificationResult`, etc.) solo derivan `Debug,
+Clone`, no `PyClass`. Envolver cada uno habría requerido 11 adaptadores manuales
+de campos, duplicando la lógica de postprocesado que `oar-ocr` ya aplica. La
+decisión es devolver `dict` con esquema fijado en `pyocrust/__init__.pyi`; el
+consumidor pierde el autocompletado de tipos en Rust, pero gana una superficie
+única y mantenible.
+
+Fuente normativa: `src/tasks/mod.rs` (whitelist/defaults: líneas 50-128;
+mappers: 214-312) y `src/storage/registry.rs::task_artifacts`.
+
 ### 3.2 Estrategia de Resolución de Modelos (Paths) y Autodescarga
 
 El componente `OcrConfig` resuelve la ubicación física del modelo en disco con el siguiente orden estricto de prioridad:
@@ -443,6 +503,7 @@ cumplimiento verificado; el cuadro completo está en §9.1.
 * **Decisión.** Se **mantiene** `src/storage/download.rs` con `reqwest`, pero **redefinido** y sujeto a contrato (ver §7.3): streaming a fichero temporal, reanudación por `Range`, verificación obligatoria de tamaño y SHA-256, errores tipados por `DownloadError`, y bypass total de red si el modelo ya está en disco. Se conserva `src/storage/config.rs` como resolución pura de rutas con la prioridad estricta de §3.2. Se elimina la descarga ad-hoc previa a la validación.
 * **Consecuencias.** La carga de `reqwest` + TLS en el binario es el precio de no depender de ModelScope. Queda prohibido `get(url).unwrap()`.
 * **Estado (D1, 2026-10-25).** **Parcial.** El módulo cumple el contrato y está cubierto por tests unitarios, pero **no se conecta a nada**: `fetch` no se llama desde `src/lib.rs` ni desde `src/engines/` (§9.1). El camino de descarga efectivo hoy es el `auto-download` de `oar-ocr`. Condición `S1.4`: el preflight se conectó (`b128566`, §7.2); el descargador sigue sin conectar.
+* **Estado (`S2.0`, commit `113a490`).** **Cumplido.** `ensure_models` (`src/storage/models.rs:224-242`) ejecuta preflight, descarga en paralelo lo que falta con `download::fetch` (pool `rayon` de 4 hilos, `DOWNLOAD_THREADS` en `:24`) y re-verifica. Sidecar `<name>.sha256` evita re-hashear en caliente (`src/storage/download.rs:119-148`). `PYOCRUST_OFFLINE=1` falla con error tipado y comando exacto si faltan artefactos (`src/storage/models.rs:231-233`). El descargador propio sirve a HuggingFace (`datalab-to/indra-ocr`); ModelScope lo delega en `oar-ocr`. `S1.4` queda **cerrada** por `S2.0` (tarjeta `t_54cab62c`).
 
 ### ADR-008: `rayon` restringido al preprocesamiento de CPU
 
@@ -480,6 +541,22 @@ cumplimiento verificado; el cuadro completo está en §9.1.
 * **Decisión.** Se mantiene el `Arc` para las sesiones (ORT es thread-safe) y se retira el `Drop` manual (ADR-005). El paralelismo inter-página exige `intra_threads = 1` (ADR-008).
 * **Consecuencias.** Compartir sesiones sin `Drop` propio es seguro: la liberación ocurre cuando cae el último `Arc`. Se elimina la condición de carrera que describía `A1`.
 * **Estado (D1, 2026-10-25).** Cumplido: el pipeline vive en `Arc` (`src/engines/oar_text.rs:50`, `src/engines/oar_structure.rs:32`) y no hay `impl Drop` en el árbol.
+
+### ADR-013: devolver `dict` en las tareas sueltas en vez de 11 `#[pyclass]`
+
+* **Contexto.** `TaskPredictor` expone 11 tareas cuyos resultados en Rust son tipos
+  derivados de `oar-ocr` (`TextDetectionResult`, `TableClassificationResult`,
+  `FormulaRecognitionResult`, etc.). Esos tipos solo derivan `Debug, Clone` en el
+  crate: no implementan `PyClass` ni exponen getters automáticos.
+* **Decisión.** Cada tarea convierte su resultado a un `dict` Python con claves
+  fijas documentadas en `pyocrust/__init__.pyi`. No se crean 11 wrappers
+  manuales de `#[pyclass]`.
+* **Consecuencias.** La superficie de API es única y mantenible; el coste es
+  perder el autocompletado estático de tipos en el límite Rust-Python. El
+  esquema de cada `dict` es la fuente de verdad, no la estructura de Rust.
+* **Estado (S2.4, commit `1349296`).** Cumplido: `output_dicts` en
+  `src/tasks/mod.rs:249-336` construye los 11 esquemas; `predict_batch` reutiliza
+  el mismo predictor y devuelve un `dict` por imagen (`:181-198`).
 
 ## 5. Riesgos Conocidos
 
