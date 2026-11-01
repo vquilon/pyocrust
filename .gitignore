@@ -20,6 +20,10 @@ dist/
 # Rust
 *.pdb
 
-# Caché descargada y logs locales del banco (resultados sí versionados)
+# Caché descargada y logs locales del banco
 /benchmarks/data_cache/
 /benchmarks/*.log
+
+# Resultados de benchmark y material de difusión: no se versionan
+/benchmarks/results/
+/benchmarks/LINKEDIN.md

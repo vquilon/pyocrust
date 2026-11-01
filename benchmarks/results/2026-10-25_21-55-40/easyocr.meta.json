@@ -1,6 +1,0 @@
-{
-  "backend": "easyocr",
-  "dataset": "funsd",
-  "status": "skipped",
-  "reason": "pip install easyocr (requiere torch)"
-}
