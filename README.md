@@ -1,5 +1,10 @@
 # pyocrust
 
+[![PyPI version](https://img.shields.io/pypi/v/pyocrust.svg)](https://pypi.org/project/pyocrust/)
+[![Publish pyocrust to PyPI](https://github.com/vquilon/pyocrust/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/vquilon/pyocrust/actions/workflows/ci-cd.yml)
+[![Publish pyocrust to TestPyPI](https://github.com/vquilon/pyocrust/actions/workflows/ci-cd-test.yml/badge.svg)](https://github.com/vquilon/pyocrust/actions/workflows/ci-cd-test.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 Wrapper nativo en **Rust** (PyO3 + Maturin) con tres familias de presets: OCR de texto
 (`pp_ocrv6*`), estructura documental (`pp_structurev3`) e `indra`, sobre el crate
 [`oar-ocr`](https://crates.io/crates/oar-ocr) `0.10.1`.
