@@ -7,18 +7,18 @@
 - **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/formula/bank.py --limit 5 --warmup 1`
 - **dataset**: `omnidocbench_formula` · **n** (por motor): `5` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **seed**: no aplica (banco determinista, sin aleatoriedad)
-- **run**: `benchmarks/results/formula/2026-11-01_22-58-02` · **fecha**: `2026-11-01_22-58-02`
+- **run**: `benchmarks/results/formula/2026-11-01_23-01-58` · **fecha**: `2026-11-01_23-01-58`
 - **runtime**: {'python': '3.14.9', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0'}
 
 ## Comparativa (media por motor)
 
 | Motor (variante) | n | LaTeX exacto ↑ | Similitud ↑ | F1 tokens ↑ | Salidas con LaTeX ↑ | ms/fórmula ↓ |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
-| easyocr (default) | 5 | 0.000 | 0.152 | 0.427 | N/A | 1204 |
-| pyocrust_formula (pp-formulanet-s) | 5 | 0.000 | 0.419 | 0.526 | N/A | 2533 |
-| pyocrust_formulanet (direct) | 5 | 0.000 | **0.550** | **0.627** | N/A | 971 |
-| pyocrust_indra (math) | 5 | 0.000 | 0.184 | 0.432 | N/A | **191** |
-| rapidocr (default) | 5 | 0.000 | 0.104 | 0.298 | N/A | 3259 |
+| easyocr (default) | 5 | 0.000 | 0.152 | 0.427 | N/A | 898 |
+| pyocrust_formula (pp-formulanet-s) | 5 | 0.000 | 0.419 | 0.526 | N/A | 2700 |
+| pyocrust_formulanet (direct) | 5 | 0.000 | **0.550** | **0.627** | N/A | 1020 |
+| pyocrust_indra (math) | 5 | 0.000 | 0.184 | 0.432 | N/A | **185** |
+| rapidocr (default) | 5 | 0.000 | 0.104 | 0.298 | N/A | 3586 |
 
 > En negrita, el mejor de cada métrica entre los motores **medidos** de `formula`. `N/A` = no evaluada (sin GT de esa columna), nunca un `0.0` inventado.
 
