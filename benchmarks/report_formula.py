@@ -255,6 +255,16 @@ def build(run: Path) -> str:
             f"(F1 tokens {_fmt(fn.get('latex_token_f1'), '{:.3f}')} vs "
             f"{_fmt(pf.get('latex_token_f1'), '{:.3f}')})."
         )
+    block_emit = {b.split(" ", 1)[0]: (d.get("latex_block") or 0.0) for b, d in report.items()}
+    latex_motors = [b for b in report if block_emit.get(b.split(" ", 1)[0], 0.0) > 0]
+    if latex_motors:
+        fastest = min((report[b]["mean_ms"], b.split(" ", 1)[0]) for b in latex_motors)
+        slowest = max((report[b]["mean_ms"], b.split(" ", 1)[0]) for b in latex_motors)
+        lines.append(
+            f"* **Velocidad**: entre los motores que emiten LaTeX de fórmula, `{fastest[1]}` es el "
+            f"más rápido ({fastest[0]:.0f} ms/fórmula), ~{slowest[0] / fastest[0]:.1f}× que "
+            f"`{slowest[1]}` ({slowest[0]:.0f} ms). Un modelo a la vez, CPU."
+        )
 
     # --- Comparativa de variantes PP-FormulaNet (mismo adaptador, distinto .onnx) ---
     variants = sorted(b for b in report if b.split(" ", 1)[0].startswith(FORMULANET_PREFIX))
@@ -294,7 +304,7 @@ def build(run: Path) -> str:
             extra.append(f"más rápida = `{fastest[1]}` ({fastest[0]:.0f} ms/fórmula)")
         if extra:
             lines.append("")
-            lines.append("* " + "; ".join(extra).capitalize() + ". Un modelo a la vez, CPU.")
+            lines.append("* **Variantes**: " + "; ".join(extra) + ". Un modelo a la vez, CPU.")
         missing = [b for b in ("l", "pluss", "plusm", "plusl")
                    if f"{FORMULANET_PREFIX}_{b}" in skipped]
         if missing:
@@ -324,17 +334,6 @@ def build(run: Path) -> str:
         "`Similitud norm.` y `F1 tokens LaTeX` de este reporte son métrica **nuestra**, medida "
         "sobre el GT de OmniDocBench.",
     ]
-
-    block_emit = {b.split(" ", 1)[0]: (d.get("latex_block") or 0.0) for b, d in report.items()}
-    latex_motors = [b for b in report if block_emit.get(b.split(" ", 1)[0], 0.0) > 0]
-    if latex_motors:
-        fastest = min((report[b]["mean_ms"], b.split(" ", 1)[0]) for b in latex_motors)
-        slowest = max((report[b]["mean_ms"], b.split(" ", 1)[0]) for b in latex_motors)
-        lines.append(
-            f"* **Velocidad**: entre los motores que emiten LaTeX de fórmula, `{fastest[1]}` es el "
-            f"más rápido ({fastest[0]:.0f} ms/fórmula), ~{slowest[0] / fastest[0]:.1f}× que "
-            f"`{slowest[1]}` ({slowest[0]:.0f} ms). Un modelo a la vez, CPU."
-        )
 
     lines += [
         "",
