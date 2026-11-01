@@ -224,6 +224,9 @@ def test_b7_csv_contract_and_optional_markdown(b7_sample, tmp_path, backend):
         "n_regions", "mean_confidence", "n_chars_gt", "n_chars_pred",
         "status", "error", "task_type", "model_name", "model_variant",
         "markdown_f1", "block_f1",
+        "latex_exact", "latex_sim", "latex_token_f1",
+        # Aditivas del banco por feature: banco que produjo la fila + detección.
+        "feature", "box_recall", "box_iou_mean",
     ]
     assert CSV_FIELDS == expected
     assert set(rows[0]) == set(expected) - {"run_timestamp"}
@@ -655,3 +658,53 @@ def test_formula_report_similarity_and_latex_coverage_offline(tmp_path):
     md = build(tmp_path)
     assert "motor (v; formula)" in md
     assert "Salidas con LaTeX" in md and "## Limitaciones" in md
+
+# B11: metrica LaTeX normalizada (semantica superficial) y variantes PP-FormulaNet.
+def test_latex_metrics_normaliza_equivalentes_y_conserva_diferencias():
+    from latex_metrics import normalize_latex, latex_exact, latex_token_f1
+
+    # equivalentes -> misma forma canonica
+    assert latex_exact("\\dfrac{1}{2}", "\\frac{1}{2}") == 1.0
+    assert latex_exact("\\le", "\\leq") == 1.0
+    assert latex_exact("\\left[ x \\right]", "[x]") == 1.0
+    assert latex_exact("\\left\\lbrack x \\right\\rbrack", "[x]") == 1.0
+    assert normalize_latex("\\begin{array}{cc}a&b\\end{array}") == \
+        normalize_latex("\\begin{matrix}a&b\\end{matrix}")
+    # diferencias reales -> NO se fuerzan (fuente y contenido)
+    assert latex_exact("\\frac{1}{2}", "\\frac{1}{3}") == 0.0
+    assert latex_exact("\\mathcal{B}", "B") == 0.0
+    # F1 de tokens: insensible al orden, pero penaliza simbolos distintos
+    assert latex_token_f1("abc", "cab") == 1.0
+    assert latex_token_f1("abc", "abd") < 1.0
+    # el espacio tras palabra de control conserva significado
+    assert normalize_latex("\\alpha b") != normalize_latex("\\alphab")
+
+
+def test_runner_escribe_metricas_latex_solo_en_formulas(b7_sample):
+    from run_benchmarks import OcrOutput, run_benchmark
+
+    rows, meta = run_benchmark(
+        [b7_sample], "pyocrust_formulanet", "local", warmup=0,
+        backend_factory=lambda: lambda image: OcrOutput("\\left[ x \\right]"),
+    )
+    assert rows[0]["task_type"] == "formula"
+    assert rows[0]["latex_exact"] in (0.0, 1.0)
+    assert isinstance(rows[0]["latex_sim"], float)
+    assert isinstance(rows[0]["latex_token_f1"], float)
+    # sobre una tarea de texto las columnas van vacias (no se inventan ceros)
+    rows2, _ = run_benchmark(
+        [b7_sample], "pyocrust", "local", warmup=0,
+        backend_factory=lambda: lambda image: OcrOutput("hola"),
+    )
+    assert rows2[0]["latex_exact"] == rows2[0]["latex_sim"] == rows2[0]["latex_token_f1"] == ""
+
+
+def test_variante_formulanet_no_descargada_se_marca_skipped(b7_sample, tmp_path, monkeypatch):
+    import pyocrust
+    from run_benchmarks import run_benchmark
+
+    monkeypatch.setattr(pyocrust, "resolve_models_dir", lambda *a, **k: str(tmp_path))
+    rows, meta = run_benchmark([b7_sample], "pyocrust_formulanet_plusl", "local", warmup=0)
+    assert rows == []
+    assert meta["status"] == "skipped"
+    assert "pp-formulanet_plus-l.onnx" in meta["reason"]

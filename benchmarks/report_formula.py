@@ -5,18 +5,17 @@ Lee una run de `benchmarks/results/` con filas `task_type=formula` —generadas 
 `run_benchmarks.py --dataset omnidocbench_formula`— y escribe
 `benchmarks/FORMULA_REPORT.md`.
 
-Metricas (por fila, media por motor):
+Dos familias de metrica, para separar el artefacto de notacion de la correccion real:
 
-* **LaTeX exacto** (`exact_match`): 1.0 si el LaTeX normalizado coincide caracter a
-  caracter (minusculas, espacios colapsados).
-* **Levenshtein normalizado** = distancia / `max(|GT|, |pred|)`: 0.0 identico, 1.0
-  todo distinto. Se normaliza por el maximo y no por `|GT|` porque el motor de
-  formulas emite LaTeX **mas largo** que la referencia (`array`->`matrix`, llaves de
-  agrupacion); dividir por `|GT|` daria > 1 y una "similitud" negativa.
-* **Similitud** = `1 - Levenshtein normalizado`.
-* **Salidas con LaTeX** (`latex_any`): fraccion de salidas que contienen algun comando
-  LaTeX (`\\palabra`), medida sobre `<backend>.outputs.json` de `--dump-outputs`.
-* **ms/formula** y **p95**.
+* **Cruda** (texto tal cual): `LaTeX exacto` (`exact_match`), `Similitud`
+  (`1 - Levenshtein/max(|GT|,|pred|)`), `Levenshtein norm.`.
+* **Normalizada** (forma canonica de LaTeX, `latex_metrics.py`): `LaTeX exacto norm.`
+  (`latex_exact`), `Similitud norm.` (`latex_sim`), `F1 tokens LaTeX` (`latex_token_f1`).
+  La forma canonica unifica espaciado, `\\left`/`\\right`, el entorno `array` frente a
+  `matrix`, delimitadores (`\\lbrack` vs `[`) y alias de comandos (`\\le` vs `\\leq`).
+
+No es equivalencia matematica (no hay CAS): normalizacion canonica + comparacion
+superficial endurecida. Se documenta como tal.
 
 Uso:
     .venv/Scripts/python.exe benchmarks/report_formula.py [--run <ts>]
@@ -40,15 +39,20 @@ OUT = Path(__file__).resolve().parent / "FORMULA_REPORT.md"
 COLS = [
     ("n", "n", "{}"),
     ("exact_match", "LaTeX exacto ↑", "{:.3f}"),
+    ("latex_exact", "LaTeX exacto norm. ↑", "{:.3f}"),
     ("similarity", "Similitud ↑", "{:.3f}"),
+    ("latex_sim", "Similitud norm. ↑", "{:.3f}"),
+    ("latex_token_f1", "F1 tokens LaTeX ↑", "{:.3f}"),
     ("lev_norm", "Levenshtein norm. ↓", "{:.3f}"),
     ("latex_any", "Salidas con LaTeX ↑", "{:.0%}"),
     ("mean_ms", "ms/fórmula ↓", "{:.0f}"),
     ("p95_ms", "p95 ms ↓", "{:.0f}"),
 ]
-HIGHER_BETTER = {"exact_match", "similarity", "latex_any"}
+HIGHER_BETTER = {"exact_match", "latex_exact", "similarity", "latex_sim",
+                 "latex_token_f1", "latex_any"}
 LATEX_CMD = re.compile(r"\\[A-Za-z]+")
 LATEX_BLOCK = re.compile(r"\\begin\{")
+FORMULANET_PREFIX = "pyocrust_formulanet"
 
 
 def latex_coverage(run: Path) -> dict[str, dict]:
@@ -68,6 +72,22 @@ def latex_coverage(run: Path) -> dict[str, dict]:
                 "empty": sum(not t.strip() for t in texts) / len(texts),
             }
     return coverage
+
+
+def _num(value) -> float | None:
+    """Coacciona a float; `None`/`''`/texto no numerico -> `None` (no se inventa 0)."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _mean(rows: Sequence[dict], key: str) -> float | None:
+    """Media de `key` sobre las filas que la traen medida (si no hay, `None`)."""
+    values = [v for v in (_num(row.get(key)) for row in rows) if v is not None]
+    return statistics.fmean(values) if values else None
 
 
 def summarize(rows: Sequence[dict]) -> dict[str, dict]:
@@ -93,6 +113,11 @@ def summarize(rows: Sequence[dict]) -> dict[str, dict]:
         summary[backend] = {
             "n": len(rs),
             "exact_match": statistics.fmean(row["exact_match"] for row in rs),
+            # Metricas normalizadas: `None` si la run es anterior a `latex_metrics`
+            # o si el motor no las trae; el reporte imprime `N/A`.
+            "latex_exact": _mean(rs, "latex_exact"),
+            "latex_sim": _mean(rs, "latex_sim"),
+            "latex_token_f1": _mean(rs, "latex_token_f1"),
             "lev_norm": statistics.fmean(lev_norm),
             "similarity": statistics.fmean(sims),
             "mean_ms": statistics.fmean(times),
@@ -110,6 +135,16 @@ def latest_run_with_formula() -> Path:
                        for r in csv.DictReader(fh)):
                     return run_dir
     raise SystemExit("no hay ninguna run con filas task_type=formula medidas")
+
+
+def _fmt(value, fmt: str) -> str:
+    return fmt.format(value) if value is not None else "N/A"
+
+
+def _variant_table(headers: Sequence[str], rows: Sequence[Sequence[str]]) -> list[str]:
+    return ["| " + " | ".join(headers) + " |",
+            "| " + " | ".join("---:" for _ in headers) + " |"] + \
+           ["| " + " | ".join(cells) + " |" for cells in rows]
 
 
 def build(run: Path) -> str:
@@ -130,16 +165,16 @@ def build(run: Path) -> str:
 
     # marca de mejor por metrica (solo entre motores medidos y sin empates)
     best = {}
-    for key, _label, _fmt in COLS:
+    for key, _label, _fmt_ in COLS:
         if key == "n":
             continue
-        values = [(d[key], b) for b, d in report.items()]
+        values = [(d[key], b) for b, d in report.items() if d.get(key) is not None]
         if len(values) > 1 and len({v for v, _ in values}) > 1:
             best[key] = (max if key in HIGHER_BETTER else min)(values)[1]
 
     labels = [label for _k, label, _f in COLS]
     lines = [
-        "# Comparativa de OCR de fórmulas — `pyocrust` (pp-formulanet-s) vs otros motores",
+        "# Comparativa de OCR de fórmulas — `pyocrust` vs otros motores (métrica normalizada)",
         "",
         f"Run `benchmarks/results/{run.name}`. Dataset **`omnidocbench_formula`**: "
         "`opendatalab/OmniDocBench` v1.6, **una muestra por fórmula** (bloque "
@@ -154,20 +189,19 @@ def build(run: Path) -> str:
     for backend, data in sorted(report.items()):
         cells = []
         for key, _label, fmt in COLS:
-            value = data.get(key)
-            text = fmt.format(value) if value is not None else "N/A"
+            text = _fmt(data.get(key), fmt)
             if best.get(key) == backend:
                 text = f"**{text}**"
             cells.append(text)
         lines.append(f"| {backend} | " + " | ".join(cells) + " |")
     lines += [
         "",
-        "> `LaTeX exacto` exige coincidencia carácter a carácter del LaTeX normalizado "
-        "(0 en todos: la notación del dataset —`\\begin{array}`, `\\left\\lbrack`— no coincide "
-        "con la del modelo). `Similitud = 1 - Levenshtein/max(|GT|,|pred|)`. `Salidas con LaTeX` "
-        "es la fracción de salidas (medida sobre `<backend>.outputs.json`) que contienen algún "
-        "comando LaTeX (`\\palabra`): separa un motor que **emite LaTeX** de uno que solo repite "
-        "los símbolos como texto.",
+        "> **Dos familias de métrica.** Las columnas *sin* `norm.` puntúan el texto LaTeX tal "
+        "cual; las `norm.` puntúan la **forma canónica** (`latex_metrics.py`: espaciado, "
+        "`\\left`/`\\right`, `array`→`matrix`, `\\lbrack`→`[`, alias de comandos). `LaTeX "
+        "exacto` exige coincidencia carácter a carácter del LaTeX normalizado (0 en todos). "
+        "`Similitud = 1 - Levenshtein/max(|GT|,|pred|)`. `Salidas con LaTeX` es la fracción de "
+        "salidas (`<backend>.outputs.json`) que contienen algún comando LaTeX (`\\palabra`).",
     ]
 
     def by_prefix(prefix: str) -> dict | None:
@@ -179,11 +213,24 @@ def build(run: Path) -> str:
     emit = {b.split(" ", 1)[0]: (d.get("latex_any") or 0.0) for b, d in report.items()}
     order = sorted(emit, key=lambda key: -emit[key])
     n_formulas = max(d["n"] for d in report.values())
+    fn, pf = by_prefix(FORMULANET_PREFIX), by_prefix("pyocrust_formula")
+    indra = by_prefix("pyocrust_indra")
+
     lines += ["", "## Lectura honesta", ""]
     if all(d["exact_match"] == 0 for d in report.values()):
         lines.append(
             f"* **Ningún motor reproduce el LaTeX anotado exactamente**: `LaTeX exacto = 0.000` "
             f"sobre {n_formulas} fórmulas en los {len(report)} motores."
+        )
+    if fn and fn.get("latex_exact") is not None:
+        lines.append(
+            "* **La normalización sube la similitud pero NO cierra el `exacto`**: en "
+            f"`pyocrust_formulanet` la `Similitud` pasa de {fn['similarity']:.3f} (cruda) a "
+            f"{fn['latex_sim']:.3f} (norm.) y el `F1 tokens` es {fn['latex_token_f1']:.3f}, pero "
+            f"`LaTeX exacto norm.` sigue en {fn['latex_exact']:.3f}. La brecha que queda es real, "
+            "no solo de espaciado: el modelo emite comandos de **fuente** (`\\mathcal`, `\\mathbf`), "
+            "**agrupa** con llaves de más (`{a}_{11}`) y a veces añade **columnas vacías** de más "
+            "en el `matrix`. La métrica normalizada mide eso, no lo esconde."
         )
     lines.append(
         "* **Solo los motores de fórmulas de `pyocrust` producen LaTeX**: `Salidas con LaTeX` = "
@@ -192,8 +239,6 @@ def build(run: Path) -> str:
         + ", ".join(f"`{k}` {emit[k]:.0%}" for k in order if emit[k] == 0)
         + " de los OCR de texto, que devuelven los símbolos sueltos y no LaTeX."
     )
-    fn, pf = by_prefix("pyocrust_formulanet"), by_prefix("pyocrust_formula")
-    indra = by_prefix("pyocrust_indra")
     if indra and indra.get("latex_any"):
         lines.append(
             f"* **`pyocrust_indra` matiza**: su {indra['latex_any']:.0%} de salidas con LaTeX son "
@@ -207,8 +252,79 @@ def build(run: Path) -> str:
             f"en {round(pf['empty'] * pf['n'])}/{pf['n']}** recortes ({pf['empty']:.0%}); "
             f"`pyocrust_formulanet` (PP-FormulaNet-S directo, sin layout) no deja ninguna vacía "
             f"({round(fn['empty'] * fn['n'])}/{fn['n']}) y reconoce mejor "
-            f"(Similitud {fn['similarity']:.3f} vs {pf['similarity']:.3f})."
+            f"(F1 tokens {_fmt(fn.get('latex_token_f1'), '{:.3f}')} vs "
+            f"{_fmt(pf.get('latex_token_f1'), '{:.3f}')})."
         )
+
+    # --- Comparativa de variantes PP-FormulaNet (mismo adaptador, distinto .onnx) ---
+    variants = sorted(b for b in report if b.split(" ", 1)[0].startswith(FORMULANET_PREFIX))
+    if variants:
+        lines += [
+            "",
+            "## Comparativa de variantes PP-FormulaNet",
+            "",
+            "Todas comparten `FormulaModelKind::PPFormulaNet` en oar-ocr: el adaptador de "
+            "`formula_recognition` es el mismo y solo cambia el `.onnx` (registro ModelScope "
+            "`greatv/oar-ocr`). Aísla el tamaño/entrenamiento del modelo, no el pipeline. "
+            "Calidad sobre la **forma canónica**:",
+            "",
+        ]
+        headers = ["Variante (`.onnx`)", "n", "LaTeX exacto norm. ↑", "Similitud norm. ↑",
+                   "F1 tokens LaTeX ↑", "Salidas con LaTeX ↑", "ms/fórmula ↓"]
+        rows_cells = []
+        for backend in variants:
+            d = report[backend]
+            rows_cells.append([
+                f"`{backend.split(' (', 1)[0]}`", str(d["n"]),
+                _fmt(d.get("latex_exact"), "{:.3f}"), _fmt(d.get("latex_sim"), "{:.3f}"),
+                _fmt(d.get("latex_token_f1"), "{:.3f}"), _fmt(d.get("latex_any"), "{:.0%}"),
+                _fmt(d.get("mean_ms"), "{:.0f}"),
+            ])
+        lines += _variant_table(headers, rows_cells)
+        scored = [(report[b].get("latex_token_f1"), b.split(" ", 1)[0]) for b in variants
+                  if report[b].get("latex_token_f1") is not None]
+        timed = [(report[b].get("mean_ms"), b.split(" ", 1)[0]) for b in variants
+                 if report[b].get("mean_ms") is not None]
+        extra = []
+        if len(scored) > 1 and len({v for v, _ in scored}) > 1:
+            bestf1 = max(scored)
+            extra.append(f"mejor `F1 tokens` = `{bestf1[1]}` ({bestf1[0]:.3f})")
+        if len(timed) > 1 and len({v for v, _ in timed}) > 1:
+            fastest = min(timed)
+            extra.append(f"más rápida = `{fastest[1]}` ({fastest[0]:.0f} ms/fórmula)")
+        if extra:
+            lines.append("")
+            lines.append("* " + "; ".join(extra).capitalize() + ". Un modelo a la vez, CPU.")
+        missing = [b for b in ("l", "pluss", "plusm", "plusl")
+                   if f"{FORMULANET_PREFIX}_{b}" in skipped]
+        if missing:
+            lines.append("")
+            lines.append(
+                "* Variantes de `pyocrust_formulanet` **no medidas** (fichero `.onnx` no "
+                "descargado; no se inventan números): "
+                + ", ".join(f"`pyocrust_formulanet_{m}`" for m in missing) + "."
+            )
+
+    # --- Referencia externa: oar-ocr solo mide tiempos ---
+    lines += [
+        "",
+        "## Referencia externa: el benchmark de `oar-ocr` solo mide **tiempos**",
+        "",
+        "El repo original `GreatV/oar-ocr` trae `oar-bench` (crate no publicado "
+        "`oar-ocr-bench`, doc. en `docs/benchmarking.md`). Mide el pipeline completo por "
+        "página — `load_ms`, `latency_ms` (media/p50/p95), `pages_per_second`, "
+        "`output_chars_per_second` (solo VL), `host_peak_bytes` y picos de GPU con NVML — y "
+        "**compara dos runs** con un umbral de regresión en latencia/throughput.",
+        "",
+        "**No calcula ninguna métrica de calidad.** El propio `docs/benchmarking.md` delega la "
+        "precisión en herramientas **externas**: `run --save-outputs predictions` y luego el "
+        "scorer oficial de **OmniDocBench** (`pdf_validation.py`) o de **olmOCR** "
+        "(`olmocr.bench`). Es decir, `oar-ocr` —y con él el backend de `pyocrust`— **no "
+        "publica** comparativa de calidad de fórmulas: las columnas `LaTeX exacto norm.`, "
+        "`Similitud norm.` y `F1 tokens LaTeX` de este reporte son métrica **nuestra**, medida "
+        "sobre el GT de OmniDocBench.",
+    ]
+
     block_emit = {b.split(" ", 1)[0]: (d.get("latex_block") or 0.0) for b, d in report.items()}
     latex_motors = [b for b in report if block_emit.get(b.split(" ", 1)[0], 0.0) > 0]
     if latex_motors:
@@ -217,14 +333,9 @@ def build(run: Path) -> str:
         lines.append(
             f"* **Velocidad**: entre los motores que emiten LaTeX de fórmula, `{fastest[1]}` es el "
             f"más rápido ({fastest[0]:.0f} ms/fórmula), ~{slowest[0] / fastest[0]:.1f}× que "
-            f"`{slowest[1]}` ({slowest[0]:.0f} ms, el pipeline completo). Un modelo a la vez, CPU."
+            f"`{slowest[1]}` ({slowest[0]:.0f} ms). Un modelo a la vez, CPU."
         )
-    lines.append(
-        "* **La `Similitud` de caracteres no mide corrección matemática**: el motor de fórmulas "
-        "emite LaTeX verboso (`\\begin{matrix}` frente a `\\begin{array}`, llaves de agrupación) y "
-        "comparte con el GT la estructura, no los comandos exactos. Se reporta como se pidió; "
-        "`Salidas con LaTeX` es la columna que sí separa quién produce LaTeX de quién no."
-    )
+
     lines += [
         "",
         "## Limitaciones",
@@ -233,10 +344,13 @@ def build(run: Path) -> str:
         "margen). No mide el pipeline a nivel de página ni la detección de la fórmula en la página.",
         "* El GT es el **LaTeX anotado** del bloque. Su notación (`array`, `\\left\\lbrack`) no "
         "coincide con la del modelo, así que `LaTeX exacto = 0` no significa «no reconoce».",
+        "* La métrica **normalizada NO es equivalencia matemática**: unifica notación (espaciado, "
+        "`array`/`matrix`, `\\left[`/`[`, alias) y compara tokens, pero no evalúa la expresión con "
+        "un CAS. Las diferencias de **fuente** (`\\mathcal`, `\\mathbf`) y de **agrupación de "
+        "llaves** se conservan a propósito (cambian el significado); por eso `LaTeX exacto norm.` "
+        "queda por debajo de `Similitud norm.`.",
         "* Una sola run, `repeats=1`, **CPU**: los ms no llevan intervalo de confianza y "
         "`provider_effective = unverified` (no se instrumenta el provider real).",
-        "* No hay métrica **semántica** (equivalencia matemática), solo superficial sobre el texto; "
-        "un LaTeX distinto pero equivalente puntúa como error.",
     ]
     if skipped:
         lines += ["", "**Skipped** (modelo/entorno ausente, no un OCR malo):"]

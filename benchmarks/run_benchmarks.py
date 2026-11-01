@@ -12,10 +12,15 @@ Los backends que no esten instalados (o cuyos modelos falten) se registrarán co
 `status=skipped` y un motivo; nunca como si hubieran corrido.
 
 Salida: `benchmarks/results/<timestamp>/<timestamp>.csv`
-Esquema de columnas (contrato con `report_benchmarks.py`, 22 columnas):
+Esquema de columnas (contrato con `report_benchmarks.py`, 25 columnas):
     run_timestamp,backend,dataset,image_id,cer,wer,cer_ord,wer_ord,word_f1,
     exact_match,elapsed_ms,n_regions,mean_confidence,n_chars_gt,n_chars_pred,
-    status,error,task_type,model_name,model_variant,markdown_f1,block_f1
+    status,error,task_type,model_name,model_variant,markdown_f1,block_f1,
+    latex_exact,latex_sim,latex_token_f1
+
+Las tres últimas (`latex_*`) solo se rellenan en `task_type=formula` (vacías en el
+resto): miden la fórmula contra su GT sobre la **forma canónica** de LaTeX
+(`latex_metrics.py`) y no sobre el texto crudo.
 
 Eje `task_type`: `text` (pp_ocrv6 tiny), `structure` (pp_structurev3 → Markdown),
 `formula` (pp_structurev3 + pp-formulanet-s → LaTeX), `full_page` (indra con math
@@ -55,6 +60,11 @@ from typing import Callable, Iterable, Sequence
 
 from PIL import Image
 
+from latex_metrics import latex_exact, latex_similarity, latex_token_f1
+
+# Origen único del mapeo backend -> banco por feature (columna aditiva `feature`).
+from common.runner import FEATURE_TYPES
+
 # ---------------------------------------------------------------------------
 # Configuración
 # ---------------------------------------------------------------------------
@@ -82,6 +92,9 @@ CSV_FIELDS = [
     "status",
     "error",
     "task_type", "model_name", "model_variant", "markdown_f1", "block_f1",
+    "latex_exact", "latex_sim", "latex_token_f1",
+    "feature",
+    "box_recall", "box_iou_mean",
 ]
 
 
@@ -553,15 +566,27 @@ def _easyocr_backend(languages: Sequence[str] = ("en",)) -> Callable[[Image.Imag
     return run
 
 
-def _pyocrust_formulanet_backend() -> Callable[[Image.Image], OcrOutput]:
-    """PP-FormulaNet-S **directo** (`TaskPredictor('formula_recognition')`).
+def _pyocrust_formula_variant_backend(model_file: str) -> Callable[[Image.Image], OcrOutput]:
+    """PP-FormulaNet **directo** de una variante concreta (`formula_recognition`).
 
     Sin layout propio: recibe el recorte de la formula tal cual. Aisla el modelo de
     formulas del pipeline de pagina, que sobre un recorte puede no detectar bloque.
+    Todas las variantes comparten `FormulaModelKind::PPFormulaNet` en oar-ocr: el
+    adaptador es el mismo y solo cambia el `.onnx`, asi que elegir el fichero aisla
+    el tamano del modelo, no el pipeline. Si el `.onnx` no esta descargado, el
+    backend queda `skipped` (no se mide a medias).
     """
     import pyocrust  # noqa: PLC0415
 
-    predictor = pyocrust.TaskPredictor(task="formula_recognition")
+    models_dir = Path(pyocrust.resolve_models_dir())
+    model_path = models_dir / model_file
+    tokenizer = models_dir / "pp-formulanet-tokenizer.json"
+    if not model_path.is_file():
+        raise ProviderUnavailable(f"falta {model_file} en {models_dir} (no descargado)")
+    predictor = pyocrust.TaskPredictor(
+        task="formula_recognition",
+        models={"model": str(model_path), "tokenizer": str(tokenizer)},
+    )
 
     def run(image: Image.Image) -> OcrOutput:
         data = _image_bytes(image)
@@ -571,7 +596,7 @@ def _pyocrust_formulanet_backend() -> Callable[[Image.Image], OcrOutput]:
         return OcrOutput(
             text=str(result.get("formula", "") or ""),
             elapsed_ms=elapsed_ms,
-            extra={"kind": "formula_recognition"},
+            extra={"kind": "formula_recognition", "model_file": model_file},
         )
 
     return run
@@ -600,7 +625,13 @@ PROVIDERS: dict[str, Callable[[], Callable[[Image.Image], OcrOutput]]] = {
     "pyocrust": lambda: _pyocrust_backend("pp_ocrv6"),
     "pyocrust_structure": lambda: _pyocrust_backend("pp_structurev3"),
     "pyocrust_formula": lambda: _pyocrust_backend("pp_structurev3", formula_only=True),
-    "pyocrust_formulanet": _pyocrust_formulanet_backend,
+    "pyocrust_formulanet": lambda: _pyocrust_formula_variant_backend("pp-formulanet-s.onnx"),
+    # Variantes PP-FormulaNet del registro ModelScope `greatv/oar-ocr` (oar-ocr-core
+    # registry.rs): mismo adaptador, distinto `.onnx`. Se saltan si falta el fichero.
+    "pyocrust_formulanet_l": lambda: _pyocrust_formula_variant_backend("pp-formulanet-l.onnx"),
+    "pyocrust_formulanet_pluss": lambda: _pyocrust_formula_variant_backend("pp-formulanet_plus-s.onnx"),
+    "pyocrust_formulanet_plusm": lambda: _pyocrust_formula_variant_backend("pp-formulanet_plus-m.onnx"),
+    "pyocrust_formulanet_plusl": lambda: _pyocrust_formula_variant_backend("pp-formulanet_plus-l.onnx"),
     "pyocrust_indra": lambda: _pyocrust_backend("indra"),
     "rapidocr": _rapidocr_backend,
     "easyocr": _easyocr_backend,
@@ -624,9 +655,16 @@ def _describe_runtime() -> dict:
     }
 
 
-TASK_TYPES = {"pyocrust_structure": "structure", "pyocrust_formula": "formula", "pyocrust_formulanet": "formula", "pyocrust_indra": "full_page"}
+TASK_TYPES = {"pyocrust_structure": "structure", "pyocrust_formula": "formula", "pyocrust_formulanet": "formula",
+              "pyocrust_formulanet_l": "formula", "pyocrust_formulanet_pluss": "formula",
+              "pyocrust_formulanet_plusm": "formula", "pyocrust_formulanet_plusl": "formula",
+              "pyocrust_indra": "full_page"}
 MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"), "pyocrust_structure": ("pp_structurev3", "default"),
                "pyocrust_formula": ("pp_structurev3", "pp-formulanet-s"), "pyocrust_formulanet": ("pp-formulanet-s", "direct"),
+               "pyocrust_formulanet_l": ("pp-formulanet-l", "direct"),
+               "pyocrust_formulanet_pluss": ("pp-formulanet_plus-s", "direct"),
+               "pyocrust_formulanet_plusm": ("pp-formulanet_plus-m", "direct"),
+               "pyocrust_formulanet_plusl": ("pp-formulanet_plus-l", "direct"),
                "pyocrust_indra": ("indra", "math")}
 
 
@@ -709,6 +747,8 @@ def run_benchmark(
                     "status": "error",
                     "error": str(exc),
                     "task_type": task_type, "model_name": model_name, "model_variant": model_variant,
+                    "feature": FEATURE_TYPES.get(backend, "text"),
+                    "box_recall": "", "box_iou_mean": "",
                 }
             )
             continue
@@ -718,6 +758,14 @@ def run_benchmark(
         gt = sample.gt_by_task.get(task_type, sample.gt_text) if sample.gt_by_task else sample.gt_text
         if dump is not None:
             dump.append({"image_id": sample.image_id, "text": output.text})
+        # Metricas LaTeX normalizadas: solo tienen sentido en formulas (en el
+        # resto van vacias, como `markdown_f1`/`block_f1` en texto).
+        if task_type == "formula":
+            latex_exact_v = latex_exact(gt, output.text)
+            latex_sim_v = round(latex_similarity(gt, output.text), 4)
+            latex_f1_v = round(latex_token_f1(gt, output.text), 4)
+        else:
+            latex_exact_v = latex_sim_v = latex_f1_v = ""
         rows.append(
             {
                 "backend": backend,
@@ -739,6 +787,12 @@ def run_benchmark(
                 "task_type": task_type, "model_name": model_name, "model_variant": model_variant,
                 "markdown_f1": markdown_f1(sample.gt_markdown, output.text) if task_type != "text" and sample.gt_markdown is not None else "",
                 "block_f1": block_f1(sample.gt_blocks, output.extra.get("blocks", [])) if task_type != "text" and sample.gt_blocks is not None else "",
+                "latex_exact": latex_exact_v, "latex_sim": latex_sim_v, "latex_token_f1": latex_f1_v,
+                # Aditivas del banco por feature: banco que produjo la fila + cajas.
+                # Sin cajas GT en este driver, la detección queda "no evaluada" (""),
+                # nunca un 0.0 espurio.
+                "feature": FEATURE_TYPES.get(backend, "text"),
+                "box_recall": "", "box_iou_mean": "",
             }
         )
 
