@@ -508,3 +508,50 @@ def test_b7_quality_plots_exclude_nontext(tmp_path, monkeypatch):
     ax.scatter.assert_called_once_with(2, 0.8, s=140, label=text, zorder=3)
     ax.annotate.assert_called_once()
     assert fig.savefig.call_count == 2
+
+
+# B6: fairness — todos los adaptadores entregan a su motor los MISMOS bytes PNG.
+# (easyocr comparte la ruta de rapidocr; importarlo arrastra torch, así que no entra
+# en la suite focal: se cubre por el mismo `_image_bytes` y por el CSV de la run.)
+@pytest.mark.parametrize("backend", ["pyocrust", "rapidocr"])
+def test_b6_adapters_feed_identical_png_bytes(backend, b7_sample, monkeypatch):
+    import types
+    from run_benchmarks import PROVIDERS, _image_bytes
+
+    expected = _image_bytes(b7_sample.image)
+    seen: list[bytes] = []
+
+    if backend == "pyocrust":
+        import pyocrust as native
+        stub = types.SimpleNamespace(
+            recognize=lambda data: (seen.append(data), types.SimpleNamespace(text=""))[1]
+        )
+        monkeypatch.setattr(native, "VeloceOCR", lambda **_kw: stub)
+    else:
+        import rapidocr_onnxruntime as rapidocr
+        monkeypatch.setattr(
+            rapidocr, "RapidOCR",
+            lambda: lambda data: (seen.append(data), (None, 0.0))[1],
+        )
+
+    PROVIDERS[backend]()(b7_sample.image)
+    assert seen == [expected]
+    assert expected.startswith(b"\x89PNG")
+
+
+def test_b6_tesseract_adapter_decodes_the_same_png_bytes(b7_sample, monkeypatch):
+    import io
+    import sys
+    import types
+    from PIL import Image
+    from run_benchmarks import PROVIDERS, _image_bytes
+
+    expected = _image_bytes(b7_sample.image)
+    seen: list = []
+    fake = types.SimpleNamespace(image_to_string=lambda image: (seen.append(image), "")[1])
+    monkeypatch.setitem(sys.modules, "pytesseract", fake)
+
+    PROVIDERS["tesseract"]()(b7_sample.image)
+    assert len(seen) == 1
+    decoded = Image.open(io.BytesIO(expected)).convert("RGB")
+    assert list(seen[0].convert("RGB").getdata()) == list(decoded.getdata())
