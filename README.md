@@ -403,34 +403,39 @@ real ([FUNSD](https://huggingface.co/datasets/nielsr/funsd), 149 formularios
 escaneados con ground truth) y genera tablas y gráficos listos para publicar.
 
 ```bash
-./.venv/Scripts/python.exe benchmarks/run_benchmarks.py --limit 30 --backends pyocrust,rapidocr,easyocr
+./.venv/Scripts/python.exe benchmarks/run_benchmarks.py --limit 5 --backends pyocrust,pyocrust_indra,pyocrust_formula,rapidocr,easyocr,tesseract
 ./.venv/Scripts/python.exe benchmarks/report_benchmarks.py
 ./.venv/Scripts/python.exe -m pytest benchmarks/tests -q
 ```
 
-Mide calidad (`word_f1` y `wer_ord` —que neutralizan el orden de lectura— más
-`cer`/`wer` crudos como referencia) y velocidad (`ms/pág.`, `págs/s`); los
-backends disponibles son `pyocrust`, `pyocrust_structure`, `rapidocr`, `easyocr`
-y `tesseract` (los no instalados se marcan `skipped`, nunca como ejecutados).
-Documentación completa y resultados en
+El banco usa un eje `task_type` (`text`, `structure`, `formula`, `full_page`) con
+22 columnas en el CSV (`word_f1`, `wer_ord`, `cer`, `wer`, `markdown_f1`,
+`block_f1`, `task_type`, `model_name`, `model_variant`, etc.). Mide calidad
+(`word_f1` y `wer_ord` —que neutralizan el orden de lectura— más `cer`/`wer`
+crudos como referencia) y velocidad (`ms/pág.`, `págs/s`); los backends
+disponibles son `pyocrust` (text, tiny), `pyocrust_structure` (structure),
+`pyocrust_formula` (formula), `pyocrust_indra` (full_page, math), `rapidocr`,
+`easyocr` y `tesseract` (los no instalados se marcan `skipped`, nunca como
+ejecutados). Documentación completa y resultados en
 [`benchmarks/README.md`](benchmarks/README.md); el CSV por imagen queda en
 `benchmarks/results/<timestamp>/` y los artefactos publicables en
 `benchmarks/output_examples/`.
 
-Última ejecución registrada (`benchmarks/results/2026-10-25_22-26-51`: FUNSD
-`train`, 30 imágenes por backend, CPU, modelo Tiny), tal cual la produce
-`benchmarks/report_benchmarks.py --run benchmarks/results/2026-10-25_22-26-51`:
+Última ejecución registrada (`benchmarks/results/2026-10-31_23-37-34`: FUNSD
+`train`, 5 imágenes por backend, CPU, modelo Tiny), tal cual la produce
+`benchmarks/report_benchmarks.py --run benchmarks/results/2026-10-31_23-37-34`:
 
-| Backend | n | F1 palabra ↑ | WER ord. ↓ | CER ↓ | WER ↓ | ms/pág. | págs/s |
-|---|---|---|---|---|---|---|---|
-| easyocr | 30 | 0.426 | 0.670 | 0.526 | 0.794 | 3247 | 0.31 |
-| pyocrust | 30 | **0.745** | **0.325** | 0.487 | 0.670 | **643** | **1.56** |
-| rapidocr | 30 | _0.607_ | _0.487_ | 0.482 | 0.699 | 4534 | 0.22 |
+| Backend | task_type | n | F1 palabra ↑ | WER ord. ↓ | CER ↓ | WER ↓ | ms/pág. ↓ | págs/s ↑ |
+| :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| **pyocrust** | `text` | 5 | **0.734** | **0.340** | 0.402 | 0.628 | **1290** | **0.78** |
+| **rapidocr** | `text` | 5 | 0.660 | 0.431 | 0.400 | 0.654 | 9355 | 0.11 |
+| **pyocrust_indra** | `full_page` | 5 | 0.457 | 0.648 | 1.552 | 0.815 | 644 | 1.55 |
 
-`pyocrust_structure` quedó `skipped` (faltan 6 artefactos del preset
-`pp_structurev3`); `tesseract` no se incluyó (no está instalado). Las columnas
-`F1 palabra` y `WER ord.` son las que deciden la marca: `CER`/`WER` crudos miden
-también el orden de lectura y se publican solo como referencia.
+`pyocrust_structure` y `pyocrust_formula` quedaron `skipped` (faltan artefactos
+PP-StructureV3 en offline). `easyocr`/`tesseract` no se incluyeron en esta run.
+Las columnas `F1 palabra` y `WER ord.` son las que deciden la marca: `CER`/`WER`
+crudos miden también el orden de lectura y se publican solo como referencia.
+`markdown_f1` y `block_f1` son **N/A** en esta run: FUNSD no trae GT Markdown/bloques.
 
 ## Publicación a PyPI (CI/CD)
 

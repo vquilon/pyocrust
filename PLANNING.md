@@ -270,10 +270,21 @@ Medir la **calidad** y la **velocidad** de `pyocrust` frente a otros OCR sobre u
 | Id | Fase | Título | Tarjeta | Responsable | Estado | Fecha de cambio |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | `B3` | 7 | Documentar el benchmarking y redactar el post de LinkedIn | `t_da2882a8` | `escriba` | Hecho | 2026-10-25 |
-| `B4` | 7 | Atacar la metodología del benchmark (fairness, métricas, estadística) | `t_55e3c268` | `critico` | En curso | 2026-10-25 |
-| `B5` | 7 | Verificar reproducibilidad del benchmark y consistencia del reportero | `t_7f916baa` | `probador` | En curso | 2026-10-25 |
+| `B4` | 7 | Atacar la metodología del benchmark (fairness, métricas, estadística) | `t_55e3c268` | `critico` | Hecho | 2026-11-01 |
+| `B5` | 7 | Verificar reproducibilidad del benchmark y consistencia del reportero | `t_7f916baa` | `probador` | Hecho | 2026-10-31 |
+| `S2.1` | 7 | Exponer fórmulas (LaTeX) en `pp_structurev3` y cerrar el test pendiente | `t_423d391f` | `coder` | Hecho | 2026-10-26 |
+| `S2.2` | 7 | Exponer el backend `indra` (markdown de página + LaTeX) en pyocrust | `t_027743e2` | `coder` | Hecho | 2026-10-31 |
+| `B6` | 7 | Reescribir el banco de benchmarks: eje `task_type`, 5 backends y 22 columnas | `t_c319bbab` | `escriba` | Hecho | 2026-11-01 |
+| `B7` | 7 | Verificar el banco multi-tarea: repetibilidad, metadatos y reportero | `t_12453baf` | `probador` | Hecho | 2026-11-01 |
+| `B8` | 7 | Atacar la metodología del banco multi-tarea | `t_12453baf` | `critico` | Hecho | 2026-11-01 |
+| `B9` | 7 | Actualizar la documentación y el post con el banco multi-tarea | `t_93c3c339` | `escriba` | En curso | 2026-11-01 |
 
-Dependencias: el código del banco (`benchmarks/*.py`, sin tarjeta) precede a `B3`, `B4` y `B5`; `B3` documenta lo que `B4` (metodología) y `B5` (reproducibilidad) auditan.
+Dependencias: el código del banco (`benchmarks/*.py`, sin tarjeta) precede a `B3`,
+`B4` y `B5`; `S2.1` y `S2.2` (backends de fórmula e indra) son prerequisitos para
+`B6` (backends que el banco mide); `B6` (reescritura multi-tarea) precede a `B7`
+(verificación) y `B8` (metodología adversaria); `B7`/`B8` preceden a `B9`
+(documentación). `B3` documenta lo que `B4` (metodología) y `B5` (reproducibilidad)
+auditan; `B9` reescribe `B3` con el alcance nuevo.
 
 ### `B3` — Documentar el benchmarking y redactar el post de LinkedIn
 
@@ -295,6 +306,75 @@ Dependencias: el código del banco (`benchmarks/*.py`, sin tarjeta) precede a `B
 * **Contenido:** `benchmarks/tests/test_functional.py` (pruebas funcionales de la API pública de `pyocrust` sobre FUNSD y del contrato del CSV) y `benchmarks/tests/conftest.py`; dos runs de `--limit 10` para comparar estabilidad de `cer`/`word_f1`, y recálculo manual del agregado frente a `benchmark_summary.json`.
 * **Criterio de aceptación:** un comentario con la salida real de `pytest benchmarks/tests -q`, las medias de `pyocrust` de las dos runs y su diferencia, el recálculo del CER/F1 agregado frente a `benchmark_summary.json`, y evidencia de que ningún backend ausente apareció como ejecutado.
 * **Límite:** no modifica `src/` ni el runner/reportero salvo un bug de una línea, que reporta aparte.
+
+### `B6` — Reescribir el banco de benchmarks: eje `task_type`, 5 backends y 22 columnas
+
+* **Tarjeta:** `t_c319bbab`. **Responsable:** `escriba`. **Estado:** Hecho (2026-11-01).
+* **Contenido:** `benchmarks/run_benchmarks.py` pasó de un banco lineal a uno
+  multi-tarea con eje `task_type` (`text`, `structure`, `formula`, `full_page`),
+  cinco backends nuevos (`pyocrust_formula`, `pyocrust_indra`) y contrato CSV
+  de 22 columnas (`markdown_f1`, `block_f1`, `model_name`, `model_variant`,
+  `task_type`, `provider_effective`, etc.). `benchmarks/report_benchmarks.py`
+  alinea agregados y salidas.
+* **Criterio de aceptación:** un run `--limit 5` produce `summary.json` y
+  `benchmark_table.md` con los 22 campos; `--task-type` filtra; backends no
+  instalados aparecen como `skipped`, nunca como `ok`.
+* **Evidencia:** run `2026-10-31_23-37-34`, 21 pass, 17 deselected, 2 skipped
+  (FUNSD GT Markdown/bloques ausentes y estructura/fórmula offline). Artefactos
+  recuperados tras timeout del runner.
+
+### `B7` — Verificar el banco multi-tarea: repetibilidad, metadatos y reportero
+
+* **Tarjeta:** `t_12453baf`. **Responsable:** `probador`. **Estado:** Hecho (2026-11-01).
+* **Contenido:** dos runs de `--limit 5` (`2026-11-01_14-36-33`,
+  `2026-11-01_14-36-49`) para comparar estabilidad de `cer`/`word_f1`;
+  recálculo manual del agregado frente a `benchmark_summary.json`; comprobación
+  de que ningún backend ausente (`easyocr`, `tesseract`, `structure`,
+  `formula`) aparece como `ok`.
+* **Criterio de aceptación:** comentario con las dos salidas reales, las medias
+  de `pyocrust` de las dos runs y su diferencia, el recálculo del CER/F1
+  agregado frente al JSON, y evidencia de que los backends ausentes no generan
+  filas.
+* **Evidencia:** 5 muestras por backend; `easyocr`/`tesseract` ausentes en la
+  run de aceptación. `provider_effective=unverified` documentado.
+
+### `B8` — Atacar la metodología del banco multi-tarea
+
+* **Tarjeta:** `t_12453baf`. **Responsable:** `critico`. **Estado:** Hecho (2026-11-01).
+* **Contenido:** revisión adversarial del banco multi-tarea desde la lectura
+  completa de `benchmarks/run_benchmarks.py` y `benchmarks/report_benchmarks.py`
+  más una sonda empírica (`probe_md.py`). Seis defectos identificados, ninguno
+  cerrado en código.
+* **Criterio de aceptación:** lista numerada de defectos, cada uno con
+  `fichero:línea`, impacto y severidad. Un defecto invalida la tabla publicada
+  como comparación; los demás son limitaciones documentadas.
+* **Evidencia / Defectos:**
+  1. **CRÍTICO** — `markdown_f1`/`block_f1` vacíos en FUNSD: `gt_markdown`/`gt_blocks`
+     `None` → N/A en todas las filas (`run_benchmarks.py:227,525-526,542`).
+  2. **MAYOR** — `markdown_f1` es LCS de tokens ordenados, no equivalencia de
+     documento; reordenar baja 1.0→0.6667 (`run_benchmarks.py:203-218`).
+  3. **MAYOR** — `block_f1` compara etiquetas crudas sin normalizar
+     (`run_benchmarks.py:221-224,314`).
+  4. **MAYOR** — `model_variant` nominal; `provider_effective="unverified"`
+     no demuestra el provider ejecutado (`run_benchmarks.py:429,445`).
+  5. **MEDIO** — memoria entre imágenes no medida; CPU/RAM no en meta
+     (`run_benchmarks.py:439,471,482,531-556`).
+  6. **PEQUEÑO** — sin versiones datasets/HF/pesos; no reproducible exactamente
+     (`run_benchmarks.py:531-556`).
+
+### `B9` — Actualizar la documentación y el post con el banco multi-tarea
+
+* **Tarjeta:** `t_93c3c339`. **Responsable:** `escriba`. **Estado:** En curso (2026-11-01).
+* **Contenido:** `benchmarks/README.md` (documentar eje `task_type`, 5 backends,
+  22 columnas, `markdown_f1`/`block_f1` y la regla de titular), `benchmarks/LINKEDIN.md`
+  (post con números reales del banco multi-tarea y defectos abiertos), `PLANNING.md`
+  (tabla de Fase 7 y mapa de dependencias actualizados), `README.md` (sección
+  `## Benchmarking` reconciliada).
+* **Criterio de aceptación:** los cuatro ficheros existen y dicen lo que de verdad
+  hace el banco; comandos de `benchmarks/README.md` son copiables; el post contiene
+  números que coinciden con `benchmark_summary.json`; `PLANNING.md` refleja el estado
+  real del board.
+* **Límite:** no toca `src/`, `tests/` ni `benchmarks/*.py`.
 
 ## Fase 8: Cobertura completa de `oar-ocr`
 

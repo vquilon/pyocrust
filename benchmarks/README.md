@@ -13,6 +13,21 @@ no generan filas. FUNSD sin GT Markdown/bloques: **calidad Markdown N/A / no eva
 CPU solicitado, `provider_effective=unverified`, `warmup=1`, `repeats=1`:
 **sin ganador general, claims GPU ni comparación publicable con cinco muestras**.
 
+**Defectos abiertos (B8):**
+1. **CRÍTICO** — `markdown_f1`/`block_f1` vacíos en FUNSD: `gt_markdown`/`gt_blocks`
+   son `None` para todas las filas (`run_benchmarks.py:227,525-526,542`); la tabla
+   publicada encabeza con `F1 Markdown` pero muestra **N/A** en todas las filas.
+2. **MAYOR** — `markdown_f1` mide LCS de tokens ordenados, no equivalencia de
+   documento: reordenar secciones baja la puntuación (`run_benchmarks.py:203-218`).
+3. **MAYOR** — `block_f1` compara etiquetas crudas sin normalizar; no comparable
+   entre motores (`run_benchmarks.py:221-224,314`).
+4. **MAYOR** — `model_variant` es nominal; `provider_effective="unverified"` no
+   demuestra el provider ejecutado (`run_benchmarks.py:429,445`).
+5. **MEDIO** — memoria entre imágenes no medida; CPU/RAM no en meta
+   (`run_benchmarks.py:439,471,482,531-556`).
+6. **PEQUEÑO** — sin versiones de datasets/HF/pesos; no reproducible exactamente
+   entre máquinas (`run_benchmarks.py:531-556`).
+
 > **Nota (`B6`, ver `README.md` §Uso).** El eje `task_type` (columna 18 del CSV)
 > se define en el contrato de 22 columnas anterior. La tabla de cobertura de
 > `README.md` explica qué `task_type` produce cada predictor y pipeline.
@@ -21,6 +36,12 @@ CPU solicitado, `provider_effective=unverified`, `warmup=1`, `repeats=1`:
 
 * **22 columnas**, cabecera exacta:
   `run_timestamp,backend,dataset,image_id,cer,wer,cer_ord,wer_ord,word_f1,exact_match,elapsed_ms,n_regions,mean_confidence,n_chars_gt,n_chars_pred,status,error,task_type,model_name,model_variant,markdown_f1,block_f1`.
+* **Backends** registrados en `run_benchmarks.py --backends`:
+  `pyocrust` (`pp_ocrv6` tiny → `text`), `pyocrust_structure` (`pp_structurev3` →
+  `structure`), `pyocrust_formula` (`pp_structurev3` + `pp-formulanet-s` →
+  `formula`), `pyocrust_indra` (`indra` con `math(true)` → `full_page`),
+  `rapidocr` (`text`), `easyocr` (`text`), `tesseract` (`text`).
+  Los no instalados aparecen como `skipped` en `summary.json`, nunca como `ok`.
 * `--task-types text,structure,formula,full_page` filtra tareas fijas; no convierte
   salidas. `pyocrust_formula` (`pp_structurev3`, `pp-formulanet-s`) usa
   **`"\n".join(result.formulas)`**, no Markdown de página; Indra devuelve Markdown.
@@ -30,8 +51,10 @@ CPU solicitado, `provider_effective=unverified`, `warmup=1`, `repeats=1`:
   nunca texto FUNSD convertido artificialmente en Markdown. Esquema ilustrativo,
   no GT real: `[{"image":"pagina.png","text":"Texto anotado","markdown":"# Texto anotado","blocks":["title"]}]`.
 * `markdown_f1`: F1 LCS de tokens sensible al orden, case preservado dentro de
-  `$...$`/`$$...$$` (usar delimitadores en GT LaTeX); `block_f1`: multiconjunto de
-  etiquetas, no geometría. Vacías en `text` o sin GT: reportero muestra **N/A**.
+  `$...$`/`$$...$$` (usar delimitadores en GT LaTeX). **No es equivalencia de
+  documento**: reordenar secciones baja la puntuación (B8). `block_f1`:
+  multiconjunto de etiquetas **crudas** (no normalizadas), no geometría
+  (B8). Vacías en `text` o sin GT: reportero muestra **N/A**.
 * `cer_ord`: Levenshtein sobre **caracteres** de palabras normalizadas, ordenadas
   y unidas con espacios; `wer_ord` sobre listas de palabras. No son idénticos.
   CSV legacy sin `task_type`: antiguo `cer_ord` duplicaba WER, se invalida como

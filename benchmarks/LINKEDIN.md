@@ -9,14 +9,30 @@ no suite global ni reejecución documental. La run
 (`text`), 5/5 Indra (`full_page`, `math`) y 5/5 RapidOCR (`text`)**, sin errores.
 Artefactos recuperados tras timeout de la herramienta; exit code del runner
 no observado, sin certificación de terminación correcta.
-Estructura/fórmula **skipped**: seis artefactos PP-StructureV3 ausentes en offline.
-FUNSD sin GT Markdown/bloques: **calidad Markdown N/A / no evaluada**, no calidad
+Estructura/fórmula **skipped**: offline con seis artefactos PP-StructureV3 ausentes,
+no generan filas. FUNSD sin GT Markdown/bloques: **calidad Markdown N/A / no evaluada**, no calidad
 matemática certificada. CPU solicitado, `provider_effective=unverified`,
 `repeats=1`, `warmup=1`; `--device gpu` se rechaza con skip sin fallback CPU.
 **Sin ganador general, claims de rendimiento GPU ni comparación publicable con
 cinco muestras.** Contrato vigente: [README del banco](README.md), 22 columnas,
 manifiesto con GT legítimo, fórmula desde `result.formulas` (no Markdown de página)
 y legacy `cer_ord=None`.
+
+**Defectos abiertos (B8) que invalidan conclusiones publicadas:**
+1. **CRÍTICO** — `markdown_f1`/`block_f1` vacíos en FUNSD: la tabla publicada
+   encabeza con `F1 Markdown ↑` pero todas las filas muestran **N/A** porque
+   FUNSD no trae GT Markdown/bloques (`run_benchmarks.py:227,525-526,542`).
+2. **MAYOR** — `markdown_f1` mide LCS de tokens ordenados, no equivalencia de
+   documento: reordenar secciones baja la puntuación de 1.0 a 0.6667
+   (`run_benchmarks.py:203-218`).
+3. **MAYOR** — `block_f1` compara etiquetas crudas sin normalizar; no comparable
+   entre motores (`run_benchmarks.py:221-224,314`).
+4. **MAYOR** — `model_variant` es nominal (`tiny`/`default`/`math`); `provider_effective="unverified"`
+   no demuestra el provider ejecutado (`run_benchmarks.py:429,445`).
+5. **MEDIO** — memoria entre imágenes no medida; CPU/RAM no en meta
+   (`run_benchmarks.py:439,471,482,531-556`).
+6. **PEQUEÑO** — sin versiones de datasets/HF/pesos; no reproducible exactamente
+   entre máquinas (`run_benchmarks.py:531-556`).
 
 ## Histórico — borrador 2026-10-25, no listo para publicar
 
@@ -41,51 +57,46 @@ maquillar los resultados. 🦀🐍
 (PP-StructureV3) detrás de una sola API de Python.
 
 **Cómo lo he medido.** Dataset real **FUNSD** (formularios escaneados, vía
-Hugging Face), las **mismas imágenes** para los tres motores, métricas de calidad
-CER / WER / F1-palabra (Levenshtein implementado a mano) y velocidad en ms por
-página. Todo en **CPU**, sin GPU y con el modelo **Tiny** de `pyocrust`. Aviso
-honesto: **n = 30 imágenes por backend** — es una primera pasada, no un paper.
+Hugging Face), las **mismas imágenes** para los motores comparables, métricas de
+calidad `word_f1` y `wer_ord` (neutralizan el orden de lectura) más `cer`/`wer`
+crudos como referencia, y velocidad en ms por página. Todo en **CPU**, sin GPU
+y con el modelo **Tiny** de `pyocrust` en `text`. Aviso honesto: **n = 5 imágenes
+por backend** — es una primera pasada, no un paper.
 
-**Los números** (30 imágenes por backend, FUNSD, CPU):
+**Los números** (5 imágenes por backend, FUNSD, CPU):
 
-| Motor | F1 palabra ↑ | WER ord. ↓ | CER ↓ | WER ↓ | ms/pág. ↓ | págs/s ↑ |
-| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
-| **pyocrust** | **0,745** | **0,325** | 0,487 | 0,670 | **643** | **1,56** |
-| **rapidocr** | 0,607 | 0,487 | **0,482** | 0,699 | 4534 | 0,22 |
-| **easyocr** | 0,426 | 0,670 | 0,526 | 0,794 | 3247 | 0,31 |
+| Motor | task_type | F1 palabra ↑ | WER ord. ↓ | CER ↓ | WER ↓ | ms/pág. ↓ | págs/s ↑ |
+| :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| **pyocrust** (tiny) | `text` | **0.734** | **0.340** | 0.402 | 0.628 | **1290** | **0.78** |
+| **rapidocr** (default) | `text` | 0.660 | 0.431 | 0.400 | 0.654 | 9355 | 0.11 |
+| **pyocrust_indra** (math) | `full_page` | 0.457 | 0.648 | 1.552 | 0.815 | 644 | 1.55 |
 
-**Lo que gana `pyocrust`:**
+`structure`/`formula` **skipped** en esta run: offline con seis artefactos
+PP-StructureV3 ausentes, no generan filas.
 
-* **Velocidad**: 643 ms/página frente a 4534 de `rapidocr` (**≈7× más rápido**)
-  y 3247 de `easyocr` (**≈5× más rápido**); 1,56 páginas/s frente a 0,22 y 0,31.
-* Mejor **F1 de palabra** (0,745 vs. 0,607 de `rapidocr` y 0,426 de `easyocr`).
-* Mejor **WER con orden neutralizado** (0,325, frente a 0,487 y 0,670): mide
+**Lo que gana `pyocrust` en `text`:**
+
+* **Velocidad**: 1290 ms/página frente a 9355 de `rapidocr` (**≈7.3× más rápido**);
+  0.78 páginas/s frente a 0.11.
+* Mejor **F1 de palabra** (0.734 vs. 0.660 de `rapidocr`).
+* Mejor **WER con orden neutralizado** (0.340, frente a 0.431): mide
   reconocimiento, no cómo se recorre la página.
-* Mayor **confianza media** reportada por el motor (0,935 vs. 0,819 y 0,655),
-  aunque cada motor usa su propia escala y no es directamente comparable.
 
 **Lo que pierde, o donde empatan** (honestidad primero):
 
-* En **CER crudo** gana `rapidocr` por muy poco: 0,482 frente a 0,487. Pero esa
-  columna es la **única** que mide también el orden de lectura, y ahí el
-  formulario multicolumna penaliza más a `pyocrust` que a `rapidocr` (0,162 de
-  CER frente a 0,073). Por eso el ranking lo decide el **WER orden-neutralizado**,
-  donde `pyocrust` gana por 0,162.
-* `easyocr` queda por detrás en las tres métricas de calidad y es el más lento
-  en la cola (p95 de **5,1 s por página**, con mucha dispersión entre imágenes).
-* **Exact-match = 0** en los tres: ninguno reconstruye la página carácter a
+* En **CER crudo** gana `rapidocr` por muy poco: 0.400 frente a 0.402. Pero esa
+  columna mide también el orden de lectura, y ahí el formulario multicolumna
+  penaliza más a `pyocrust` que a `rapidocr`. Por eso el ranking lo decide el
+  **WER orden-neutralizado**, donde `pyocrust` gana por 0.091.
+* **Exact-match = 0** en los dos: ninguno reconstruye la página carácter a
   carácter.
-* Y la letra pequeña importa: es un modelo **Tiny** contra los modelos por defecto
-  de `rapidocr` y `easyocr`, en **CPU** y con **30 imágenes**. Son indicios, no un
-  veredicto.
-
-**Los gráficos:**
-
-* `benchmark_quality_vs_speed.png` — calidad (F1) frente a velocidad: el que mejor
-  cuenta la historia.
-* `benchmark_quality.png` — CER y F1 de palabra por motor.
-* `benchmark_speed.png` — ms por página y páginas por segundo.
-* `benchmark_table.png` (y `.svg`) — la tabla anterior, renderizada.
+* **F1 Markdown y F1 bloques = N/A** para todos los backends: FUNSD no trae
+  GT Markdown/LaTeX/bloques, así que esas métricas titular no aportan información
+  en esta run.
+* Y la letra pequeña importa: es un modelo **Tiny** contra el modelo por defecto
+  de `rapidocr`, en **CPU** y con **5 imágenes**. Son indicios, no un veredicto.
+  Además `model_variant` es nominal y `provider_effective="unverified"` no
+  demuestra el provider ejecutado.
 
 **Qué mide de verdad y qué falta.** El banco de pruebas es reproducible (dataset
 real, CSV por imagen, `warmup` común y metadatos de la run). Lo siguiente es una
@@ -105,27 +116,32 @@ te lo cuento en los comentarios. 🚀
   `benchmark_quality.png`, `benchmark_speed.png` y `benchmark_table.png` en los
   comentarios.
 * **Trazabilidad de los números** (todas las cifras del post provienen del JSON,
-  run `2026-10-25_22-26-51`, n = 30 por backend):
+  run `2026-10-31_23-37-34`, n = 5 por backend):
 
-  | Dato | `pyocrust` | `rapidocr` | `easyocr` |
+  | Dato | `pyocrust` (tiny; text) | `rapidocr` (default; text) | `pyocrust_indra` (math; full_page) |
   | :--- | ---: | ---: | ---: |
-  | `n` | 30 | 30 | 30 |
-  | `cer` | 0.487 | 0.482 | 0.526 |
-  | `wer` | 0.670 | 0.699 | 0.794 |
-  | `cer_ord` | 0.325 | 0.487 | 0.670 |
-  | `wer_ord` | 0.325 | 0.487 | 0.670 |
-  | `word_f1` | 0.745 | 0.607 | 0.426 |
+  | `n` | 5 | 5 | 5 |
+  | `cer` | 0.402 | 0.400 | 1.552 |
+  | `wer` | 0.628 | 0.654 | 0.815 |
+  | `wer_ord` | 0.340 | 0.431 | 0.648 |
+  | `word_f1` | 0.734 | 0.660 | 0.457 |
   | `exact_match` | 0.000 | 0.000 | 0.000 |
-  | `mean_ms` | 643 | 4534 | 3247 |
-  | `median_ms` | 641 | 4309 | 2517 |
-  | `p95_ms` | 785 | 8134 | 5110 |
-  | `pages_per_s` | 1.56 | 0.22 | 0.31 |
-  | `mean_confidence` | 0.935 | 0.819 | 0.655 |
+  | `mean_ms` | 1290 | 9355 | 644 |
+  | `median_ms` | 1270 | 6888 | 636 |
+  | `p95_ms` | 1751 | 16607 | 733 |
+  | `pages_per_s` | 0.78 | 0.11 | 1.55 |
+  | `mean_confidence` | 0.951 | 0.816 | 0.000 |
 
-* **`≈7×`** = `rapidocr.mean_ms / pyocrust.mean_ms` = 4533,9 / 642,6 = **7,06×**.
-* **`≈5×`** = `easyocr.mean_ms / pyocrust.mean_ms` = 3246,6 / 642,6 = **5,05×**.
+* **`≈7.3×`** = `rapidocr.mean_ms / pyocrust.mean_ms` = 9354.8 / 1290.2 = **7.25×**.
 * Los valores sin redondear están en `benchmarks/output_examples/benchmark_summary.json`;
   la métrica de tiempo completa (mediana y p95) también.
+* **Defectos abiertos (B8)** que inhabilitan publicar este post como comparación:
+  (1) `markdown_f1`/`block_f1` vacíos en FUNSD (GT Markdown/bloques ausente);
+  (2) `markdown_f1` es LCS de tokens ordenados, no equivalencia de documento;
+  (3) `block_f1` compara etiquetas crudas sin normalizar;
+  (4) `model_variant` nominal, `provider_effective="unverified"`;
+  (5) memoria no medida, CPU/RAM no en meta;
+  (6) sin versiones de datasets/HF/pesos.
 * **`B4` ya revisó la metodología** y sus hallazgos se aplicaron: el CER/WER crudos
   perdieron la marca de "mejor" (miden orden de lectura), se añadió `wer_ord` y el
-  *warmup* ya no consume muestras. El post refleja esa corrección.
+  *warmup* ya no consume muestras.
