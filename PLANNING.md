@@ -132,7 +132,7 @@ Este documento detalla la hoja de ruta secuencial para la implementación del pa
 * **Límites:** Markdown **N/A / no evaluada** sin GT Markdown/bloques; cinco
   muestras no son comparación publicable. Sin ganador general ni claims de
   rendimiento GPU. B3/B4/B5 y post previo conservados como históricos;
-  prevalece B9 en `benchmarks/README.md` y `benchmarks/LINKEDIN.md`.
+  prevalece B9 en `benchmarks/README.md`.
 * Solo esos dos documentos y este tracker: sin modelos/tests/builds/commits/board.
   Autorización de commit para Hefesto, no ejecutada por el escriba.
 
@@ -269,7 +269,7 @@ Medir la **calidad** y la **velocidad** de `pyocrust` frente a otros OCR sobre u
 
 | Id | Fase | Título | Tarjeta | Responsable | Estado | Fecha de cambio |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `B3` | 7 | Documentar el benchmarking y redactar el post de LinkedIn | `t_da2882a8` | `escriba` | Hecho | 2026-10-25 |
+| `B3` | 7 | Documentar el benchmarking | `t_da2882a8` | `escriba` | Hecho | 2026-10-25 |
 | `B4` | 7 | Atacar la metodología del benchmark (fairness, métricas, estadística) | `t_55e3c268` | `critico` | Hecho | 2026-11-01 |
 | `B5` | 7 | Verificar reproducibilidad del benchmark y consistencia del reportero | `t_7f916baa` | `probador` | Hecho | 2026-10-31 |
 | `S2.1` | 7 | Exponer fórmulas (LaTeX) en `pp_structurev3` y cerrar el test pendiente | `t_423d391f` | `coder` | Hecho | 2026-10-26 |
@@ -286,11 +286,11 @@ Dependencias: el código del banco (`benchmarks/*.py`, sin tarjeta) precede a `B
 (documentación). `B3` documenta lo que `B4` (metodología) y `B5` (reproducibilidad)
 auditan; `B9` reescribe `B3` con el alcance nuevo.
 
-### `B3` — Documentar el benchmarking y redactar el post de LinkedIn
+### `B3` — Documentar el benchmarking
 
 * **Tarjeta:** `t_da2882a8`. **Responsable:** `escriba`. **Estado:** Hecho (2026-10-25).
-* **Contenido:** `benchmarks/README.md` (qué mide, comandos con `.venv/Scripts/python.exe`, contrato del CSV de 15 columnas, interpretación de cada métrica y limitaciones conocidas); `benchmarks/LINKEDIN.md` (borrador de post con los números reales del JSON); una sección `## Benchmarking` en `README.md`; y esta `Fase 7`.
-* **Criterio de aceptación:** los cuatro ficheros existen; `benchmarks/README.md` documenta comandos copiables; el post contiene números que coinciden con `benchmark_summary.json`; `PLANNING.md` conserva el estilo y no rompe las tablas previas.
+* **Contenido:** `benchmarks/README.md` (qué mide, comandos con `.venv/Scripts/python.exe`, contrato del CSV de 15 columnas, interpretación de cada métrica y limitaciones conocidas); una sección `## Benchmarking` en `README.md`; y esta `Fase 7`.
+* **Criterio de aceptación:** los ficheros existen; `benchmarks/README.md` documenta comandos copiables; `PLANNING.md` conserva el estilo y no rompe las tablas previas.
 * **Evidencia:** números leídos de `benchmarks/output_examples/benchmark_summary.json` (run `2026-10-25_22-07-24`, n=29 por backend, 3 backends: `pyocrust`, `rapidocr`, `easyocr`): `pyocrust` CER `0.483`, F1 `0.744`, `715` ms/pág.; `rapidocr` CER `0.477`, F1 `0.603`, `5994` ms/pág.; `easyocr` CER `0.523`, F1 `0.428`, `8303` ms/pág. `pyocrust` es ~8,4× más rápido que `rapidocr` y ~11,6× que `easyocr`. El JSON se regenera con cada `report_benchmarks.py`, así que los números del post corresponden a la run vigente al escribir `B3`.
 
 ### `B4` — Atacar la metodología del benchmark
@@ -366,8 +366,7 @@ auditan; `B9` reescribe `B3` con el alcance nuevo.
 
 * **Tarjeta:** `t_93c3c339`. **Responsable:** `escriba`. **Estado:** En curso (2026-11-01).
 * **Contenido:** `benchmarks/README.md` (documentar eje `task_type`, 5 backends,
-  22 columnas, `markdown_f1`/`block_f1` y la regla de titular), `benchmarks/LINKEDIN.md`
-  (post con números reales del banco multi-tarea y defectos abiertos), `PLANNING.md`
+  22 columnas, `markdown_f1`/`block_f1` y la regla de titular), `PLANNING.md`
   (tabla de Fase 7 y mapa de dependencias actualizados), `README.md` (sección
   `## Benchmarking` reconciliada).
 * **Criterio de aceptación:** los cuatro ficheros existen y dicen lo que de verdad
