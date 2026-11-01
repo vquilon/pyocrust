@@ -13,6 +13,33 @@ Este repositorio **es** el paquete Python: `rust-bindings/pyocrust/` es a la vez
 la raíz del crate `pyocrust_core` y el directorio del paquete importable
 `pyocrust/`.
 
+## Instalación
+
+```bash
+pip install pyocrust
+```
+
+## Uso rápido
+
+```python
+from pyocrust import VeloceOCR
+
+# OCR de texto
+engine = VeloceOCR("pp_ocrv6")
+result = engine.recognize("documento.png")
+print(result.text)
+
+# Estructura documental (markdown)
+engine = VeloceOCR("pp_structurev3")
+result = engine.recognize("documento.png")
+print(result.markdown)
+
+# Tarea individual
+from pyocrust import TaskPredictor
+predictor = TaskPredictor("formula_recognition")
+print(predictor.predict("formula.png")["formula"])
+```
+
 ## Estado
 
 Instantánea histórica de las fases 0-5 del `PLANNING.md`: `cargo check` compila,
