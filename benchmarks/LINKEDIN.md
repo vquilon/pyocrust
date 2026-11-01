@@ -40,7 +40,7 @@ Las instrucciones de publicación, cifras y afirmaciones siguientes se conservan
 solo como registro original; no son recomendaciones ni conclusiones vigentes.
 
 > Listo para copiar y pegar. Los números salen **tal cual** de
-> `benchmarks/output_examples/benchmark_summary.json` (run `2026-10-25_22-26-51`),
+> `benchmarks/results/2026-10-31_23-37-34/summary.json` (run `2026-10-31_23-37-34`),
 > redondeados a la precisión que usa la tabla publicada. Los gráficos son los
 > ficheros de `benchmarks/output_examples/`.
 
@@ -133,7 +133,7 @@ te lo cuento en los comentarios. 🚀
   | `mean_confidence` | 0.951 | 0.816 | 0.000 |
 
 * **`≈7.3×`** = `rapidocr.mean_ms / pyocrust.mean_ms` = 9354.8 / 1290.2 = **7.25×**.
-* Los valores sin redondear están en `benchmarks/output_examples/benchmark_summary.json`;
+* Los valores sin redondear están en `benchmarks/results/2026-10-31_23-37-34/summary.json`;
   la métrica de tiempo completa (mediana y p95) también.
 * **Defectos abiertos (B8)** que inhabilitan publicar este post como comparación:
   (1) `markdown_f1`/`block_f1` vacíos en FUNSD (GT Markdown/bloques ausente);
