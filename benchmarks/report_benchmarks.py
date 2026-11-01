@@ -302,36 +302,31 @@ def _readable_xticks(ax, backends: Sequence[str]) -> None:
     ax.xaxis.set_major_formatter(FixedFormatter([_wrap_backend(b) for b in backends]))
 
 
-# Anchos aproximados (en "em") por tipo de caracter, para una fuente sans
-# proporcional. No es la metrica exacta de matplotlib, pero basta para repartir
-# cada columna por la anchura de su celda mas ancha (auto-width).
-_NARROW_CHARS = set("iljtfr.,;:!|()[]{}'\"`")
-_WIDE_CHARS = set("mwMW@%&#")
-_CHAR_EM = {"narrow": 0.33, "wide": 0.92, "space": 0.30, "digit": 0.56, "upper": 0.66, "other": 0.54}
+# La tabla se dimensiona con las metricas REALES de la fuente (matplotlib
+# `TextToPath`), no con una heuristica: cada columna recibe el ancho de su
+# celda mas ancha (cabecera incluida) para que el texto no se corte.
+_TEXT_MEASURER = None
 
 
-def _text_width(text: str) -> float:
-    """Anchura aproximada de `text` en em (fuente sans proporcional).
+def _text_width(text: str, fontsize: float, weight: str = "normal") -> float:
+    """Anchura en puntos de `text` con las metricas reales de la fuente.
 
-    >>> _text_width("")
+    >>> _text_width("", 10.5)
     0.0
-    >>> _text_width("ii") < _text_width("MM")
+    >>> _text_width("ii", 10.5) < _text_width("MMMM", 10.5)
     True
     """
-    width = 0.0
-    for ch in text:
-        if ch in _NARROW_CHARS:
-            width += _CHAR_EM["narrow"]
-        elif ch in _WIDE_CHARS:
-            width += _CHAR_EM["wide"]
-        elif ch == " ":
-            width += _CHAR_EM["space"]
-        elif ch.isdigit():
-            width += _CHAR_EM["digit"]
-        elif ch.isupper():
-            width += _CHAR_EM["upper"]
-        else:
-            width += _CHAR_EM["other"]
+    global _TEXT_MEASURER
+    if not text:
+        return 0.0
+    if _TEXT_MEASURER is None:
+        from matplotlib.textpath import TextToPath
+
+        _TEXT_MEASURER = TextToPath()
+    from matplotlib.font_manager import FontProperties
+
+    fp = FontProperties(size=fontsize, weight=weight)
+    width, _h, _d = _TEXT_MEASURER.get_text_width_height_descent(str(text), fp, ismath=False)
     return width
 
 
@@ -339,15 +334,16 @@ def _table_layout(
     header: Sequence[str],
     rows: Sequence[Sequence[str]],
     fontsize: float = 10.5,
-    pad_em: float = 1.6,
+    first_col_fontsize: float | None = None,
+    pad_pt: float = 10.0,
 ) -> tuple[list[float], float]:
-    """Auto-width de la tabla: anchos por columna y ancho de figura.
+    """Auto-width: anchos por columna (fraccion) y ancho de figura (pulgadas).
 
-    Para cada columna toma la anchura estimada de su celda mas ancha (cabecera
-    incluida), le suma `pad_em` de relleno y reparte el ancho total en esa
-    proporcion: las columnas con contenido mas ancho reciben mas espacio y el
-    texto no se corta ni invade la columna vecina. La figura crece lo justo
-    para que, a `fontsize`, ninguna celda se desborde.
+    Mide la anchura real de cada celda y da a cada columna lo que necesita su
+    celda mas ancha. La primera columna (nombres de backend) va alineada a la
+    izquierda y matplotlib la sangra `Cell.PAD` de su ancho, asi que se compensa
+    para que el nombre tampoco desborde. La figura crece lo justo para que
+    ninguna celda se recorte.
 
     >>> widths, _ = _table_layout(["a", "long header"], [["1", "x"]])
     >>> widths[1] > widths[0]
@@ -355,15 +351,21 @@ def _table_layout(
     >>> abs(sum(widths) - 1.0) < 1e-9
     True
     """
-    widths = [0.0] * len(header)
-    for row in (header, *rows):
+    from matplotlib.table import Cell
+
+    first_size = fontsize if first_col_fontsize is None else first_col_fontsize
+    need = [0.0] * len(header)
+    for col, cell in enumerate(header):
+        need[col] = max(need[col], _text_width(cell, fontsize, "bold"))
+    for row in rows:
         for col, cell in enumerate(row):
-            widths[col] = max(widths[col], _text_width(str(cell)))
-    padded = [w + pad_em for w in widths]
+            need[col] = max(need[col], _text_width(cell, first_size if col == 0 else fontsize))
+    # columna 0 a la izquierda: la sangria deja solo (1 - PAD) de hueco util
+    required = [n / (1.0 - Cell.PAD) if col == 0 else n for col, n in enumerate(need)]
+    padded = [w + pad_pt for w in required]
     total = sum(padded) or 1.0
     col_widths = [w / total for w in padded]
-    # em -> pulgadas a `fontsize` pt, mas un margen para los bordes de figura
-    fig_width = max(11.0, total * fontsize / 72.0 + 0.8)
+    fig_width = max(11.0, (total + 12.0) / 72.0)
     return col_widths, fig_width
 
 
@@ -387,7 +389,7 @@ def plot_table(report: dict[str, dict[str, Any]], out: Path) -> None:
 
     # Auto-width: cada columna recibe la anchura de su celda mas ancha y la
     # figura crece lo justo para que el texto no se corte ni pise la vecina.
-    col_widths, fig_width = _table_layout(header, cell_text)
+    col_widths, fig_width = _table_layout(header, cell_text, first_col_fontsize=9.5)
     fig, ax = plt.subplots(figsize=(fig_width, 1.4 + 0.62 * len(backends)))
     ax.axis("off")
 
