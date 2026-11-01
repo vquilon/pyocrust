@@ -206,6 +206,56 @@ Documentación completa y resultados en
 `F1 palabra` y `WER ord.` son las que deciden la marca: `CER`/`WER` crudos miden
 también el orden de lectura y se publican solo como referencia.
 
+## Publicación a PyPI (CI/CD)
+
+La publicación la realizan dos workflows de GitHub Actions con `maturin` y
+*trusted publishing* (OIDC: no hay token de PyPI guardado en secretos):
+
+| Workflow | Destino | Disparador |
+| :--- | :--- | :--- |
+| `.github/workflows/ci-cd.yml` | PyPI | `workflow_dispatch` (manual) |
+| `.github/workflows/ci-cd-test.yml` | TestPyPI | `release: published` + `workflow_dispatch` |
+
+Ambos compilan la matriz de plataformas, validan cada wheel (integridad ZIP y
+EOCD, sin datos sobrantes) y publican. Como `pyo3` se compila con `abi3-py310`,
+un único wheel por plataforma cubre CPython 3.10-3.14: no se repite el build una
+vez por versión de Python.
+
+Plataformas: `x86_64`/`aarch64` Linux, `x86_64` Windows y `aarch64` macOS
+(Apple Silicon). Se omiten `i686-pc-windows-msvc` (Windows x86) y
+`x86_64-apple-darwin` (macOS Intel) porque `oar-ocr` se compila con su feature
+por defecto `download-binaries` y el catálogo de binarios de ONNX Runtime de
+`ort-sys` no publica esas dos arquitecturas: esos jobs fallarían al compilar.
+
+### Requisitos previos (una sola vez)
+
+1. Crear el proyecto en [TestPyPI](https://test.pypi.org/) y en
+   [PyPI](https://pypi.org/).
+2. En el repositorio de GitHub, crear los entornos (`Settings > Environments`)
+   `testpypi` y `pypi`.
+3. Configurar *trusted publishing* en cada proyecto apuntando al repositorio y al
+   workflow correspondiente (`ci-cd.yml` para PyPI, `ci-cd-test.yml` para
+   TestPyPI), sin secreto compartido.
+
+### Publicar
+
+```text
+TestPyPI:  Actions > "Publish pyocrust to TestPyPI" > Run workflow
+           (o publicar un release, que lo dispara automáticamente)
+PyPI:      Actions > "Publish pyocrust to PyPI" > Run workflow
+```
+
+### Comprobar el wheel antes de subir
+
+```bash
+./.venv/Scripts/python.exe -m maturin build --release --out dist
+pip install dist/pyocrust-0.1.0-cp310-abi3-*.whl
+python -c "import pyocrust; print(pyocrust.__version__)"
+```
+
+El wheel queda en `dist/` (ignorado por git); en CI lo genera
+`PyO3/maturin-action`.
+
 ## Licencia
 
 Apache-2.0, idéntica a la de `oar-ocr`. Ver `LICENSE`.
