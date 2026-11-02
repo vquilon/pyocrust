@@ -28,16 +28,19 @@ enum Predictor {
 #[pyclass]
 pub struct TaskPredictor {
     predictor: Predictor,
+    /// EP que realmente corre (`cpu`, `cuda`, ...), nunca inventado.
+    provider_effective: String,
 }
 
 #[pymethods]
 impl TaskPredictor {
     #[new]
-    #[pyo3(signature = (task, models=None, **options))]
+    #[pyo3(signature = (task, models=None, device = "cpu", **options))]
     fn new(
         py: Python<'_>,
         task: &str,
         models: Option<&Bound<'_, PyAny>>,
+        device: &str,
         options: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Self> {
         let artifacts = match registry::task_artifacts(task) {
@@ -85,6 +88,10 @@ impl TaskPredictor {
         // existing absolute files, including companion dictionaries/tokenizers.
         let model_path = existing_asset(&model_path)?;
 
+        // `device` opt-in (ADR-010): se resuelve y prueba una vez por predictor.
+        let selection = crate::core::device::resolve_device(device)?;
+        let session = selection.config;
+
         let predictor = match task {
             "text_detection" => Predictor::TextDetection(
                 oar_ocr::predictors::TextDetectionPredictor::builder()
@@ -92,20 +99,20 @@ impl TaskPredictor {
                     .box_threshold(option(options, "box_threshold", 0.6_f32)?)
                     .unclip_ratio(option(options, "unclip_ratio", 1.5_f32)?)
                     .max_candidates(option(options, "max_candidates", 1000_usize)?)
-                    .build(ModelSource::from(model_path.clone())).map_err(|error| model_error(&model_path, error))?),
+                    .with_ort_config(session.clone()).build(ModelSource::from(model_path.clone())).map_err(|error| model_error(&model_path, error))?),
             "text_recognition" => Predictor::TextRecognition(
                 oar_ocr::predictors::TextRecognitionPredictor::builder()
                     .score_threshold(score_threshold)
                     .dict_path(dictionary_path(options, models, &model_path, artifacts[1].name)?)
-                    .build(ModelSource::from(model_path.clone())).map_err(|error| model_error(&model_path, error))?),
+                    .with_ort_config(session.clone()).build(ModelSource::from(model_path.clone())).map_err(|error| model_error(&model_path, error))?),
             "layout_detection" => Predictor::LayoutDetection(
                 oar_ocr::predictors::LayoutDetectionPredictor::builder()
                     .score_threshold(score_threshold).model_name(option(options, "model_name", "pp_doclayoutv3".to_string())?)
-                    .build(ModelSource::from(model_path.clone())).map_err(|error| model_error(&model_path, error))?),
+                    .with_ort_config(session.clone()).build(ModelSource::from(model_path.clone())).map_err(|error| model_error(&model_path, error))?),
             "table_classification" => Predictor::TableClassification(
                 oar_ocr::predictors::TableClassificationPredictor::builder()
                     .score_threshold(score_threshold).topk(topk).input_shape(input_shape)
-                    .build(ModelSource::from(model_path.clone())).map_err(|error| model_error(&model_path, error))?),
+                    .with_ort_config(session.clone()).build(ModelSource::from(model_path.clone())).map_err(|error| model_error(&model_path, error))?),
             "table_structure_recognition" => {
                 let mut builder = oar_ocr::predictors::TableStructureRecognitionPredictor::builder()
                     .dict_path(dictionary_path(options, models, &model_path, artifacts[1].name)?);
@@ -115,7 +122,7 @@ impl TaskPredictor {
                 if options.is_some_and(|dict| dict.contains("input_shape").unwrap_or(false)) {
                     builder = builder.input_shape(input_shape.0, input_shape.1);
                 }
-                Predictor::TableStructure(builder.build(ModelSource::from(model_path.clone())).map_err(|error| model_error(&model_path, error))?)
+                Predictor::TableStructure(builder.with_ort_config(session.clone()).build(ModelSource::from(model_path.clone())).map_err(|error| model_error(&model_path, error))?)
             }
             "table_cell_detection" => {
                 let default_variant = oar_ocr::predictors::TableCellModelVariant::detect_from_path(&model_path)
@@ -125,24 +132,24 @@ impl TaskPredictor {
                     .ok_or_else(|| crate::core::error::PyOcrValueError::new_err(format!("unknown table cell model '{name}'")))?;
                 Predictor::TableCells(oar_ocr::predictors::TableCellDetectionPredictor::builder()
                     .score_threshold(score_threshold).model_variant(variant)
-                    .build(ModelSource::from(model_path.clone())).map_err(|error| model_error(&model_path, error))?)
+                    .with_ort_config(session.clone()).build(ModelSource::from(model_path.clone())).map_err(|error| model_error(&model_path, error))?)
             }
             "document_orientation" => Predictor::DocumentOrientation(
                 oar_ocr::predictors::DocumentOrientationPredictor::builder()
-                    .score_threshold(score_threshold).topk(topk).build(ModelSource::from(model_path.clone()))
+                    .score_threshold(score_threshold).topk(topk).with_ort_config(session.clone()).build(ModelSource::from(model_path.clone()))
                     .map_err(|error| model_error(&model_path, error))?),
             "document_rectification" => Predictor::DocumentRectification(
-                oar_ocr::predictors::DocumentRectificationPredictor::builder().build(ModelSource::from(model_path.clone()))
+                oar_ocr::predictors::DocumentRectificationPredictor::builder().with_ort_config(session.clone()).build(ModelSource::from(model_path.clone()))
                     .map_err(|error| model_error(&model_path, error))?),
             "text_line_orientation" => Predictor::TextLineOrientation(
                 oar_ocr::predictors::TextLineOrientationPredictor::builder()
                     // oar-ocr 0.10.1 defaults to (192, 48); this model expects (H, W).
                     .input_shape(input_shape)
-                    .score_threshold(score_threshold).topk(topk).build(ModelSource::from(model_path.clone()))
+                    .score_threshold(score_threshold).topk(topk).with_ort_config(session.clone()).build(ModelSource::from(model_path.clone()))
                     .map_err(|error| model_error(&model_path, error))?),
             "seal_text_detection" => Predictor::SealTextDetection(
                 oar_ocr::predictors::SealTextDetectionPredictor::builder()
-                    .score_threshold(score_threshold).build(ModelSource::from(model_path.clone()))
+                    .score_threshold(score_threshold).with_ort_config(session.clone()).build(ModelSource::from(model_path.clone()))
                     .map_err(|error| model_error(&model_path, error))?),
             "formula_recognition" => {
                 let tokenizer = tokenizer_path.unwrap_or_else(|| model_path.with_file_name("pp-formulanet-tokenizer.json"));
@@ -151,11 +158,24 @@ impl TaskPredictor {
                     .model_name("PP-FormulaNet-S")
                     .model_kind(oar_ocr::predictors::FormulaModelKind::PPFormulaNet)
                     .tokenizer_path(tokenizer)
-                    .build(ModelSource::from(model_path.clone())).map_err(|error| model_error(&model_path, error))?)
+                    .with_ort_config(session.clone()).build(ModelSource::from(model_path.clone())).map_err(|error| model_error(&model_path, error))?)
             }
             _ => unreachable!("validated task name"),
         };
-        Ok(Self { predictor })
+        Ok(Self {
+            predictor,
+            provider_effective: selection.provider_effective,
+        })
+    }
+
+    /// EP que realmente corre la inferencia (`cpu`, `cuda`, `directml`, ...).
+    ///
+    /// Refleja lo que ONNX Runtime registró de verdad al construir el predictor,
+    /// no lo que se pidió: pedir `device="cuda"` sin un EP CUDA que registre
+    /// falla en el constructor y nunca etiqueta CPU como GPU.
+    #[getter]
+    fn provider_effective(&self) -> String {
+        self.provider_effective.clone()
     }
 
     /// Run one image and return the task's documented Python dictionary.

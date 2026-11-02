@@ -22,18 +22,36 @@ fn native_version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
 
+/// EPs aceleradores que **registran de verdad** en este host (`[]` si ninguno).
+///
+/// Es la única fuente honesta de soporte GPU del wheel: prueba cada candidato
+/// compilado (`cuda`/`directml`) con `OrtSessionConfig::resolve_auto` y devuelve
+/// solo los nombres que ONNX Runtime aceptó. Un inventario físico de GPU no
+/// implica que exista el EP (ver `pyocrust/hardware.py`).
+#[pyfunction]
+fn available_providers() -> Vec<String> {
+    crate::core::device::available_providers()
+}
+
 /// Clase pública de alto nivel (`DESIGN.md` §3.1, ADR-002, ADR-011).
 #[pyclass]
 struct VeloceOCR {
     engine: Box<dyn OcrEngineBackend>,
     config: storage::config::OcrConfig,
+    /// EP que realmente corre (`cpu`, `cuda`, ...), nunca inventado.
+    provider_effective: String,
 }
 
 #[pymethods]
 impl VeloceOCR {
     #[new]
-    #[pyo3(signature = (preset = "pp_ocrv6", custom_path = None))]
-    fn new(py: Python<'_>, preset: &str, custom_path: Option<&str>) -> PyResult<Self> {
+    #[pyo3(signature = (preset = "pp_ocrv6", custom_path = None, device = "cpu"))]
+    fn new(
+        py: Python<'_>,
+        preset: &str,
+        custom_path: Option<&str>,
+        device: &str,
+    ) -> PyResult<Self> {
         let spec = match preset {
             "pp_ocrv6" | "pp_ocrv6_tiny" => crate::core::ModelSpec::PpOcrV6(crate::core::OcrSize::Tiny),
             "pp_ocrv6_small" => crate::core::ModelSpec::PpOcrV6(crate::core::OcrSize::Small),
@@ -59,13 +77,31 @@ impl VeloceOCR {
         }
         let paths = config.resolve_paths(&spec);
 
+        // `device` opt-in (ADR-010): el EP se resuelve y prueba **antes** de
+        // construir el pipeline; el default `"cpu"` no toca ninguna GPU.
+        let selection = crate::core::device::resolve_device(device)?;
+
         // `S2.0`: preflight → descarga en paralelo de lo que falte → re-preflight.
         // Se libera el GIL: la descarga es I/O de red, no inferencia.
         py.detach(|| storage::models::ensure_models(&config.models_dir, &spec))?;
 
-        let engine = py.detach(|| engines::create_engine(&spec, &paths))?;
+        let engine = py.detach(|| engines::create_engine(&spec, &paths, &selection.config))?;
 
-        Ok(Self { engine, config })
+        Ok(Self {
+            engine,
+            config,
+            provider_effective: selection.provider_effective,
+        })
+    }
+
+    /// EP que realmente corre la inferencia (`cpu`, `cuda`, `directml`, ...).
+    ///
+    /// Refleja lo que ONNX Runtime registró de verdad al construir el pipeline,
+    /// no lo que se pidió: pedir `device="cuda"` sin un EP CUDA que registre
+    /// falla en el constructor y nunca etiqueta CPU como GPU.
+    #[getter]
+    fn provider_effective(&self) -> String {
+        self.provider_effective.clone()
     }
 
     /// Directorio resuelto donde se buscan o almacenan los modelos.
@@ -161,6 +197,7 @@ fn artifact_entries<'py>(
 #[pyo3(name = "_pyocrust_core")]
 fn pyocrust_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(native_version, m)?)?;
+    m.add_function(wrap_pyfunction!(available_providers, m)?)?;
     core::error::register(m)?;
     core::types::register(m)?;
     // Utilidad de troceado opt-in (ADR-009): existe para `tests/test_tiling.py`

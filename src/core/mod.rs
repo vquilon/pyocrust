@@ -6,10 +6,12 @@
 //! backend. El preprocesamiento es **opt-in** y no forma parte del pipeline
 //! por defecto (ADR-009).
 
+pub mod device;
 pub mod error;
 pub mod image_processor;
 pub mod types;
 
+pub use device::{available_providers, provider_name, resolve_device, DeviceSelection};
 pub use error::{ImageProcessError, OcrError, PyOcrError};
 pub use image_processor::{
     full_page_tiling, full_page_tiling_boxes, scale_down, FullPageTilingOptions, ScaleDownOptions,

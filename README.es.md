@@ -48,6 +48,16 @@ en el destino. La ejecución en GPU **no está validada** todavía en este
 proyecto (ver `IMPLEMENTATION_AUDIT.md`); las distribuciones CPU siguen siendo
 el camino verificado.
 
+> [!WARNING]
+> Solo se publican wheels para **Linux `x86_64`/`aarch64` (glibc), Windows
+> `x86_64` y macOS `aarch64` (Apple Silicon)**. **Windows `i686` (32 bits) y
+> macOS `x86_64` (Intel) no están soportados**, y tampoco se publica un sdist
+> (código fuente): en esas plataformas `pip install pyocrust` falla con
+> *No matching distribution found*, y compilar desde el código no lo arregla:
+> `oar-ocr` se compila con su feature por defecto `download-binaries` y el
+> catálogo de binarios de ONNX Runtime de `ort-sys` no publica esas dos
+> arquitecturas.
+
 ## Uso rápido
 
 ```python

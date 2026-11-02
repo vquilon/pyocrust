@@ -4,10 +4,20 @@ use crate::core::{
     BoundingBox, LayoutRegion, ModelPaths, ModelSpec, OcrEngineBackend, OcrError,
     OcrOutput, StructureResult, TextRegion,
 };
+use oar_ocr::core::config::OrtSessionConfig;
 
 #[derive(Debug, Default)]
 pub struct OarIndraEngine {
     pipeline: Option<oar_ocr::indra::IndraOcr>,
+    ort_session: Option<OrtSessionConfig>,
+}
+
+impl OarIndraEngine {
+    /// Fija el execution provider que aplicará `load_model` (opt-in).
+    pub fn with_ort_session(mut self, config: OrtSessionConfig) -> Self {
+        self.ort_session = Some(config);
+        self
+    }
 }
 
 impl OcrEngineBackend for OarIndraEngine {
@@ -20,13 +30,14 @@ impl OcrEngineBackend for OarIndraEngine {
         let root = paths.detection_model.parent().ok_or_else(|| OcrError::Config {
             message: "indra model directory is missing".into(),
         })?;
-        self.pipeline = Some(oar_ocr::indra::IndraOcrBuilder::new(root)
-            .math(true)
-            .build()
-            .map_err(|error| OcrError::ModelLoad {
-                model_path: root.display().to_string(),
-                reason: error.to_string(),
-            })?);
+        let mut builder = oar_ocr::indra::IndraOcrBuilder::new(root).math(true);
+        if let Some(ort_session) = &self.ort_session {
+            builder = builder.ort_session(ort_session.clone());
+        }
+        self.pipeline = Some(builder.build().map_err(|error| OcrError::ModelLoad {
+            model_path: root.display().to_string(),
+            reason: error.to_string(),
+        })?);
         Ok(())
     }
 

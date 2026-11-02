@@ -41,6 +41,7 @@ __version__: Final[str] = _native_version()
 from pyocrust._pyocrust_core import model_catalog, pipeline_profiles
 from pyocrust.hardware import GpuInfo, HardwareProfile, detect_hardware
 from pyocrust.resolver import TaskSpec, PipelineChoice, resolve_pipeline
+from pyocrust._pyocrust_core import available_providers
 
 __all__: Final[list[str]] = [
     "__version__",
@@ -58,6 +59,7 @@ __all__: Final[list[str]] = [
     "models_status",
     "model_catalog",
     "pipeline_profiles",
+    "available_providers",
     "GpuInfo",
     "HardwareProfile",
     "detect_hardware",

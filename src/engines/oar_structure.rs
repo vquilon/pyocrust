@@ -20,22 +20,41 @@ use crate::core::types::{
     BoundingBox, LayoutRegion, ModelPaths, ModelSpec, OcrOutput, StructureResult, TextRegion,
 };
 use crate::core::OcrEngineBackend;
+use oar_ocr::core::config::OrtSessionConfig;
 
 /// Función de fábrica para crear un motor de estructura.
-pub fn create_oar_structure_engine(paths: &ModelPaths) -> Result<OarStructureEngine, OcrError> {
-    OarStructureEngine::new_with_model(paths)
+///
+/// `ort_session` fija el execution provider de todos los submodelos del
+/// pipeline (layout, tablas, OCR, fórmulas); el default de la API Python es CPU.
+pub fn create_oar_structure_engine(
+    paths: &ModelPaths,
+    ort_session: OrtSessionConfig,
+) -> Result<OarStructureEngine, OcrError> {
+    let mut engine = OarStructureEngine::new().with_ort_session(ort_session);
+    engine.load_model(paths)?;
+    Ok(engine)
 }
 
 /// Adaptador del backend OAR para PP-StructureV3.
 #[derive(Debug)]
 pub struct OarStructureEngine {
     pipeline: Option<Arc<oar_ocr::oarocr::OARStructure>>,
+    ort_session: Option<OrtSessionConfig>,
 }
 
 impl OarStructureEngine {
     /// Crea un backend sin modelo cargado.
     pub fn new() -> Self {
-        Self { pipeline: None }
+        Self {
+            pipeline: None,
+            ort_session: None,
+        }
+    }
+
+    /// Fija el execution provider que aplicará `load_model` (opt-in).
+    pub fn with_ort_session(mut self, config: OrtSessionConfig) -> Self {
+        self.ort_session = Some(config);
+        self
     }
 
     /// Crea un backend y carga el modelo en una sola operación.
@@ -142,6 +161,12 @@ impl OcrEngineBackend for OarStructureEngine {
             &paths.formula_tokenizer,
         ) {
             builder = builder.with_formula_recognition(formula_model, tokenizer, "pp_formulanet");
+        }
+
+        // `ort_session` se aplica a todos los submodelos; la fórmula lo hereda
+        // cuando no hay `formula_ort_session` explícito (`structure.rs:875`).
+        if let Some(ort_session) = &self.ort_session {
+            builder = builder.ort_session(ort_session.clone());
         }
 
         let pipeline = builder.build().map_err(|e| OcrError::ModelLoad {

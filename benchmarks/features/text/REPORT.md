@@ -32,3 +32,16 @@
 - Ningún motor ausente se registra como `ok`: queda `skipped` con su `pip install`.
 - Las columnas sin GT no se rellenan con ceros: aparecen como `N/A` (no evaluada).
 
+## Referencias externas (calidad)
+
+> Métricas publicadas de motores que no ejecutamos en este repo. **No son comparables 1:1** con los valores `medido` de la tabla anterior: se miden sobre el dataset completo y con otro preprocesado.
+
+### 1. RapidOCR vs EasyOCR en entornos de vídeo (paper arXiv)
+
+Tabla del paper arXiv 2502.06445, evaluación sobre dataset de vídeo [ref: https://arxiv.org/abs/2502.06445] (consultado 2026-11-02):
+
+| Model | Character Error Rate (CER) ↓ | Word Error Rate (WER) ↓ | Average Accuracy (%) ↑ |
+| :--- | ---: | ---: | ---: |
+| RapidOCR | 0.4302 | 0.7620 | 56.98 |
+| EasyOCR | 0.5070 | 0.8262 | 49.30 |
+

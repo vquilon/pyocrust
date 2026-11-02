@@ -170,11 +170,26 @@ class TaskPredictor:
 
     predict_batch preserves input order and returns [] for empty input.
     Inference releases the GIL; decoding and Python mapping retain it.
+
+    ``device`` is opt-in (default ``"cpu"``) and selects the ONNX Runtime
+    execution provider *before* the predictor is built, via
+    ``core::device::resolve_device``. ``provider_effective`` reports what really
+    runs. ``available_providers()`` lists the accelerators that actually register.
     Approval covers code/contracts, not eleven real inferences or GPU validation.
     """
-    def __init__(self, task: str, models: str | dict[str, str] | None = None, **options: object) -> None: ...
+    def __init__(self, task: str, models: str | dict[str, str] | None = None, device: str = "cpu", **options: object) -> None: ...
+    @property
+    def provider_effective(self) -> str: ...
     def predict(self, image: str | bytes | PathLike[str]) -> dict[str, object]: ...
     def predict_batch(self, images: Sequence[str | bytes | PathLike[str]]) -> list[dict[str, object]]: ...
+
+def available_providers() -> list[str]:
+    """Accelerator execution providers that really register in this host, or ``[]``.
+
+    Probes the compiled candidates (``cuda``/``directml``) through ONNX Runtime;
+    a physical GPU (``detect_hardware``) is not proof that an EP exists here.
+    """
+    ...
 
 def resolve_models_dir(custom_path: str | None = None) -> str: ...
 
@@ -188,9 +203,17 @@ def models_status(
     """
 
 class VeloceOCR:
-    def __init__(self, preset: str = "pp_ocrv6", custom_path: str | None = None) -> None: ...
+    def __init__(self, preset: str = "pp_ocrv6", custom_path: str | None = None, device: str = "cpu") -> None: ...
     @property
     def models_dir(self) -> str: ...
+    @property
+    def provider_effective(self) -> str:
+        """EP that really ran (``cpu``/``cuda``/``directml``/...); never faked.
+
+        Requesting ``device="cuda"`` with no registered CUDA EP raises at
+        construction instead of labelling CPU as GPU.
+        """
+        ...
     def recognize(
         self, image: str | bytes | PathLike[str]
     ) -> OcrResult | StructureResult: ...
@@ -211,6 +234,7 @@ __all__: list[str] = [
     "models_status",
     "model_catalog",
     "pipeline_profiles",
+    "available_providers",
     "GpuInfo",
     "HardwareProfile",
     "detect_hardware",
