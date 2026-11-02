@@ -88,6 +88,12 @@ FEATURE_COLUMNS: dict[str, list[tuple[str, str, str, bool | None]]] = {
         ("rect_sim", "SSIM ↑", "{:.3f}", True),
         ("mean_ms", "ms/página ↓", "{:.0f}", False),
     ],
+    "seal": [
+        ("n", "n", "{}", None),
+        ("box_recall", "recall@IoU 0.5 ↑", "{:.3f}", True),
+        ("box_iou_mean", "IoU medio ↑", "{:.3f}", True),
+        ("mean_ms", "ms/imagen ↓", "{:.0f}", False),
+    ],
 }
 
 # Métrica **titular** de cada feature (la que encabeza su REPORT.md): clave,
@@ -102,6 +108,7 @@ TITULAR_METRIC: dict[str, tuple[str, str, bool]] = {
     "orientation": ("ori_acc", "accuracy ↑", True),
     "text_line": ("ori_acc", "accuracy ↑", True),
     "rectification": ("rect_sim", "SSIM ↑", True),
+    "seal": ("box_recall", "recall@IoU 0.5 ↑", True),
 }
 
 

@@ -1,0 +1,30 @@
+# Reporte por feature: `seal`
+
+> **Origen: `medido`** — ejecutado por nosotros en este repo. No hay filas de `referencia` (externas) en esta tabla.
+
+## Provenance
+
+- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/seal/bank.py --limit 8 --backends pyocrust_seal`
+- **dataset**: `synthetic_seal` · **n** (por motor): `8` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
+- **seed**: no aplica (banco determinista, sin aleatoriedad)
+- **run**: `benchmarks/results/seal/2026-11-02_16-07-15` · **fecha**: `2026-11-02_16-07-15`
+- **runtime**: {'python': '3.14.9', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['directml']}
+
+## Comparativa (media por motor)
+
+| Motor (variante) | n | recall@IoU 0.5 ↑ | IoU medio ↑ | ms/imagen ↓ |
+| :--- | ---: | ---: | ---: | ---: |
+| pyocrust_seal (default) | 8 | 0.750 | 0.679 | 579 |
+
+> En negrita, el mejor de cada métrica entre los motores **medidos** de `seal`. `N/A` = no evaluada (sin GT de esa columna), nunca un `0.0` inventado.
+
+## Saltados (`skipped`) — no cuentan como ejecutados
+
+- (ninguno)
+
+## Nota de honestidad
+
+- Ningún motor ausente se registra como `ok`: queda `skipped` con su `pip install`.
+- Las columnas sin GT no se rellenan con ceros: aparecen como `N/A` (no evaluada).
+- Honestidad de proveedor: el ranking sólo cuenta filas que de verdad corrieron en `device=cpu`. `pyocrust` confirma el EP real en `provider_effective`; si no hay acelerador, `--device gpu` queda `skipped` — un fallback CPU nunca se cuenta como GPU.
+
