@@ -4,17 +4,18 @@
 
 ## Provenance
 
-- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/text_line/bank.py --limit 8 --device cpu`
+- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/text_line/bank.py --limit 8 --backends pyocrust_textline,lcnet_textline_ori`
 - **dataset**: `synthetic_text_line` · **n** (por motor): `8` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **seed**: no aplica (banco determinista, sin aleatoriedad)
-- **run**: `benchmarks/results/text_line/2026-11-02_13-00-03` · **fecha**: `2026-11-02_13-00-03`
-- **runtime**: {'python': '3.14.9', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0'}
+- **run**: `benchmarks/results/text_line/2026-11-02_15-57-32` · **fecha**: `2026-11-02_15-57-32`
+- **runtime**: {'python': '3.14.9', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['directml']}
 
 ## Comparativa (media por motor)
 
 | Motor (variante) | n | accuracy ↑ | ms/línea ↓ |
 | :--- | ---: | ---: | ---: |
-| pyocrust_textline (default) | 8 | 100.0% | 30 |
+| lcnet_textline_ori (onnxruntime) | 8 | 100.0% | **2** |
+| pyocrust_textline (default) | 8 | 100.0% | 31 |
 
 > En negrita, el mejor de cada métrica entre los motores **medidos** de `text_line`. `N/A` = no evaluada (sin GT de esa columna), nunca un `0.0` inventado.
 

@@ -4,17 +4,18 @@
 
 ## Provenance
 
-- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/orientation/bank.py --limit 8 --device cpu`
+- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/orientation/bank.py --limit 8 --backends pyocrust_orientation,lcnet_doc_ori`
 - **dataset**: `synthetic_orientation` · **n** (por motor): `8` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **seed**: no aplica (banco determinista, sin aleatoriedad)
-- **run**: `benchmarks/results/orientation/2026-11-02_12-59-54` · **fecha**: `2026-11-02_12-59-54`
-- **runtime**: {'python': '3.14.9', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0'}
+- **run**: `benchmarks/results/orientation/2026-11-02_15-57-21` · **fecha**: `2026-11-02_15-57-21`
+- **runtime**: {'python': '3.14.9', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['directml']}
 
 ## Comparativa (media por motor)
 
 | Motor (variante) | n | accuracy ↑ | ms/página ↓ |
 | :--- | ---: | ---: | ---: |
-| pyocrust_orientation (default) | 8 | 100.0% | 667 |
+| lcnet_doc_ori (onnxruntime) | 8 | 100.0% | **4** |
+| pyocrust_orientation (default) | 8 | 100.0% | 694 |
 
 > En negrita, el mejor de cada métrica entre los motores **medidos** de `orientation`. `N/A` = no evaluada (sin GT de esa columna), nunca un `0.0` inventado.
 

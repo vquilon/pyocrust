@@ -134,3 +134,33 @@ def test_tatr_registrado_como_alternativa_de_table_sin_tocar_el_csv():
     assert table_teds(grid, "<table><tr><td>a</td><td>b</td><td>c</td></tr>"
                             "<tr><td>d</td><td>e</td><td>f</td></tr></table>") == 1.0
     assert table_teds(_tatr_grid_html(0, 0), grid) == 0.0
+
+
+def test_alternativas_onnx_de_orientation_textline_rectification():
+    """`lcnet_doc_ori`/`lcnet_textline_ori`/`uvdoc` están registradas y preprocesan bien.
+
+    Sin cargar ningún `.onnx`: comprueba el registro (backend -> tarea/banco/peso) y
+    la forma + normalización ImageNet del tensor que consume el clasificador PP-LCNet.
+    """
+    import numpy as np
+
+    from common.runner import (FEATURE_TYPES, MODEL_NAMES, ONNX_MODEL_FILES,
+                               PROVIDERS, TASK_TYPES, _lcnet_tensor)
+
+    esperado = {"lcnet_doc_ori": "orientation", "lcnet_textline_ori": "text_line",
+                "uvdoc": "rectification"}
+    for backend, feature in esperado.items():
+        assert backend in PROVIDERS
+        assert backend in ONNX_MODEL_FILES
+        assert TASK_TYPES[backend] == FEATURE_TYPES[backend] == feature
+    assert MODEL_NAMES["lcnet_doc_ori"] == ("pp-lcnet_x1_0_doc_ori", "onnxruntime")
+    assert MODEL_NAMES["lcnet_textline_ori"] == ("pp-lcnet_x1_0_textline_ori", "onnxruntime")
+
+    # Tensor CHW (1,3,H,W) con normalización ImageNet RGB del color de entrada.
+    solid = Image.new("RGB", (400, 300), (128, 128, 128))
+    doc = _lcnet_tensor(solid, (224, 224), 256)          # resize_short=256 + center crop
+    line = _lcnet_tensor(solid, (80, 160), None)         # resize directo a 80x160
+    assert doc.shape == (1, 3, 224, 224) and line.shape == (1, 3, 80, 160)
+    expected = (128 / 255.0 - 0.485) / 0.229
+    assert abs(float(doc[0, 0, 0, 0]) - expected) < 1e-4
+    assert np.isfinite(doc).all() and np.isfinite(line).all()
