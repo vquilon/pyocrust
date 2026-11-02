@@ -38,9 +38,12 @@ el dataset alternativo estándar de TEDS; no está en caché local.
 
 ## Estado
 
-**Implementado**: ejecuta `pyocrust` (`pyocrust_table`) sobre los recortes de
-tabla anotados y publica el TEDS de estructura. Las alternativas están
-**documentadas** (se integran como backends cuando se instalen).
+**Implementado**: ejecuta `pyocrust` (`pyocrust_table`) **y la alternativa real
+TATR** (`tatr`: `transformers` + `microsoft/table-transformer-structure-recognition`)
+sobre los recortes de tabla anotados y publica el TEDS de estructura. `tatr` es
+**CPU-only**: `--device gpu` lo deja `skipped` con motivo (nunca un fallback CPU
+etiquetado GPU). El resto de alternativas sigue **documentado** (se integran como
+backends cuando se instalen).
 
 ## Provenance
 

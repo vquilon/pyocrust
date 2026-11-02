@@ -116,3 +116,21 @@ def test_box_metrics_sin_gt_no_se_inventa_un_cero():
         box_metrics([], [(0, 0, 1, 1)])
     recall, mean_best = box_metrics([(0, 0, 2, 2), (10, 10, 12, 12)], [(0, 0, 2, 2)])
     assert recall == 0.5 and mean_best == 0.5
+
+
+def test_tatr_registrado_como_alternativa_de_table_sin_tocar_el_csv():
+    """TATR es la alternativa medida de `table` y no altera el contrato del CSV."""
+    from common.runner import FEATURE_TYPES, MODEL_NAMES, PROVIDERS, TASK_TYPES, _tatr_grid_html
+    from common.metrics import html_tags, table_teds
+
+    assert "tatr" in PROVIDERS
+    assert TASK_TYPES["tatr"] == FEATURE_TYPES["tatr"] == "table"
+    assert MODEL_NAMES["tatr"][0] == "table-transformer-structure-recognition"
+    assert "table_teds" in CSV_FIELDS
+    # La rejilla de TATR produce la gramática que puntúa `table_teds`: 2 filas x 3
+    # columnas -> 2*(<tr> + 3*(<td></td>) + </tr>) y TEDS 1.0 contra el mismo GT.
+    grid = _tatr_grid_html(2, 3)
+    assert html_tags(grid) == ["<tr>", "<td>", "</td>", "<td>", "</td>", "<td>", "</td>", "</tr>"] * 2
+    assert table_teds(grid, "<table><tr><td>a</td><td>b</td><td>c</td></tr>"
+                            "<tr><td>d</td><td>e</td><td>f</td></tr></table>") == 1.0
+    assert table_teds(_tatr_grid_html(0, 0), grid) == 0.0
