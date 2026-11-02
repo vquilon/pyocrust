@@ -3,6 +3,8 @@
 [![PyPI version](https://img.shields.io/pypi/v/pyocrust.svg)](https://pypi.org/project/pyocrust/)
 [![Publish pyocrust to PyPI](https://github.com/vquilon/pyocrust/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/vquilon/pyocrust/actions/workflows/ci-cd.yml)
 [![Publish pyocrust to TestPyPI](https://github.com/vquilon/pyocrust/actions/workflows/ci-cd-test.yml/badge.svg)](https://github.com/vquilon/pyocrust/actions/workflows/ci-cd-test.yml)
+[![Publish pyocrust-gpu to PyPI](https://github.com/vquilon/pyocrust/actions/workflows/ci-cd-gpu.yml/badge.svg)](https://github.com/vquilon/pyocrust/actions/workflows/ci-cd-gpu.yml)
+[![Publish pyocrust-gpu to TestPyPI](https://github.com/vquilon/pyocrust/actions/workflows/ci-cd-gpu-test.yml/badge.svg)](https://github.com/vquilon/pyocrust/actions/workflows/ci-cd-gpu-test.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 Native **Rust** wrapper (PyO3 + Maturin) with three preset families: text OCR
@@ -15,9 +17,33 @@ the `pyocrust_core` crate root and the importable package directory
 
 ## Installation
 
+`pyocrust` ships as two distributions built from this same source tree, the same
+way `onnxruntime` and `onnxruntime-gpu` do:
+
 ```bash
-pip install pyocrust
+pip install pyocrust        # CPU build (portable, no CUDA)
+pip install pyocrust-gpu    # CUDA build (NVIDIA GPUs)
 ```
+
+> [!IMPORTANT]
+> **Install only one of the two.** `pyocrust` and `pyocrust-gpu` import as the
+> same module (`import pyocrust`) and ship the **same** native binary
+> (`pyocrust/_pyocrust_core`); installing both overwrites the other's extension.
+> They are two builds of one API, not two packages you combine.
+
+Both distributions expose the identical Python API — the same three preset
+families and eleven task predictors; only the native binary changes:
+
+| Distribution | Compiled feature | ONNX Runtime execution providers | Extra runtime at the destination | Platforms |
+| :--- | :--- | :--- | :--- | :--- |
+| `pyocrust` | *(default)* `simd` + `auto-download` | CPU | none | Linux `x86_64`/`aarch64`, Windows `x86_64`, macOS `aarch64` |
+| `pyocrust-gpu` | `cuda` | CPU + CUDA | NVIDIA driver + CUDA/cuDNN | Linux `x86_64`/`aarch64`, Windows `x86_64` (**no macOS**) |
+
+`pyocrust-gpu` is the same API compiled with the `cuda` feature: it bundles the
+CUDA execution provider of ONNX Runtime, so the wheel is **much larger** and
+needs the CUDA runtime at the destination. GPU execution is **not validated**
+in this project yet (see `IMPLEMENTATION_AUDIT.md`); the CPU distributions
+remain the verified path.
 
 ## Quick start
 
@@ -488,6 +514,15 @@ Publishing is handled by two GitHub Actions workflows with `maturin` and
 | :--- | :--- | :--- |
 | `.github/workflows/ci-cd.yml` | PyPI | `workflow_dispatch` (manual) |
 | `.github/workflows/ci-cd-test.yml` | TestPyPI | `release: published` + `workflow_dispatch` |
+| `.github/workflows/ci-cd-gpu.yml` | PyPI (`pyocrust-gpu`) | `workflow_dispatch` (manual) |
+| `.github/workflows/ci-cd-gpu-test.yml` | TestPyPI (`pyocrust-gpu`) | `release: published` + `workflow_dispatch` |
+
+The two `*-gpu` workflows build the **same source** with `--features cuda`
+and patch the project name in `pyproject.toml` to `pyocrust-gpu` before
+publishing. They use their own trusted publisher and their own environments
+(`pypi-gpu`, `testpypi-gpu`), and their matrix is CUDA-only: Linux
+`x86_64`/`aarch64` and Windows `x86_64`, **macOS excluded** (there is no
+CUDA on Apple hardware).
 
 Both compile the platform matrix, validate each wheel (ZIP integrity and
 EOCD, no extra data) and publish. Because `pyo3` is compiled with `abi3-py310`,
@@ -509,6 +544,10 @@ Platforms: `x86_64`/`aarch64` Linux, `x86_64` Windows and `aarch64` macOS
 3. Configure *trusted publishing* on each project pointing to the repository and the
    corresponding workflow (`ci-cd.yml` for PyPI, `ci-cd-test.yml` for
    TestPyPI), without shared secrets.
+4. Repeat 1-3 for the GPU distributions: create the `pyocrust-gpu` project on
+   TestPyPI and PyPI, the environments `testpypi-gpu` and `pypi-gpu`, and the
+   trusted publishers for `ci-cd-gpu-test.yml` (TestPyPI) and `ci-cd-gpu.yml`
+   (PyPI).
 
 ### Publish
 
@@ -516,12 +555,16 @@ Platforms: `x86_64`/`aarch64` Linux, `x86_64` Windows and `aarch64` macOS
 TestPyPI:  Actions > "Publish pyocrust to TestPyPI" > Run workflow
            (or publish a release, which triggers it automatically)
 PyPI:      Actions > "Publish pyocrust to PyPI" > Run workflow
+TestPyPI GPU:  Actions > "Publish pyocrust-gpu to TestPyPI" > Run workflow
+PyPI GPU:      Actions > "Publish pyocrust-gpu to PyPI" > Run workflow
 ```
 
 ### Verify the wheel before uploading
 
 ```bash
 ./.venv/Scripts/python.exe -m maturin build --release --out dist
+# GPU (CUDA) build:
+./.venv/Scripts/python.exe -m maturin build --release --features cuda --out dist
 pip install dist/pyocrust-0.1.0-cp310-abi3-*.whl
 python -c "import pyocrust; print(pyocrust.__version__)"
 ```
