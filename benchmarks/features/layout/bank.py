@@ -11,6 +11,8 @@ cada bloque con su `category_type` y su `poly`, así que **hay GT de layout real
 vocabulario del modelo y las categorías anotadas (`common.datasets.
 LAYOUT_MODEL_TO_GT`); las que no la tienen (p. ej. `inline_formula`,
 `formula_number`, `seal`) quedan fuera de la métrica y se documentan en la README.
+El mapa completo (DocLayNet ↔ OmniDocBench ↔ PP-DocLayout, con fuente por par) y
+la regla de clases ignoradas viven en `features/layout/class_map.md`.
 
 Provenance: todo número que salga de aquí es **`medido`** (ejecutado por nosotros);
 el `summary.json` de la run guarda comando, dataset, `n`, `warmup`, `repeats`,
@@ -33,7 +35,7 @@ if __package__ in (None, ""):
 from datetime import datetime
 
 from common import OcrOutput, Sample, load_dataset, run_backends
-from common.datasets import LAYOUT_MODEL_TO_GT
+from common.datasets import LAYOUT_MODEL_TO_GT, layout_gt_classes
 from common.metrics import detection_map
 from features._base import FeatureSpec, common_argparser, feature_out_dir
 
@@ -74,18 +76,28 @@ def _model_bbox(element: dict) -> tuple[float, float, float, float] | None:
 def score_layout(sample: Sample, output: OcrOutput) -> dict:
     """mAP/recall@IoU 0.5 por clase: cajas anotadas vs. bloques detectados.
 
-    Solo se puntúan las categorías que el mapa declara como destino: una clase
-    del modelo sin equivalencia (o una categoría anotada que el modelo no puede
-    emitir) no entra en la media, en vez de contarse como fallo de detección.
+    Dos filtros, ambos por la regla del banco (una clase sin equivalencia se
+    **ignora**, nunca cuenta como acierto ni como fallo silencioso):
+
+    * una clase del modelo sin equivalencia en `LAYOUT_MODEL_TO_GT` no entra en
+      la predicción;
+    * una categoría anotada que el vocabulario del motor **no puede emitir**
+      (p. ej. `page_number`/`reference` en los detectores DocLayNet) se excluye
+      de la media en vez de restar como un `0.0` espurio ([ref: class_map.md]).
+
+    El mapa de equivalencias, con su fuente por par, vive en
+    `features/layout/class_map.md` (código: `common.datasets`).
     """
-    gt = sample.gt_layout or {}
     predicted: dict[str, list[tuple[float, tuple[float, float, float, float]]]] = {}
     for element in output.extra.get("elements") or []:
         category = LAYOUT_MODEL_TO_GT.get(str(element.get("element_type")))
         box = _model_bbox(element)
-        if category is None or category not in gt or box is None:
+        if category is None or box is None:
             continue
         predicted.setdefault(category, []).append((float(element.get("score", 0.0) or 0.0), box))
+    # GT acotado a las categorías que este motor puede emitir.
+    emittable = layout_gt_classes(output.extra.get("engine"))
+    gt = {cls: boxes for cls, boxes in (sample.gt_layout or {}).items() if cls in emittable}
     mean_ap, recall = detection_map(gt, predicted)
     # Sin cajas GT evaluables la métrica queda **no evaluada** (""), nunca un 0.0.
     return {
@@ -129,6 +141,16 @@ def _self_check() -> None:
     assert score_layout(sample, other) == {"layout_map": 0.0, "layout_recall": 0.0}
     empty = Sample("q", Image.new("RGB", (10, 10)), "", gt_layout=None)
     assert score_layout(empty, hit) == {"layout_map": "", "layout_recall": ""}
+    # Una categoria que el motor NO puede emitir se ignora: `page_number` no
+    # existe en el vocabulario DocLayNet, asi que su GT no entra en la media.
+    page = Sample("r", Image.new("RGB", (10, 10)), "",
+                  gt_layout={"page_number": ((0.0, 0.0, 5.0, 5.0),)})
+    yolo = OcrOutput("", extra={"engine": "ultralytics", "elements": [
+        {"element_type": "number", "score": 0.9, "bbox": [[0, 0], [5, 0], [5, 5], [0, 5]]},
+    ]})
+    assert score_layout(page, yolo) == {"layout_map": "", "layout_recall": ""}
+    # …pero el mismo GT SI se evalua para el detector propio, que si lo emite.
+    assert score_layout(page, hit) == {"layout_map": 0.0, "layout_recall": 0.0}
     print("features.layout self-check OK")
 
 

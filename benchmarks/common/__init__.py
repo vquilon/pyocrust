@@ -16,10 +16,12 @@ from __future__ import annotations
 from common.datasets import (  # noqa: F401
     DATA_CACHE,
     DATASETS,
+    LAYOUT_DOCLAYNET_LABEL_TO_GT,
     LAYOUT_MODEL_TO_GT,
     ODB_CATEGORY_TO_KIND,
     DatasetUnavailable,
     Sample,
+    layout_gt_classes,
     load_dataset,
     load_funsd,
     load_local,
@@ -77,7 +79,8 @@ from common.runner import (  # noqa: F401
 
 __all__ = [
     # datasets
-    "DATA_CACHE", "DATASETS", "LAYOUT_MODEL_TO_GT", "ODB_CATEGORY_TO_KIND",
+    "DATA_CACHE", "DATASETS", "LAYOUT_DOCLAYNET_LABEL_TO_GT", "LAYOUT_MODEL_TO_GT",
+    "ODB_CATEGORY_TO_KIND", "layout_gt_classes",
     "DatasetUnavailable", "Sample", "load_dataset",
     "load_funsd", "load_local", "load_omnidocbench", "load_omnidocbench_formulas",
     "load_omnidocbench_full_page", "load_omnidocbench_layout", "load_omnidocbench_tables",
