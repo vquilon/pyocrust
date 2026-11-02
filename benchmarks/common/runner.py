@@ -605,6 +605,167 @@ def _hf_layout_backend(model_id: str, threshold: float = 0.5) -> Callable[[Image
     return run
 
 
+# ---------------------------------------------------------------------------
+# Alternativas reales de `orientation` / `text_line` / `rectification`
+# (`onnxruntime` sobre los pesos canonicos de PaddleOCR)
+# ---------------------------------------------------------------------------
+# `pyocrust` corre estas tres tareas por el runtime Rust de `oar-ocr`; aqui el
+# **mismo** `.onnx` se ejecuta con `onnxruntime` en Python, reproduciendo el
+# preprocesado/postprocesado documentado por PaddleOCR. Es la alternativa del
+# motor de referencia: mismos pesos, distinto runtime (Rust vs onnxruntime).
+#
+# `.onnx` de cada alternativa dentro del directorio de modelos de `pyocrust`
+# (`~/.oar` por defecto). Si falta el fichero, el backend queda `skipped`.
+ONNX_MODEL_FILES = {
+    "lcnet_doc_ori": "pp-lcnet_x1_0_doc_ori.onnx",
+    "lcnet_textline_ori": "pp-lcnet_x1_0_textline_ori.onnx",
+    "uvdoc": "uvdoc.onnx",
+}
+
+# ImageNet en orden **RGB** (el que documenta PP-LCNet; `oar-ocr` lo confirma).
+_LCNET_MEAN = (0.485, 0.456, 0.406)
+_LCNET_STD = (0.229, 0.224, 0.225)
+
+
+def _onnx_model_path(name: str) -> Path:
+    """Ruta del `.onnx` de una alternativa dentro del models dir de `pyocrust`."""
+    import pyocrust  # noqa: PLC0415
+
+    return Path(pyocrust.resolve_models_dir()) / ONNX_MODEL_FILES[name]
+
+
+def _load_onnx_session(name: str):
+    """`InferenceSession` de CPU del `.onnx` de la alternativa (o `ProviderUnavailable`)."""
+    try:
+        import onnxruntime as ort  # noqa: PLC0415 - import tardio (carga pesada)
+    except ImportError as exc:
+        raise ProviderUnavailable("pip install onnxruntime") from exc
+    path = _onnx_model_path(name)
+    if not path.is_file():
+        raise ProviderUnavailable(f"falta {ONNX_MODEL_FILES[name]} en {path.parent} (modelo no descargado)")
+    return ort.InferenceSession(str(path), providers=["CPUExecutionProvider"])
+
+
+def _cv2_resize(image: Image.Image, size_wh: tuple[int, int], interpolation: int):
+    """Resize con OpenCV devolviendo RGB (mismo motor que PaddleOCR/`oar-ocr`).
+
+    PIL y `cv2` no coinciden pixel a pixel; el runtime Rust de `oar-ocr` usa un
+    filtro con antialias que, medido sobre el GT sintetico, reproduce `INTER_AREA`
+    (los clasificadores aciertan 8/8 igual que `pyocrust`; `PIL.BILINEAR` falla 1).
+    """
+    import cv2  # noqa: PLC0415
+    import numpy as np  # noqa: PLC0415
+
+    bgr = np.asarray(image.convert("RGB"))[:, :, ::-1]
+    resized = cv2.resize(bgr, size_wh, interpolation=interpolation)
+    return np.ascontiguousarray(resized[:, :, ::-1])
+
+
+def _lcnet_tensor(image: Image.Image, input_hw: tuple[int, int], resize_short: int | None):
+    """Tensor CHW normalizado (ImageNet RGB) que consume un clasificador PP-LCNet.
+
+    Reproduce el preprocesado de PaddleOCR que confirma `oar-ocr`:
+
+    * `resize_short` no nulo -> reescala el lado corto a `resize_short` (ratio
+      conservado) y recorta al centro `input_hw` (doc/table orientation, 224x224).
+    * `resize_short` nulo -> reescala directo a `input_hw` (H, W) sin recorte
+      (text line orientation, 80x160).
+
+    Se mantiene fuera del cronometro, simetrico con los demas adaptadores
+    no-`pyocrust` (B4/D12).
+    """
+    import cv2  # noqa: PLC0415
+    import numpy as np  # noqa: PLC0415
+
+    out_h, out_w = input_hw
+    w, h = image.size
+    if resize_short is not None:
+        scale = resize_short / min(w, h)
+        new_w = max(round(w * scale), out_w)
+        new_h = max(round(h * scale), out_h)
+        resized = _cv2_resize(image, (new_w, new_h), cv2.INTER_AREA)
+        x1 = (new_w - out_w) // 2
+        y1 = (new_h - out_h) // 2
+        resized = resized[y1:y1 + out_h, x1:x1 + out_w]
+    else:
+        resized = _cv2_resize(image, (out_w, out_h), cv2.INTER_AREA)
+    arr = resized.astype(np.float32) / 255.0
+    arr = (arr - np.asarray(_LCNET_MEAN, dtype=np.float32)) / np.asarray(_LCNET_STD, dtype=np.float32)
+    return np.ascontiguousarray(arr.transpose(2, 0, 1)[None], dtype=np.float32)
+
+
+def _lcnet_classify_backend(model_name: str, labels: Sequence[str],
+                            input_hw: tuple[int, int], resize_short: int | None) -> Callable[[Image.Image], OcrOutput]:
+    """Clasificador PP-LCNet (orientacion de pagina/linea) via `onnxruntime`.
+
+    Emite el mismo contrato que `pyocrust`: `text`/`extra["label"]` = etiqueta
+    ganadora y `extra["orientations"]` = lista `{class_id, label, score}`.
+    """
+    import numpy as np  # noqa: PLC0415
+
+    session = _load_onnx_session(model_name)
+    input_name = session.get_inputs()[0].name
+
+    def run(image: Image.Image) -> OcrOutput:
+        tensor = _lcnet_tensor(image, input_hw, resize_short)
+        start = time.perf_counter()
+        logits = np.asarray(session.run(None, {input_name: tensor})[0][0], dtype=np.float64)
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+        probs = np.exp(logits - logits.max())
+        probs /= probs.sum()
+        order = np.argsort(probs)[::-1]
+        orientations = [
+            {"class_id": int(i), "label": labels[i], "score": float(probs[i])} for i in order
+        ]
+        top = int(order[0])
+        return OcrOutput(
+            text=labels[top], mean_confidence=float(probs[top]), elapsed_ms=elapsed_ms,
+            extra={"engine": "onnxruntime", "model": model_name,
+                   "label": labels[top], "score": float(probs[top]),
+                   "orientations": orientations},
+        )
+
+    return run
+
+
+def _uvdoc_backend() -> Callable[[Image.Image], OcrOutput]:
+    """UVDoc (rectificado de perspectiva) via `onnxruntime`.
+
+    Preprocesado: resize bilineal (`cv2.INTER_LINEAR`, el de PaddleOCR) a 512x512,
+    escala a [0, 1] y canales en **BGR** (lo que documenta `oar-ocr` para UVDoc).
+    La salida `[3, H, W]` es una imagen rectificada en BGR: se reescala a [0, 255],
+    se reordena a RGB y se devuelve al tamano original. Emite el PNG en
+    `extra["image"]` (lo que consume `score_rectification`).
+    """
+    import cv2  # noqa: PLC0415
+    import numpy as np  # noqa: PLC0415
+
+    session = _load_onnx_session("uvdoc")
+    input_name = session.get_inputs()[0].name
+    target = 512
+
+    def run(image: Image.Image) -> OcrOutput:
+        orig_w, orig_h = image.size
+        resized = _cv2_resize(image, (target, target), cv2.INTER_LINEAR)
+        bgr = np.ascontiguousarray(resized[:, :, ::-1].astype(np.float32).transpose(2, 0, 1)[None] / 255.0)
+        start = time.perf_counter()
+        out = np.asarray(session.run(None, {input_name: bgr})[0][0], dtype=np.float32)
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+        channels = np.clip(out * 255.0, 0.0, 255.0)
+        # Salida en BGR -> RGB: canal 0 = B, canal 2 = R.
+        rectified = np.ascontiguousarray(channels[::-1].transpose(1, 2, 0)).astype(np.uint8)
+        if (orig_w, orig_h) != (rectified.shape[1], rectified.shape[0]):
+            rectified = _cv2_resize(Image.fromarray(rectified, "RGB"), (orig_w, orig_h), cv2.INTER_LINEAR).astype(np.uint8)
+        buffer = io.BytesIO()
+        Image.fromarray(rectified, "RGB").save(buffer, format="PNG")
+        return OcrOutput(
+            text="", elapsed_ms=elapsed_ms,
+            extra={"engine": "onnxruntime", "model": "uvdoc", "image": buffer.getvalue()},
+        )
+
+    return run
+
+
 def _predictor_output(task: str, result: dict, elapsed_ms: float) -> OcrOutput:
     """`dict` devuelto por una tarea de `TaskPredictor` -> `OcrOutput` común.
 
@@ -684,6 +845,11 @@ PROVIDERS: dict[str, Callable[..., Callable[[Image.Image], OcrOutput]]] = {
     "pyocrust_orientation": lambda device="cpu": _task_predictor_backend("document_orientation", device=device),
     "pyocrust_textline": lambda device="cpu": _task_predictor_backend("text_line_orientation", device=device),
     "pyocrust_rectify": lambda device="cpu": _task_predictor_backend("document_rectification", device=device),
+    # Alternativas reales de orientation/text_line/rectification (`onnxruntime`
+    # sobre los MISMO pesos de PaddleOCR que usa `pyocrust`; solo CPU).
+    "lcnet_doc_ori": lambda: _lcnet_classify_backend("lcnet_doc_ori", ["0", "90", "180", "270"], (224, 224), 256),
+    "lcnet_textline_ori": lambda: _lcnet_classify_backend("lcnet_textline_ori", ["0", "180"], (80, 160), None),
+    "uvdoc": lambda: _uvdoc_backend(),
     # Alternativas reales de `layout` (`transformers`, offline desde la cache HF):
     # RT-DETR (docling heron-101) y Deformable-DETR (DocLayNet). Solo CPU.
     "docling_heron_101": lambda: _hf_layout_backend(LAYOUT_HF_MODELS["docling_heron_101"]),
@@ -724,6 +890,9 @@ TASK_TYPES = {"pyocrust_structure": "structure", "pyocrust_formula": "formula", 
               "docling_heron_101": "layout", "deformable_detr": "layout",
               "pyocrust_orientation": "orientation", "pyocrust_textline": "text_line",
               "pyocrust_rectify": "rectification",
+              # Alternativas reales de esas tareas (`onnxruntime`): mismo task_type.
+              "lcnet_doc_ori": "orientation", "lcnet_textline_ori": "text_line",
+              "uvdoc": "rectification",
               # Alternativa real de `table` (TATR): estructura de tabla, mismo GT.
               "tatr": "table"}
 MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"), "pyocrust_structure": ("pp_structurev3", "default"),
@@ -741,6 +910,10 @@ MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"), "pyocrust_structure": ("pp_stru
                "pyocrust_orientation": ("pp-lcnet_x1_0_doc_ori", "default"),
                "pyocrust_textline": ("pp-lcnet_x1_0_textline_ori", "default"),
                "pyocrust_rectify": ("uvdoc", "default"),
+               # Alternativas reales (PaddleOCR via onnxruntime): mismo peso, otro runtime.
+               "lcnet_doc_ori": ("pp-lcnet_x1_0_doc_ori", "onnxruntime"),
+               "lcnet_textline_ori": ("pp-lcnet_x1_0_textline_ori", "onnxruntime"),
+               "uvdoc": ("uvdoc", "onnxruntime"),
                # Alternativa real de `table` (TATR, `transformers`).
                "tatr": ("table-transformer-structure-recognition", "default")}
 # Banco de feature al que pertenece cada backend conocido (columna `feature`).
@@ -753,6 +926,9 @@ FEATURE_TYPES = {"pyocrust_structure": "full_page", "pyocrust_indra": "full_page
                  "docling_heron_101": "layout", "deformable_detr": "layout",
                  "pyocrust_orientation": "orientation", "pyocrust_textline": "text_line",
                  "pyocrust_rectify": "rectification",
+                 # Alternativas reales de esas tareas (`onnxruntime`): mismo banco.
+                 "lcnet_doc_ori": "orientation", "lcnet_textline_ori": "text_line",
+                 "uvdoc": "rectification",
                  # Alternativa real del banco `table` (TATR, `transformers`).
                  "tatr": "table"}
 

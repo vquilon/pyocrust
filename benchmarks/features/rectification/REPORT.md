@@ -4,17 +4,18 @@
 
 ## Provenance
 
-- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/rectification/bank.py --limit 6 --device cpu`
+- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/rectification/bank.py --limit 6 --backends pyocrust_rectify,uvdoc`
 - **dataset**: `synthetic_rectification` · **n** (por motor): `6` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **seed**: no aplica (banco determinista, sin aleatoriedad)
-- **run**: `benchmarks/results/rectification/2026-11-02_13-00-04` · **fecha**: `2026-11-02_13-00-04`
-- **runtime**: {'python': '3.14.9', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0'}
+- **run**: `benchmarks/results/rectification/2026-11-02_15-57-35` · **fecha**: `2026-11-02_15-57-35`
+- **runtime**: {'python': '3.14.9', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['directml']}
 
 ## Comparativa (media por motor)
 
 | Motor (variante) | n | SSIM ↑ | ms/página ↓ |
 | :--- | ---: | ---: | ---: |
-| pyocrust_rectify (default) | 6 | 0.704 | 276 |
+| pyocrust_rectify (default) | 6 | **0.704** | 259 |
+| uvdoc (onnxruntime) | 6 | 0.701 | **97** |
 
 > En negrita, el mejor de cada métrica entre los motores **medidos** de `rectification`. `N/A` = no evaluada (sin GT de esa columna), nunca un `0.0` inventado.
 

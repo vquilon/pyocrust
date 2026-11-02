@@ -34,19 +34,22 @@
 
 | Motor | ms/página ↓ | calidad ↑ |
 | :--- | ---: | ---: |
-| **pyocrust_orientation** | 667 | 1.000 |
+| lcnet_doc_ori (onnxruntime) | 4 | 1.000 |
+| **pyocrust_orientation** | 694 | 1.000 |
 
 ## rectification — device `cpu`
 
 | Motor | ms/página ↓ | calidad ↑ |
 | :--- | ---: | ---: |
-| **pyocrust_rectify** | 276 | 0.704 |
+| uvdoc (onnxruntime) | 97 | 0.701 |
+| **pyocrust_rectify** | 259 | 0.704 |
 
 ## text_line — device `cpu`
 
 | Motor | ms/línea ↓ | calidad ↑ |
 | :--- | ---: | ---: |
-| **pyocrust_textline** | 30 | 1.000 |
+| lcnet_textline_ori (onnxruntime) | 2 | 1.000 |
+| **pyocrust_textline** | 31 | 1.000 |
 
 ## seal — device `?`
 
