@@ -368,6 +368,20 @@ result = engine.recognize("page.png")    # StructureResult con Markdown + bloque
 modelo. `recognize` acepta `str`, `PathLike` y `bytes`; libera el GIL durante la
 inferencia.
 
+**Selección de execution provider (`device`, *opt-in*).** `VeloceOCR` y
+`TaskPredictor` aceptan un `device` **opcional** con default `"cpu"`:
+`"cpu"`, `"auto"`, `"cuda"` o `"directml"`. Es *opt-in* y **no** reintroduce la
+gobernanza de VRAM que `S1.7` retiró de este documento: solo elige el execution
+provider (EP) de ONNX Runtime, sin imponer ningún presupuesto de memoria. El EP se
+resuelve y **prueba** (`OrtSessionConfig::resolve_auto`, `src/core/device.rs`)
+antes de construir el pipeline; el `"cpu"` por defecto no toca ninguna GPU.
+`provider_effective` (propiedad de ambas clases) reporta el EP que realmente
+corrió —`cpu` si no hay acelerador—, y `available_providers() -> list[str]`
+enumera los EPs aceleradores que registran **de verdad** en el host (`[]` si
+ninguno: un inventario físico de GPU, `detect_hardware()`, no basta). Pedir
+`device="cuda"`/`"directml"` sin un EP que registre lanza `PyOcrValueError` en el
+constructor: **nunca** se etiqueta CPU como GPU.
+
 **Superficie 2 — `TaskPredictor` (11 tareas):**
 
 ```python
@@ -547,7 +561,7 @@ cumplimiento verificado; el cuadro completo está en §9.1.
 
 * **Contexto.** Alternativas: reimplementar lo que `oar-ocr` ya hace, o apoyarse en sus features.
 * **Decisión.** Dependencias: `pyo3` con `extension-module` y `abi3-py310`; `oar-ocr` `0.10.1` con `auto-download` y `simd`, y `cuda`/`directml` como features opcionales; `image`; `rayon` (ADR-008); `reqwest` con `stream` y TLS (ADR-007); `sha2` para el SHA-256 del descargador. `[profile.release]` con `panic = "unwind"` (ADR-004).
-* **Consecuencias.** El binario por defecto es CPU; la GPU se activa compilando con `--features cuda` o `--features directml`.
+* **Consecuencias.** El binario por defecto es CPU; la GPU se activa compilando con `--features cuda` o `--features directml`. **Armonizado (`t_13a1b2b7`):** la feature *compila* el EP pero **no** lo selecciona; el EP por defecto sigue siendo CPU. La selección es *opt-in* vía `device` (§3.1.4), que no reintroduce la gobernanza de VRAM retirada por `S1.7`.
 * **Estado (D1, 2026-10-25).** Cumplido: `Cargo.toml:13-36` declara `pyo3` (`:15`), `oar-ocr` con `simd`+`auto-download` (`:20`), `image` (`:23`), `rayon` (`:26`), `reqwest` con `blocking`/`stream`/`rustls-tls` (`:30`) y `sha2` (`:31`); features `cuda`/`directml` (`:35-36`).
 
 ### ADR-011: nomenclatura del paquete
