@@ -36,18 +36,18 @@
 | Feature | estado | `text_detection` | `text_recognition` | `layout_detection` | `table_classification` | `table_structure_recognition` | `table_cell_detection` | `document_orientation` | `text_line_orientation` | `document_rectification` | `seal_text_detection` | `formula_recognition` | `indra` |
 | :--- | :--- | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
 | **text** | medido | ✔ | ✔ | · | · | · | · | · | · | · | · | · | · |
-| **layout** | esqueleto | · | · | ✔ | · | · | · | · | · | · | · | · | · |
-| **orientation** | esqueleto | · | · | · | · | · | · | ✔ | · | · | · | · | · |
-| **rectification** | esqueleto | · | · | · | · | · | · | · | · | ✔ | · | · | · |
-| **text_line** | esqueleto | · | · | · | · | · | · | · | ✔ | · | · | · | · |
+| **layout** | medido | · | · | ✔ | · | · | · | · | · | · | · | · | · |
+| **orientation** | medido | · | · | · | · | · | · | ✔ | · | · | · | · | · |
+| **rectification** | medido | · | · | · | · | · | · | · | · | ✔ | · | · | · |
+| **text_line** | medido | · | · | · | · | · | · | · | ✔ | · | · | · | · |
 | **seal** | esqueleto | · | · | · | · | · | · | · | · | · | ✔ | · | · |
 | **formula** | medido | · | · | · | · | · | · | · | · | · | · | ✔ | · |
-| **table** | esqueleto | · | · | · | ✔ | ✔ | ✔ | · | · | · | · | · | · |
-| **full_page** | esqueleto | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | · | · | · | · | ✔ | ✔ |
+| **table** | medido | · | · | · | ✔ | ✔ | ✔ | · | · | · | · | · | · |
+| **full_page** | medido | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | · | · | · | · | ✔ | ✔ |
 
 ## Provenance (sin mezclar orígenes)
 
-- **`medido`** (2): `text`, `formula`.
-- **`esqueleto`** (7): `layout`, `orientation`, `rectification`, `text_line`, `seal`, `table`, `full_page` — banco y README documentados, sin cifras.
-- **`referencia`**: `text`, `formula` citan tablas externas **con URL** en su `REPORT.md` (no comparables 1:1).
+- **`medido`** (8): `text`, `layout`, `orientation`, `rectification`, `text_line`, `formula`, `table`, `full_page`.
+- **`esqueleto`** (1): `seal` — banco y README documentados, sin cifras.
+- **`referencia`**:  citan tablas externas **con URL** en su `REPORT.md` (no comparables 1:1).
 

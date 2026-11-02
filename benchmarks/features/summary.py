@@ -30,13 +30,13 @@ BENCH = HERE.parent
 FEATURES = [
     ("text", "F1 palabra", "text — FUNSD"),
     ("formula", "Similitud", "formula — OmniDocBench"),
-    ("layout", None, "layout — DocLayNet"),
-    ("orientation", None, "orientation"),
-    ("rectification", None, "rectification"),
-    ("text_line", None, "text_line"),
+    ("layout", "mAP@IoU 0.5", "layout — DocLayNet"),
+    ("orientation", "accuracy", "orientation"),
+    ("rectification", "SSIM", "rectification"),
+    ("text_line", "accuracy", "text_line"),
     ("seal", None, "seal"),
-    ("table", None, "table — PubTabNet"),
-    ("full_page", None, "full_page — OmniDocBench"),
+    ("table", "TEDS", "table — PubTabNet"),
+    ("full_page", "Markdown F1", "full_page — OmniDocBench"),
 ]
 
 REF_URL = re.compile(r"\[ref:\s*(https?://[^\]]+)\]")
@@ -44,6 +44,17 @@ REF_URL = re.compile(r"\[ref:\s*(https?://[^\]]+)\]")
 
 def _clean(cell: str) -> str:
     return cell.strip().replace("**", "").replace("`", "")
+
+
+def _num(cell: str) -> float | None:
+    """Número de una celda; tolera el sufijo `%` (100.0% -> 1.0)."""
+    raw = cell.strip()
+    pct = "%" in raw
+    try:
+        v = float(raw.replace("%", "").strip())
+    except ValueError:
+        return None
+    return v / 100.0 if pct else v
 
 
 def _rows_from(lines, start_idx):
@@ -85,10 +96,9 @@ def parse_measured(feature: str, titular: str | None) -> dict[str, float]:
     out: dict[str, float] = {}
     for cells in rows:
         if idx < len(cells):
-            try:
-                out[cells[0]] = float(cells[idx])
-            except ValueError:
-                continue
+            v = _num(cells[idx])
+            if v is not None:
+                out[cells[0]] = v
     return out
 
 
@@ -110,10 +120,9 @@ def parse_references(feature: str) -> tuple[dict[str, float], str, str]:
                 out: dict[str, float] = {}
                 for cells in rows:
                     if vi < len(cells):
-                        try:
-                            out[cells[0]] = float(cells[vi])
-                        except ValueError:
-                            continue
+                        v = _num(cells[vi])
+                        if v is not None:
+                            out[cells[0]] = v
                 if out:
                     return out, metric, url
 
@@ -139,10 +148,9 @@ def parse_references(feature: str) -> tuple[dict[str, float], str, str]:
     out = {}
     for cells in rows:
         if idx < len(cells):
-            try:
-                out[cells[0]] = float(cells[idx])
-            except ValueError:
-                continue
+            v = _num(cells[idx])
+            if v is not None:
+                out[cells[0]] = v
     return out, col, url
 
 
