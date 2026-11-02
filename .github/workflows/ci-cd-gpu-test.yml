@@ -1,0 +1,154 @@
+name: Publish pyocrust-gpu to TestPyPI
+
+# Gemelo de ci-cd-gpu.yml apuntando a TestPyPI. Ver ese fichero para el porqué
+# del paquete separado, la matriz (solo CUDA) y el parche de metadatos.
+on:
+  release:
+    types: [published]
+  # Permite ejecutar el workflow manualmente con un botón
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build ${{ matrix.job.os }} | ${{ matrix.job.target }}
+    runs-on: ${{ matrix.job.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Ver ci-cd-gpu.yml: solo plataformas con CUDA (macOS excluido).
+        job:
+          # --- LINUX ---
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            python-architecture: x64
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            python-architecture: x64
+
+          # --- WINDOWS ---
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            python-architecture: x64
+
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        persist-credentials: false
+
+    - name: Set up Python
+      id: setup-python
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.10"
+        architecture: ${{ matrix.job.python-architecture }}
+
+    - name: Patch metadata for GPU package
+      shell: python
+      run: |
+        from pathlib import Path
+
+        pyproject = Path("pyproject.toml")
+        pyproject.write_text(
+            pyproject.read_text(encoding="utf-8")
+            .replace('name = "pyocrust"', 'name = "pyocrust-gpu"'),
+            encoding="utf-8",
+        )
+
+    - name: Build wheel with Maturin (Ubuntu alias)
+      if: startsWith(matrix.job.os, 'ubuntu')
+      uses: PyO3/maturin-action@v1
+      with:
+        target: ${{ matrix.job.target }}
+        args: --release --features cuda --out dist --interpreter "python3.10"
+        manylinux: auto
+        before-script-linux: |
+          if command -v yum &>/dev/null; then yum install -y openssl-devel
+          else apt-get update && apt-get install -y pkg-config libssl-dev; fi
+
+    - name: Build wheel with Maturin (non-Ubuntu path)
+      if: ${{ !startsWith(matrix.job.os, 'ubuntu') }}
+      uses: PyO3/maturin-action@v1
+      with:
+        target: ${{ matrix.job.target }}
+        args: --release --features cuda --out dist --interpreter "${{ steps.setup-python.outputs.python-path }}"
+        manylinux: auto
+
+    - name: Store the distribution packages
+      uses: actions/upload-artifact@v7
+      with:
+        name: python-package-distributions-gpu-${{ matrix.job.os }}-${{ matrix.job.target }}
+        path: dist/*.whl
+
+  publish-to-testpypi:
+    name: Publish Python 🐍 distribution 📦 to TestPyPI
+    needs:
+    - build
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi-gpu
+      url: https://test.pypi.org/p/pyocrust-gpu
+
+    permissions:
+      id-token: write
+
+    steps:
+    - name: Download all the dists
+      uses: actions/download-artifact@v8
+      with:
+        pattern: python-package-distributions-gpu-*
+        path: artifacts/
+
+    - name: Validate and collect wheels
+      shell: python
+      run: |
+        import shutil
+        import zipfile
+        from pathlib import Path
+
+        artifacts = Path("artifacts")
+        dist = Path("dist")
+        dist.mkdir(parents=True, exist_ok=True)
+
+        wheels = sorted(artifacts.rglob("*.whl"))
+        if not wheels:
+          raise SystemExit("No wheels found under artifacts/")
+
+        def assert_no_trailing_data(path: Path) -> None:
+          data = path.read_bytes()
+          sig = b"PK\x05\x06"  # End of central directory signature
+          eocd = data.rfind(sig)
+          if eocd < 0:
+            raise SystemExit(f"Invalid wheel (missing EOCD): {path}")
+          if eocd + 22 > len(data):
+            raise SystemExit(f"Invalid wheel (truncated EOCD): {path}")
+          comment_len = int.from_bytes(data[eocd + 20:eocd + 22], "little")
+          expected_end = eocd + 22 + comment_len
+          if expected_end != len(data):
+            raise SystemExit(f"Invalid wheel (trailing data): {path}")
+
+        valid_wheels = []
+        for wheel in wheels:
+          out = dist / wheel.name
+          if out.exists():
+            print(f"Skipping duplicate wheel filename: {wheel.name}")
+            continue
+          with zipfile.ZipFile(wheel, "r") as zf:
+            if zf.testzip() is not None:
+              raise SystemExit(f"Corrupted wheel archive: {wheel}")
+          assert_no_trailing_data(wheel)
+          shutil.copy2(wheel, out)
+          valid_wheels.append(out.name)
+
+        if not valid_wheels:
+          raise SystemExit("No valid wheels to publish after validation.")
+
+        print("Valid wheels to publish:")
+        for name in valid_wheels:
+          print(f" - {name}")
+
+    - name: Publish distribution 📦 to TestPyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        packages-dir: dist
+        repository-url: https://test.pypi.org/legacy/
+        skip-existing: true
