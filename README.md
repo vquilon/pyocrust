@@ -466,55 +466,41 @@ Models are resolved in this priority order (see `DESIGN.md` §3.2):
 
 ## Benchmarking
 
-Outside `src/`, `benchmarks/` measures `pyocrust` against other OCR backends on a real
-dataset ([FUNSD](https://huggingface.co/datasets/nielsr/funsd), 149 scanned
-forms with ground truth) and generates publication-ready tables and charts.
+Outside `src/`, `benchmarks/` is organised **by feature/component** (like `oar-ocr`'s
+components): each capability has its own bank, its metric and real Python alternatives.
+It measures **8 of the 9 features**; every number is `medido` (run here) or `referencia`
+(cited from a paper with a URL) — never mixed without a label.
+
+![Benchmark summary by feature](benchmarks/SUMMARY.png)
+
+| Feature | Head metric ↑ | pyocrust (measured) | Best measured alternative | Status |
+| :--- | :--- | ---: | :--- | :--- |
+| `text` | word F1 | **0.734** | rapidocr 0.660 | measured |
+| `formula` | LaTeX similarity | **0.550** | pix2tex 0.533 | measured |
+| `layout` | mAP@IoU 0.5 | **0.764** | — | measured |
+| `orientation` | accuracy | **1.000** | — | measured |
+| `rectification` | SSIM | **0.704** | — | measured |
+| `text_line` | accuracy | **1.000** | — | measured |
+| `table` | TEDS (struct.) | **0.885** | — | measured |
+| `full_page` | Markdown F1 | 0.158 | — | measured |
+| `seal` | IoU / detection | — | — | pending |
+
+CPU, `warmup=1`, `repeats=1`, pyocrust 0.1.0. Full per-engine tables, provenance
+(command, dataset, `n`, runtime) and external references with URLs live in
+[`benchmarks/README.md`](benchmarks/README.md) and
+[`benchmarks/SUMMARY.md`](benchmarks/SUMMARY.md).
 
 ```bash
-./.venv/Scripts/python.exe benchmarks/run_benchmarks.py --limit 5 --backends pyocrust,pyocrust_indra,pyocrust_formula,rapidocr,easyocr,tesseract
-./.venv/Scripts/python.exe benchmarks/report_benchmarks.py
-./.venv/Scripts/python.exe -m pytest benchmarks/tests -q
+# one bank per feature (example: text detection + recognition)
+./.venv/Scripts/python.exe benchmarks/features/text/bank.py --limit 5
+# regenerate per-feature reports + the consolidated summary
+./.venv/Scripts/python.exe benchmarks/features/report.py --all
+./.venv/Scripts/python.exe benchmarks/features/summary.py
 ```
 
-The benchmark uses a `task_type` axis (`text`, `structure`, `formula`, `full_page`) with
-22 columns in the CSV (`word_f1`, `wer_ord`, `cer`, `wer`, `markdown_f1`,
-`block_f1`, `task_type`, `model_name`, `model_variant`, etc.). It measures quality
-(`word_f1` and `wer_ord` — which neutralize reading order — plus raw
-`cer`/`wer` as reference) and speed (`ms/page`, `pages/s`); available
-backends are `pyocrust` (text, tiny), `pyocrust_structure` (structure),
-`pyocrust_formula` (formula), `pyocrust_indra` (full_page, math), `rapidocr`,
-`easyocr` and `tesseract` (uninstalled ones are marked `skipped`, never as
-executed). Full documentation and results in
-[`benchmarks/README.md`](benchmarks/README.md); per-image CSV is in
-`benchmarks/results/<timestamp>/` and publishable artifacts in
-`benchmarks/output_examples/`.
-
-Latest registered run (`benchmarks/results/2026-11-01_15-04-00`: FUNSD
-`train`, **10 images per backend**, CPU, `warmup=1`, `repeats=1`, Tiny model on
-`text`, **the six families that produce rows**), exactly as produced by
-`benchmarks/report_benchmarks.py --run benchmarks/results/2026-11-01_15-04-00`:
-
-| Backend | task_type | n | Word F1 ↑ | WER ord. ↓ | CER ↓ | WER ↓ | ms/page ↓ | pages/s ↑ |
-| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| **pyocrust** (tiny) | `text` | 10 | **0.694** | **0.392** | 0.470 | **0.685** | _751_ | _1.33_ |
-| **rapidocr** (default) | `text` | 10 | _0.590_ | _0.502_ | **0.463** | 0.699 | 9472 | 0.11 |
-| **easyocr** (default) | `text` | 10 | 0.344 | 0.745 | 0.527 | 0.819 | 9356 | 0.11 |
-| **pyocrust_indra** (math) | `full_page` | 10 | 0.444 | 0.658 | 1.560 | 0.824 | **310** | **3.22** |
-| **pyocrust_structure** (default) | `structure` | 10 | 0.471 | 0.622 | 1.131 | 0.823 | 2643 | 0.38 |
-| **pyocrust_formula** (pp-formulanet-s) | `formula` | 10 | 0.000 | 1.000 | 1.000 | 1.000 | 3133 | 0.32 |
-
-`tesseract` remains `skipped` (`pip install pytesseract + Tesseract binary`), never
-as executed. For the first time, **`structure`, `formula` and `full_page`** run
-(10/10 each): the PP-StructureV3 artifacts that the 31-10 run reported as missing
-are now in the `~/.oar` cache. The `Word F1` and `WER ord.` columns are the
-decisive ones: raw `CER`/`WER` also measure reading order and are
-published only as reference. `markdown_f1` and `block_f1` are **N/A** in this run
-(**FUNSD does not provide GT Markdown/LaTeX/blocks**, and they are not invented).
-The speed comparison **across different `task_type` values is not a general ranking**
-(each task produces a different output); the ms/page metric only makes sense within
-`text` (`pyocrust` 751 ms ≈ **12.6×** the 9472 ms of `rapidocr`). In `formula` the
-output is LaTeX and the FUNSD GT is plain text, so its `CER=1.0`/`F1=0.0`
-prove the use case **executes**, not a mathematical quality measure.
+Engines that are not installed are recorded `skipped`, never as run; metrics without
+ground truth are `N/A`, never `0`. `seal` has no annotated set in cache, so it stays
+*pending*.
 
 ## PyPI publication (CI/CD)
 

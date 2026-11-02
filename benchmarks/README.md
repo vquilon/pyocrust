@@ -26,18 +26,29 @@ su `bank.py`. El reporte **por feature** se genera con
 
 ## Resultados medidos (resumen)
 
-> Todo **`medido`** por nosotros: `warmup=1`, `repeats=1`, `pyocrust 0.1.0`, CPU,
-> 2026-11-02. El detalle por motor y la provenance completa (comando, dataset, `n`,
-> runtime) están en `features/<feature>/REPORT.md`; aquí solo la **métrica titular**
-> de cada feature con números reales.
+> **`medido`** = ejecutado en este repo (CPU, `warmup=1`, `repeats=1`, pyocrust 0.1.0,
+> 2026-11-02); detalle por motor y provenance completa en `features/<feature>/REPORT.md`.
+> **`referencia`** = valor de paper (con URL, panel aparte, **no comparable 1:1**).
+> **`pendiente`** = sin datos aún (nunca ceros).
+>
+> **8 de 9 features medidas.**
 
 ![Resumen de benchmarks por feature](SUMMARY.png)
 
-Tabla consolidada (9 features) generada por `features/summary.py`: [`SUMMARY.md`](SUMMARY.md).
-Cada panel distingue tres orígenes: **`medido`** (barra verde/azul, ejecutado aquí),
-**`referencia`** (barra rayada: valor de paper con URL en `features/<feature>/REFERENCES.md`)
-y **`pendiente`** (sin datos aún, nunca ceros). Las referencias se muestran marcadas
-porque **no son comparables 1:1** con nuestras métricas (otro dataset/formato).
+Tabla consolidada generada por `features/summary.py`: [`SUMMARY.md`](SUMMARY.md).
+
+| Feature | Métrica titular ↑ | pyocrust (medido) | Mejor alternativa medida | Estado |
+| :--- | :--- | ---: | :--- | :--- |
+| `text` | F1 palabra | **0.734** | rapidocr 0.660 | medido |
+| `formula` | Similitud LaTeX | **0.550** | pix2tex 0.533 | medido |
+| `layout` | mAP@IoU 0.5 | **0.764** | — | medido |
+| `orientation` | accuracy | **1.000** | — | medido |
+| `rectification` | SSIM | **0.704** | — | medido |
+| `text_line` | accuracy | **1.000** | — | medido |
+| `table` | TEDS estrut. | **0.885** | — | medido |
+| `full_page` | Markdown F1 | 0.158 | — | medido |
+| `seal` | IoU / detección | — | — | pendiente |
+
 
 ### `text` — FUNSD, n=5 (detección + reconocimiento)
 
@@ -69,12 +80,22 @@ de modelos: [`FEATURES_OVERVIEW.md`](FEATURES_OVERVIEW.md).
 
 ![Cobertura feature × capacidad](FEATURES_OVERVIEW.png)
 
-### Features todavía sin cifras (`esqueleto`)
+### Resto de features (gráfica por feature)
 
-`layout`, `orientation`, `rectification`, `text_line`, `seal`, `table`, `full_page`:
-banco **documentado** (métrica + alternativas reales) pero **sin números** — sus
-adaptadores de GT y/o sus alternativas están pendientes. No se rellenan con ceros:
-si no hay GT, la métrica es `N/A` (no evaluada).
+`layout` (mAP 0.764), `orientation` (acc 1.00), `rectification` (SSIM 0.704),
+`text_line` (acc 1.00), `table` (TEDS 0.885) y `full_page` (Markdown F1 0.158) tienen
+su propio `REPORT.md` + gráfica:
+
+| Feature | Gráfica |
+| :--- | :--- |
+| layout | ![layout](features/layout/REPORT.png) |
+| orientation | ![orientation](features/orientation/REPORT.png) |
+| rectification | ![rectification](features/rectification/REPORT.png) |
+| text_line | ![text_line](features/text_line/REPORT.png) |
+| table | ![table](features/table/REPORT.png) |
+| full_page | ![full_page](features/full_page/REPORT.png) |
+
+`seal` sigue **pendiente**: no hay set anotado de sellos en caché y no se inventa GT.
 
 ### Estructura
 
