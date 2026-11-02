@@ -1,17 +1,19 @@
 #!/usr/bin/env python
-"""Banco de la feature **text_line** — esqueleto documentado.
+"""Banco de la feature **text_line** (orientación de línea de texto).
 
-Orientación de cada línea de texto (0/180°) antes de reconocerla.
+Orientación de cada línea de texto (0/180°) antes de reconocerla. Mide la
+**accuracy** de las 2 clases.
 
-Estado: **esqueleto**. No hay dataset local con GT de orientación de línea; el GT
-es barato de generar (voltear líneas recortadas) pero no está incluido aún. Sin
-GT, la calidad se reporta **no evaluada** (nunca un `0.0` espurio).
+Dataset por defecto: `synthetic_text_line` — **GT sintético determinista**. Se
+recortan los bloques de texto anotados de las páginas de OmniDocBench ya presentes
+en `benchmarks/data_cache` (sin descargar nada) y se giran 0/180; el GT es la
+etiqueta de orientación aplicada.
 
-Provenance: este esqueleto **no publica valores numéricos** — no hay nada
-ejecutado que respalde una cifra.
+Provenance: todo número que salga de aquí es **`medido`**; el `summary.json` de la
+run guarda comando, dataset, `n`, `warmup`, `repeats`, dispositivo y fecha.
 
 Uso:
-    .venv/Scripts/python.exe benchmarks/features/text_line/bank.py
+    .venv/Scripts/python.exe benchmarks/features/text_line/bank.py --limit 8
 """
 
 from __future__ import annotations
@@ -24,27 +26,56 @@ from typing import Sequence
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from features._base import FeatureSpec, run_skeleton
+from datetime import datetime
+
+from common import load_dataset, run_backends
+from features._base import FeatureSpec, common_argparser, feature_out_dir, orientation_accuracy
 
 SPEC = FeatureSpec(
     feature="text_line",
     summary="Orientación de cada línea de texto (0/180°) antes de reconocerla.",
-    pyocrust_task="text_line_orientation (TaskPredictor)",
+    pyocrust_task="text_line_orientation (TaskPredictor; PP-LCNet)",
     metric="accuracy 0/180 por línea",
-    dataset="No hay dataset local con GT de orientación de línea.",
+    dataset="synthetic_text_line: recortes de línea de las páginas cacheadas, girados 0/180; GT = orientación aplicada",
     alternatives={
         "paddleocr": ("paddleocr", "paddleocr paddlepaddle"),
         "surya": ("surya", "surya-ocr (requiere torch)"),
     },
-    status="skeleton",
-    note="GT barato de generar (voltear líneas recortadas) pero no incluido aún.",
-    provenance="esqueleto: sin valores numéricos (no hay GT local; nada ejecutado)",
+    status="implemented",
+    note="GT sintético determinista; la entrada es un recorte de línea (la tarea espera una línea, no una página).",
+    provenance="valores MEDIDOS por este banco (accuracy sobre GT sintético determinista, sin descargar nada)",
 )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    return run_skeleton(SPEC, argv)
+    args = common_argparser(SPEC.feature, SPEC.summary).parse_args(argv)
+    dataset = args.dataset or "synthetic_text_line"
+    samples = load_dataset(dataset, limit=args.limit, split=args.split)
+    print(f"[text_line] dataset={dataset} muestras={len(samples)}")
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    out_dir = feature_out_dir(args.output_dir, SPEC) / timestamp
+    run_backends(
+        samples,
+        [b.strip() for b in (args.backends or "pyocrust_textline").split(",") if b.strip()],
+        dataset, out_dir, timestamp,
+        warmup=args.warmup, repeats=args.repeats, device=args.device,
+        feature=SPEC.feature, scorer=orientation_accuracy,
+    )
+    print(f"\n[text_line] resultados en {out_dir}")
+    return 0
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+def _self_check() -> None:
+    """Los dos ángulos del GT sintético se corresponden con su etiqueta."""
+    from common.datasets import TEXT_LINE_ANGLES
+
+    assert TEXT_LINE_ANGLES == (0, 180)
+    assert [str(a) for a in TEXT_LINE_ANGLES] == ["0", "180"]
+    print("features.text_line self-check OK")
+
+
+if __name__ == "__main__":  # pragma: no cover - ejecución manual
+    if "--self-check" in sys.argv:
+        _self_check()
+    else:
+        raise SystemExit(main())

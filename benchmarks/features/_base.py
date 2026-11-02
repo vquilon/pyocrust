@@ -6,10 +6,12 @@ Cada feature tiene su carpeta con:
   reales**, su métrica y su **provenance** (`medido` vs `referencia`).
 * `bank.py`   — el banco. Expone `SPEC` (un `FeatureSpec`) y `main(argv)`.
 
-Los bancos ya implementados (`text`, `formula`) cargan un dataset con GT y
-ejecutan `common.runner.run_backends`. Los que son **esqueleto documentado**
-(sin dataset GT público local) exponen su `SPEC` y `run_skeleton` imprime el plan
-y qué alternativas están disponibles, sin inventar números.
+Los bancos ya implementados (`text`, `formula`, `layout`, `table`, `full_page`,
+`orientation`, `text_line`, `rectification`) cargan un dataset con GT —o generan
+uno sintético determinista— y ejecutan `common.runner.run_backends` con la métrica
+de su feature. El que sigue siendo **esqueleto documentado** (sin dataset GT
+público local) expone su `SPEC` y `run_skeleton` imprime el plan y qué
+alternativas están disponibles, sin inventar números.
 """
 
 from __future__ import annotations
@@ -62,6 +64,20 @@ def unavailable_factory(module: str, install_hint: str, note: str = "") -> Calla
     return factory
 
 
+def orientation_accuracy(sample, output) -> dict:
+    """`ori_acc` = 1.0/0.0: la etiqueta de orientación emitida es la esperada.
+
+    Compartida por los bancos de `orientation` (4 clases) y `text_line` (2): en
+    ambos el GT es la etiqueta anotada/aplicada y la salida del clasificador es su
+    `label` de mayor score. Sin etiqueta GT o sin salida queda **no evaluada**
+    (""), nunca un 0.0 espurio.
+    """
+    label = output.extra.get("label")
+    if sample.gt_label is None or label is None:
+        return {"ori_acc": ""}
+    return {"ori_acc": float(str(label) == str(sample.gt_label))}
+
+
 def common_argparser(feature: str, description: str) -> argparse.ArgumentParser:
     """CLI uniforme de los bancos: dataset, límite, warmup, repeats, device, salida."""
     parser = argparse.ArgumentParser(description=description)
@@ -107,10 +123,13 @@ def run_skeleton(spec: FeatureSpec, argv: Sequence[str] | None = None) -> int:
 # ---------------------------------------------------------------------------
 
 FEATURES_DIR = Path(__file__).resolve().parent
-IMPLEMENTED_FEATURES = ("text", "formula")
-SKELETON_FEATURES = (
-    "layout", "orientation", "rectification", "text_line", "seal", "table", "full_page",
+IMPLEMENTED_FEATURES = (
+    "text", "formula", "layout", "table", "full_page", "orientation",
+    "text_line", "rectification",
 )
+# Solo `seal` sigue siendo esqueleto: no hay set con sellos anotados y no se
+# inventa GT (la detección de sellos de `pyocrust` sí existe como tarea).
+SKELETON_FEATURES = ("seal",)
 
 
 def all_feature_dirs() -> list[str]:

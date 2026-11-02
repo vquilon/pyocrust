@@ -18,16 +18,25 @@ Los backends que no estén instalados (o cuyos modelos falten) se registran con
 Salida: `<output-dir>/<timestamp>/<timestamp>.csv` (+ `<backend>.meta.json` y
 `summary.json`).
 
-Columnas del CSV (contrato con `report_benchmarks.py`, **28 columnas**):
+Columnas del CSV (contrato con `report_benchmarks.py`, **30 columnas**):
     run_timestamp, backend, dataset, image_id, cer, wer, cer_ord, wer_ord,
     word_f1, exact_match, elapsed_ms, n_regions, mean_confidence, n_chars_gt,
     n_chars_pred, status, error, task_type, model_name, model_variant,
     markdown_f1, block_f1,
     latex_exact, latex_sim, latex_token_f1,     (solo `task_type=formula`)
     feature,                                    (banco por feature que produjo la fila)
-    box_recall, box_iou_mean                    (solo si el dataset anota cajas GT)
+    box_recall, box_iou_mean,                   (solo si el dataset anota cajas GT)
+    device_requested, provider_effective        (honestidad de proveedor, ver abajo)
 
 Las 22 columnas históricas se mantienen en su orden; las nuevas son aditivas.
+
+**Honestidad de proveedor (regla dura).** `device_requested` es el eje pedido
+(`cpu`/`gpu`) y `provider_effective` es el provider que **de verdad** corrió
+(`cpu`/`cuda`). Un fallback CPU **nunca** se etiqueta como GPU: si no se puede
+CONFIRMAR la GPU, la fila/backend queda `skipped` con motivo, no `ok`. Mientras
+`pyocrust` no exponga selección de device (tarjeta `t_8a0f369f`: `VeloceOCR`
+sin `device` y sin `OrtSessionConfig` en el pipeline), un build `--features cuda`
+sigue ejecutando en CPU, así que `--device gpu` se niega en lugar de suponer.
 
 **Provenance (regla del usuario).** Todo valor numérico publicado desde este
 banco es **`medido`** (ejecutado por nosotros en este repo): el `summary.json` y
@@ -117,11 +126,62 @@ CSV_FIELDS = [
     "latex_exact", "latex_sim", "latex_token_f1",
     "feature",
     "box_recall", "box_iou_mean",
+    # Honestidad de proveedor: dispositivo pedido vs. el que de verdad corrió.
+    "device_requested", "provider_effective",
+    # Additive: métricas de las features de layout/tabla/orientación/rectificado
+    # (vacías — no evaluadas — en los bancos que no las producen).
+    "layout_map", "layout_recall", "table_teds", "ori_acc", "rect_sim",
 ]
 
 
 class ProviderUnavailable(RuntimeError):
     """El backend no se puede ejecutar en este entorno (no como un OCR malo)."""
+
+
+# Motivo honesto cuando se pide GPU pero no se puede CONFIRMAR: nunca se cuenta
+# un fallback CPU como GPU (regla dura del card).
+GPU_NOT_CONFIRMABLE = (
+    "GPU pedida pero no se puede confirmar el execution provider real: pyocrust no "
+    "expone seleccion de device ni el provider efectivo (tarjeta t_8a0f369f). Su API "
+    "Python no acepta `device` y el pipeline no pasa `OrtSessionConfig`, asi que un "
+    "build --features cuda sigue ejecutando en CPU; se niega a etiquetar CPU como GPU."
+)
+
+
+def device_outcome(backend: str, device: str) -> tuple[str, str | None]:
+    """Resuelve `(provider_effective, motivo_skip)` para `(backend, device)`.
+
+    Honestidad de proveedor: devuelve el provider que **de verdad** corre y, si la
+    GPU no es confirmable, un motivo de `skipped` (nunca un `ok` CPU disfrazado).
+
+    - `cpu`  -> `("cpu", None)`: ONNX Runtime usa su EP de CPU por defecto (pyocrust
+      no fija ningún execution provider).
+    - `gpu`  -> `("n/a", motivo)`: la selección/confirmación de provider es
+      responsabilidad de `pyocrust` (tarjeta `t_8a0f369f`); mientras no exista, se
+      rechaza en lugar de suponer.
+    """
+    if device == "cpu":
+        return "cpu", None
+    if backend.startswith("pyocrust"):
+        return "n/a", GPU_NOT_CONFIRMABLE
+    return "n/a", f"{backend} no expone ejecucion GPU en este banco (solo CPU; device={device})"
+
+
+# Providers que cuentan como acelerador REAL (nunca `cpu` ni `n/a`).
+GPU_PROVIDERS = frozenset({"cuda", "directml", "tensorrt", "coreml", "openvino", "webgpu", "rocm", "mps"})
+
+
+def select_device_rows(rows: Iterable[dict], device: str) -> list[dict]:
+    """Filas que **de verdad** corrieron en `device` (honestidad de proveedor).
+
+    El ranking GPU sólo cuenta filas con un `provider_effective` de acelerador
+    real: una fila que pidió `gpu` pero corrió en CPU (`provider_effective=cpu`,
+    p. ej. un fallback) queda fuera, nunca se cuenta como GPU. Para `cpu`, cuenta
+    las filas cuyo provider efectivo es `cpu` (el valor por defecto si falta).
+    """
+    if device == "cpu":
+        return [r for r in rows if (r.get("provider_effective") or "cpu") == "cpu"]
+    return [r for r in rows if str(r.get("provider_effective", "")).lower() in GPU_PROVIDERS]
 
 
 def module_available(name: str) -> bool:
@@ -314,6 +374,64 @@ def _tesseract_backend() -> Callable[[Image.Image], OcrOutput]:
     return run
 
 
+def _predictor_output(task: str, result: dict, elapsed_ms: float) -> OcrOutput:
+    """`dict` devuelto por una tarea de `TaskPredictor` -> `OcrOutput` común.
+
+    `text` lleva lo que la tarea emite como texto (LaTeX, etiqueta de orientación,
+    gramática de tabla) y `extra` sus estructuras nativas (cajas, elementos,
+    imagen rectificada), que es lo que consumen las métricas por feature.
+    """
+    extra: dict = {"task": task}
+    if task == "layout_detection":
+        elements = list(result.get("elements") or [])
+        extra["elements"] = elements
+        extra["boxes"] = [list(_quad_to_bbox(e["bbox"])) for e in elements if e.get("bbox")]
+        return OcrOutput(text="", n_regions=len(elements), elapsed_ms=elapsed_ms, extra=extra)
+    if task == "table_structure_recognition":
+        structures = [str(token) for token in (result.get("structures") or [])]
+        extra["structures"] = structures
+        extra["bboxes"] = list(result.get("bboxes") or [])
+        return OcrOutput(text="".join(structures), elapsed_ms=elapsed_ms, extra=extra)
+    if task in ("document_orientation", "text_line_orientation"):
+        orientations = list(result.get("orientations") or [])
+        top = orientations[0] if orientations else {}
+        label = str(top.get("label", ""))
+        score = float(top.get("score", 0.0) or 0.0)
+        extra.update({"label": label, "score": score, "orientations": orientations})
+        return OcrOutput(text=label, mean_confidence=score, elapsed_ms=elapsed_ms, extra=extra)
+    if task == "document_rectification":
+        extra["image"] = result.get("image") or b""
+        return OcrOutput(text="", elapsed_ms=elapsed_ms, extra=extra)
+    if task in ("text_detection", "seal_text_detection"):
+        detections = list(result.get("detections") or [])
+        extra["boxes"] = [list(_quad_to_bbox(d["bbox"])) for d in detections if d.get("bbox")]
+        return OcrOutput(text="", n_regions=len(detections), elapsed_ms=elapsed_ms, extra=extra)
+    if task == "formula_recognition":
+        return OcrOutput(text=str(result.get("formula", "") or ""), elapsed_ms=elapsed_ms, extra=extra)
+    return OcrOutput(text="", elapsed_ms=elapsed_ms, extra=extra)
+
+
+def _task_predictor_backend(task: str, **options: object) -> Callable[[Image.Image], OcrOutput]:
+    """Adaptador a **una tarea suelta** de `pyocrust` (`TaskPredictor`, S2.4).
+
+    Sin pipeline de página: el modelo recibe la imagen tal cual (página, recorte
+    de tabla, línea, fórmula). Si el modelo registrado de la tarea no está en
+    disco, `TaskPredictor` falla y el backend queda `skipped` con su motivo.
+    """
+    import pyocrust  # noqa: PLC0415
+
+    predictor = pyocrust.TaskPredictor(task=task, **options)
+
+    def run(image: Image.Image) -> OcrOutput:
+        data = _image_bytes(image)
+        start = time.perf_counter()
+        result = predictor.predict(data)
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+        return _predictor_output(task, result, elapsed_ms)
+
+    return run
+
+
 # nombre -> factoría (el preset por defecto es el de `pp_ocrv6` = Tiny)
 PROVIDERS: dict[str, Callable[[], Callable[[Image.Image], OcrOutput]]] = {
     "pyocrust": lambda: _pyocrust_backend("pp_ocrv6"),
@@ -327,6 +445,12 @@ PROVIDERS: dict[str, Callable[[], Callable[[Image.Image], OcrOutput]]] = {
     "pyocrust_formulanet_plusm": lambda: _pyocrust_formula_variant_backend("pp-formulanet_plus-m.onnx"),
     "pyocrust_formulanet_plusl": lambda: _pyocrust_formula_variant_backend("pp-formulanet_plus-l.onnx"),
     "pyocrust_indra": lambda: _pyocrust_backend("indra"),
+    # Tareas sueltas de `TaskPredictor`: cada banco de feature aporta su GT.
+    "pyocrust_layout": lambda: _task_predictor_backend("layout_detection"),
+    "pyocrust_table": lambda: _task_predictor_backend("table_structure_recognition"),
+    "pyocrust_orientation": lambda: _task_predictor_backend("document_orientation"),
+    "pyocrust_textline": lambda: _task_predictor_backend("text_line_orientation"),
+    "pyocrust_rectify": lambda: _task_predictor_backend("document_rectification"),
     "rapidocr": _rapidocr_backend,
     "easyocr": _easyocr_backend,
     "tesseract": _tesseract_backend,
@@ -352,19 +476,31 @@ def _describe_runtime() -> dict:
 TASK_TYPES = {"pyocrust_structure": "structure", "pyocrust_formula": "formula", "pyocrust_formulanet": "formula",
               "pyocrust_formulanet_l": "formula", "pyocrust_formulanet_pluss": "formula",
               "pyocrust_formulanet_plusm": "formula", "pyocrust_formulanet_plusl": "formula",
-              "pyocrust_indra": "full_page"}
+              "pyocrust_indra": "full_page",
+              # Tareas sueltas: su `task_type` es el nombre de su banco de feature.
+              "pyocrust_layout": "layout", "pyocrust_table": "table",
+              "pyocrust_orientation": "orientation", "pyocrust_textline": "text_line",
+              "pyocrust_rectify": "rectification"}
 MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"), "pyocrust_structure": ("pp_structurev3", "default"),
                "pyocrust_formula": ("pp_structurev3", "pp-formulanet-s"), "pyocrust_formulanet": ("pp-formulanet-s", "direct"),
                "pyocrust_formulanet_l": ("pp-formulanet-l", "direct"),
                "pyocrust_formulanet_pluss": ("pp-formulanet_plus-s", "direct"),
                "pyocrust_formulanet_plusm": ("pp-formulanet_plus-m", "direct"),
                "pyocrust_formulanet_plusl": ("pp-formulanet_plus-l", "direct"),
-               "pyocrust_indra": ("indra", "math")}
+               "pyocrust_indra": ("indra", "math"),
+               "pyocrust_layout": ("pp-doclayoutv3", "default"),
+               "pyocrust_table": ("slanet_plus", "default"),
+               "pyocrust_orientation": ("pp-lcnet_x1_0_doc_ori", "default"),
+               "pyocrust_textline": ("pp-lcnet_x1_0_textline_ori", "default"),
+               "pyocrust_rectify": ("uvdoc", "default")}
 # Banco de feature al que pertenece cada backend conocido (columna `feature`).
 FEATURE_TYPES = {"pyocrust_structure": "full_page", "pyocrust_indra": "full_page",
                  "pyocrust_formula": "formula", "pyocrust_formulanet": "formula",
                  "pyocrust_formulanet_l": "formula", "pyocrust_formulanet_pluss": "formula",
-                 "pyocrust_formulanet_plusm": "formula", "pyocrust_formulanet_plusl": "formula"}
+                 "pyocrust_formulanet_plusm": "formula", "pyocrust_formulanet_plusl": "formula",
+                 "pyocrust_layout": "layout", "pyocrust_table": "table",
+                 "pyocrust_orientation": "orientation", "pyocrust_textline": "text_line",
+                 "pyocrust_rectify": "rectification"}
 
 
 def run_benchmark(
@@ -379,6 +515,7 @@ def run_benchmark(
     dump: list[dict] | None = None,
     feature: str | None = None,
     model: tuple[str, str] | None = None,
+    scorer: Callable[[Sample, OcrOutput], dict] | None = None,
 ) -> tuple[list[dict], dict]:
     """Ejecuta un backend sobre todas las muestras y devuelve (filas, metadatos).
 
@@ -389,17 +526,24 @@ def run_benchmark(
     para backends fuera del registro (`PROVIDERS`). Si `dump` no es None, se
     rellena con `{image_id, text}` de cada muestra medida: la salida cruda no cabe
     en el CSV de contrato fijo y hace falta para medir, p. ej., quién emite LaTeX.
+
+    `scorer` es la métrica **propia de una feature** (layout, tabla, orientación,
+    rectificado): recibe la muestra y la salida del motor y devuelve las columnas
+    a añadir a su fila. Un banco sin scorer deja esas columnas vacías.
     """
     task_type = task_override or TASK_TYPES.get(backend, "text")
     model_name, model_variant = model or MODEL_NAMES.get(backend, (backend, "default"))
     feature = feature or FEATURE_TYPES.get(backend, "text")
+    provider_effective, skip_reason = device_outcome(backend, device)
     provenance = {"task_type": task_type, "model_name": model_name, "model_variant": model_variant,
-                  "feature": feature, "device_requested": device, "provider_effective": "unverified",
+                  "feature": feature, "device_requested": device, "provider_effective": provider_effective,
                   "repeats": repeats}
     if repeats < 1 or warmup < 0:
         raise ValueError("repeats must be positive and warmup nonnegative")
-    if device != "cpu":
-        return [], {"backend": backend, "status": "skipped", "reason": "GPU selection not exposed; refusing CPU fallback", **provenance}
+    if skip_reason:
+        # GPU no confirmable (hoy): se rechaza ANTES de cargar el motor, para no
+        # medir un fallback CPU bajo la etiqueta de GPU.
+        return [], {"backend": backend, "status": "skipped", "reason": skip_reason, **provenance}
     factory = backend_factory or PROVIDERS[backend]
     load_start = time.perf_counter()
     try:
@@ -453,6 +597,7 @@ def run_benchmark(
                     "error": str(exc),
                     "task_type": task_type, "model_name": model_name, "model_variant": model_variant,
                     "feature": feature,
+                    "device_requested": device, "provider_effective": provider_effective,
                 }
             )
             continue
@@ -462,6 +607,10 @@ def run_benchmark(
         gt = sample.gt_by_task.get(task_type, sample.gt_text) if sample.gt_by_task else sample.gt_text
         if dump is not None:
             dump.append({"image_id": sample.image_id, "text": output.text})
+        # Sin GT de texto (features de orientacion/rectificado/layout, cuya
+        # referencia es una etiqueta, una imagen o unas cajas) la calidad textual
+        # queda **no evaluada** ("") en vez de un 0.0 espurio.
+        has_text_gt = bool((gt or "").strip())
         # Metricas LaTeX normalizadas: solo tienen sentido en formulas (en el
         # resto van vacias, como `markdown_f1`/`block_f1` en texto).
         if task_type == "formula":
@@ -477,34 +626,41 @@ def run_benchmark(
             box_recall_v, box_iou_v = round(box_recall_v, 4), round(box_iou_v, 4)
         else:
             box_recall_v = box_iou_v = ""
-        rows.append(
-            {
-                "backend": backend,
-                "dataset": dataset,
-                "image_id": sample.image_id,
-                "cer": cer(gt, output.text),
-                "wer": wer(gt, output.text),
-                "cer_ord": cer_ord(gt, output.text),
-                "wer_ord": wer_ord(gt, output.text),
-                "word_f1": word_f1(gt, output.text),
-                "exact_match": float(normalize(gt) == normalize(output.text)),
-                "elapsed_ms": round(output.elapsed_ms, 3),
-                "n_regions": output.n_regions,
-                "mean_confidence": round(output.mean_confidence, 4),
-                "n_chars_gt": len(normalize(gt)),
-                "n_chars_pred": len(normalize(output.text)),
-                "status": "ok",
-                "error": "",
-                "task_type": task_type, "model_name": model_name, "model_variant": model_variant,
-                "markdown_f1": markdown_f1(sample.gt_markdown, output.text) if task_type != "text" and sample.gt_markdown is not None else "",
-                "block_f1": block_f1(sample.gt_blocks, output.extra.get("blocks", [])) if task_type != "text" and sample.gt_blocks is not None else "",
-                "latex_exact": latex_exact_v, "latex_sim": latex_sim_v, "latex_token_f1": latex_f1_v,
-                "feature": feature,
-                "box_recall": box_recall_v, "box_iou_mean": box_iou_v,
-            }
-        )
+        row = {
+            "backend": backend,
+            "dataset": dataset,
+            "image_id": sample.image_id,
+            "cer": cer(gt, output.text) if has_text_gt else "",
+            "wer": wer(gt, output.text) if has_text_gt else "",
+            "cer_ord": cer_ord(gt, output.text) if has_text_gt else "",
+            "wer_ord": wer_ord(gt, output.text) if has_text_gt else "",
+            "word_f1": word_f1(gt, output.text) if has_text_gt else "",
+            "exact_match": float(normalize(gt) == normalize(output.text)) if has_text_gt else "",
+            "elapsed_ms": round(output.elapsed_ms, 3),
+            "n_regions": output.n_regions,
+            "mean_confidence": round(output.mean_confidence, 4),
+            "n_chars_gt": len(normalize(gt)) if has_text_gt else "",
+            "n_chars_pred": len(normalize(output.text)),
+            "status": "ok",
+            "error": "",
+            "task_type": task_type, "model_name": model_name, "model_variant": model_variant,
+            "markdown_f1": markdown_f1(sample.gt_markdown, output.text) if task_type != "text" and sample.gt_markdown is not None else "",
+            "block_f1": block_f1(sample.gt_blocks, output.extra.get("blocks", [])) if task_type != "text" and sample.gt_blocks is not None else "",
+            "latex_exact": latex_exact_v, "latex_sim": latex_sim_v, "latex_token_f1": latex_f1_v,
+            "feature": feature,
+            "box_recall": box_recall_v, "box_iou_mean": box_iou_v,
+            "device_requested": device, "provider_effective": provider_effective,
+            # Métricas por feature: "" = no evaluada; el `scorer` las sobreescribe.
+            "layout_map": "", "layout_recall": "", "table_teds": "", "ori_acc": "", "rect_sim": "",
+        }
+        # Métrica propia de la feature (layout/tabla/orientación/rectificado).
+        if scorer is not None:
+            row.update(scorer(sample, output))
+        rows.append(row)
 
     ok = [r for r in rows if r["status"] == "ok"]
+    cers = [r["cer"] for r in ok if isinstance(r["cer"], float)]
+    word_f1s = [r["word_f1"] for r in ok if isinstance(r["word_f1"], float)]
     meta = {
         "backend": backend,
         "dataset": dataset,
@@ -522,10 +678,10 @@ def run_benchmark(
         "n_error": len(errors),
         "errors": errors,
         "mean_cer": (
-            statistics.fmean(r["cer"] for r in ok) if ok else None
+            statistics.fmean(cers) if cers else None
         ),
         "mean_word_f1": (
-            statistics.fmean(r["word_f1"] for r in ok) if ok else None
+            statistics.fmean(word_f1s) if word_f1s else None
         ),
         "mean_ms": (
             statistics.fmean(r["elapsed_ms"] for r in ok) if ok else None
@@ -565,11 +721,13 @@ def run_backends(
     models: dict[str, tuple[str, str]] | None = None,
     dump_outputs: bool = False,
     task_types: set[str] | None = None,
+    scorer: Callable[[Sample, OcrOutput], dict] | None = None,
 ) -> tuple[list[dict], dict[str, dict]]:
     """Ejecuta una lista de backends y escribe CSV + metadatos. Interfaz de los bancos.
 
     Los bancos por feature llaman aquí: un backend/modelo a la vez, `skipped` con
     motivo para lo no disponible, y `summary.json` con el origen de cada número.
+    `scorer` es la métrica propia de la feature (ver `run_benchmark`).
     """
     all_rows: list[dict] = []
     summary: dict[str, dict] = {}
@@ -590,6 +748,7 @@ def run_backends(
             task_override=task_override, dump=dump, feature=feature,
             backend_factory=(factories or {}).get(backend),
             model=(models or {}).get(backend),
+            scorer=scorer,
         )
         all_rows.extend(rows)
         summary[backend] = meta
@@ -603,12 +762,15 @@ def run_backends(
         elif not meta.get("n_ok"):
             print(f"  [aviso] 0 muestras medidas: {meta.get('reason') or 'limit/warmup sin margen'}")
         else:
+            def _fmt(value, spec, suffix=""):
+                return "N/A" if value is None else f"{value:{spec}}{suffix}"
+
             print(
                 f"  {meta['n_ok']}/{meta['n_images']} ok, "
                 f"n_error={meta['n_error']}, "
-                f"CER medio={meta['mean_cer']:.4f}, "
-                f"F1 palabra={meta['mean_word_f1']:.4f}, "
-                f"{meta['mean_ms']:.1f} ms/imagen"
+                f"CER medio={_fmt(meta['mean_cer'], '.4f')}, "
+                f"F1 palabra={_fmt(meta['mean_word_f1'], '.4f')}, "
+                f"{_fmt(meta['mean_ms'], '.1f', ' ms/imagen')}"
             )
         (out_dir / f"{backend}.meta.json").write_text(
             json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"

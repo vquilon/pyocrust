@@ -1,19 +1,23 @@
 #!/usr/bin/env python
-"""Banco de la feature **layout** — esqueleto documentado.
+"""Banco de la feature **layout** (detección de bloques por clase).
 
-Detección de layout de página: cada bloque (título, párrafo, tabla, figura,
-fórmula, encabezado...) con su clase y su caja.
+Igual que el componente de layout de `oar-ocr`: un detector asigna a cada bloque
+de la página su clase y su caja. Mide **mAP@IoU 0.5** y **recall@IoU 0.5** por
+clase de bloque (macro), emparejando cajas GT y predichas 1-a-1.
 
-Estado: **esqueleto**. El dataset documental ya trae GT de layout (OmniDocBench
-anota `category_type` + `poly` por bloque); falta escribir el emparejador
-caja↔bloque y la métrica por clase. Sin GT adaptado, la calidad se reporta **no
-evaluada** (nunca un `0.0` espurio).
+Dataset por defecto: `omnidocbench_layout` — las páginas de OmniDocBench anotan
+cada bloque con su `category_type` y su `poly`, así que **hay GT de layout real**
+(no se inventa nada). Solo entran las clases con equivalencia declarada entre el
+vocabulario del modelo y las categorías anotadas (`common.datasets.
+LAYOUT_MODEL_TO_GT`); las que no la tienen (p. ej. `inline_formula`,
+`formula_number`, `seal`) quedan fuera de la métrica y se documentan en la README.
 
-Provenance: este esqueleto **no publica valores numéricos** — no hay nada
-ejecutado que respalde una cifra.
+Provenance: todo número que salga de aquí es **`medido`** (ejecutado por nosotros);
+el `summary.json` de la run guarda comando, dataset, `n`, `warmup`, `repeats`,
+dispositivo y fecha.
 
 Uso:
-    .venv/Scripts/python.exe benchmarks/features/layout/bank.py
+    .venv/Scripts/python.exe benchmarks/features/layout/bank.py --limit 8
 """
 
 from __future__ import annotations
@@ -26,14 +30,19 @@ from typing import Sequence
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from features._base import FeatureSpec, run_skeleton
+from datetime import datetime
+
+from common import OcrOutput, Sample, load_dataset, run_backends
+from common.datasets import LAYOUT_MODEL_TO_GT
+from common.metrics import detection_map
+from features._base import FeatureSpec, common_argparser, feature_out_dir
 
 SPEC = FeatureSpec(
     feature="layout",
     summary="Detección de layout de página: cada bloque (título, párrafo, tabla, figura, fórmula, encabezado...) con su clase y su caja.",
     pyocrust_task="layout_detection (TaskPredictor, pp_doclayoutv3)",
-    metric="mAP / IoU por clase vs GT (precisión@IoU y recall por clase de bloque)",
-    dataset="OmniDocBench anota `category_type` + `poly` por bloque (GT de layout disponible); falta el adaptador que empareja cajas predichas con GT.",
+    metric="mAP@IoU 0.5 y recall@IoU 0.5 macro por clase de bloque (emparejado 1-a-1)",
+    dataset="omnidocbench_layout: OmniDocBench anota `category_type` + `poly` por bloque (GT real, no inventado)",
     alternatives={
         "layoutparser": ("layoutparser", "layoutparser"),
         "docling": ("docling", "docling"),
@@ -41,15 +50,85 @@ SPEC = FeatureSpec(
         "paddleocr": ("paddleocr", "paddleocr paddlepaddle"),
         "TATR (transformers)": ("transformers", "transformers + table-transformer"),
     },
-    status="skeleton",
-    note="El dataset documental ya trae GT de layout; falta el emparejador caja↔bloque y la métrica por clase.",
-    provenance="esqueleto: sin valores numéricos (no hay GT adaptado; nada ejecutado)",
+    status="implemented",
+    note="Métrica acotada a las clases con equivalencia declarada modelo<->anotación; el resto se ignora y se documenta.",
+    provenance="valores MEDIDOS por este banco (mAP/recall@IoU sobre las cajas anotadas de OmniDocBench)",
 )
 
 
+def _model_bbox(element: dict) -> tuple[float, float, float, float] | None:
+    """Caja envolvente `(x1, y1, x2, y2)` de los 4 puntos que emite el detector."""
+    points = element.get("bbox") or []
+    if not points:
+        return None
+    xs = [float(p[0]) for p in points]
+    ys = [float(p[1]) for p in points]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def score_layout(sample: Sample, output: OcrOutput) -> dict:
+    """mAP/recall@IoU 0.5 por clase: cajas anotadas vs. bloques detectados.
+
+    Solo se puntúan las categorías que el mapa declara como destino: una clase
+    del modelo sin equivalencia (o una categoría anotada que el modelo no puede
+    emitir) no entra en la media, en vez de contarse como fallo de detección.
+    """
+    gt = sample.gt_layout or {}
+    predicted: dict[str, list[tuple[float, tuple[float, float, float, float]]]] = {}
+    for element in output.extra.get("elements") or []:
+        category = LAYOUT_MODEL_TO_GT.get(str(element.get("element_type")))
+        box = _model_bbox(element)
+        if category is None or category not in gt or box is None:
+            continue
+        predicted.setdefault(category, []).append((float(element.get("score", 0.0) or 0.0), box))
+    mean_ap, recall = detection_map(gt, predicted)
+    # Sin cajas GT evaluables la métrica queda **no evaluada** (""), nunca un 0.0.
+    return {
+        "layout_map": "" if mean_ap is None else round(mean_ap, 4),
+        "layout_recall": "" if recall is None else round(recall, 4),
+    }
+
+
 def main(argv: Sequence[str] | None = None) -> int:
-    return run_skeleton(SPEC, argv)
+    args = common_argparser(SPEC.feature, SPEC.summary).parse_args(argv)
+    dataset = args.dataset or "omnidocbench_layout"
+    samples = load_dataset(dataset, limit=args.limit, split=args.split)
+    print(f"[layout] dataset={dataset} muestras={len(samples)}")
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    out_dir = feature_out_dir(args.output_dir, SPEC) / timestamp
+    run_backends(
+        samples,
+        [b.strip() for b in (args.backends or "pyocrust_layout").split(",") if b.strip()],
+        dataset, out_dir, timestamp,
+        warmup=args.warmup, repeats=args.repeats, device=args.device,
+        feature=SPEC.feature, scorer=score_layout,
+    )
+    print(f"\n[layout] resultados en {out_dir}")
+    return 0
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+def _self_check() -> None:
+    """Comprobación mínima de la métrica: acierto perfecto, clase sin mapa y sin GT."""
+    from PIL import Image
+
+    sample = Sample("p", Image.new("RGB", (10, 10)), "",
+                    gt_layout={"text_block": ((0.0, 0.0, 10.0, 5.0),)})
+    hit = OcrOutput("", extra={"elements": [
+        {"element_type": "text", "score": 0.9, "bbox": [[0, 0], [10, 0], [10, 5], [0, 5]]},
+    ]})
+    assert score_layout(sample, hit) == {"layout_map": 1.0, "layout_recall": 1.0}
+    # Una clase del modelo sin equivalencia declarada no cuenta (ni a favor ni en contra).
+    other = OcrOutput("", extra={"elements": [
+        {"element_type": "seal", "score": 0.9, "bbox": [[0, 0], [10, 0], [10, 5], [0, 5]]},
+    ]})
+    assert score_layout(sample, other) == {"layout_map": 0.0, "layout_recall": 0.0}
+    empty = Sample("q", Image.new("RGB", (10, 10)), "", gt_layout=None)
+    assert score_layout(empty, hit) == {"layout_map": "", "layout_recall": ""}
+    print("features.layout self-check OK")
+
+
+if __name__ == "__main__":  # pragma: no cover - ejecución manual
+    if "--self-check" in sys.argv:
+        _self_check()
+    else:
+        raise SystemExit(main())

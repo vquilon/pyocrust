@@ -63,7 +63,7 @@ from PIL import Image
 from latex_metrics import latex_exact, latex_similarity, latex_token_f1
 
 # Origen único del mapeo backend -> banco por feature (columna aditiva `feature`).
-from common.runner import FEATURE_TYPES
+from common.runner import FEATURE_TYPES, device_outcome
 
 # ---------------------------------------------------------------------------
 # Configuración
@@ -95,6 +95,11 @@ CSV_FIELDS = [
     "latex_exact", "latex_sim", "latex_token_f1",
     "feature",
     "box_recall", "box_iou_mean",
+    # Honestidad de proveedor: dispositivo pedido vs. el que de verdad corrió.
+    "device_requested", "provider_effective",
+    # Métricas de las features de layout/tabla/orientación/rectificado: este CLI
+    # no las produce (no tiene sus datasets ni su scorer), así que van vacías.
+    "layout_map", "layout_recall", "table_teds", "ori_acc", "rect_sim",
 ]
 
 
@@ -689,12 +694,13 @@ def run_benchmark(
     """
     task_type = task_override or TASK_TYPES.get(backend, "text")
     model_name, model_variant = MODEL_NAMES.get(backend, (backend, "default"))
+    provider_effective, skip_reason = device_outcome(backend, device)
     provenance = {"task_type": task_type, "model_name": model_name, "model_variant": model_variant,
-                  "device_requested": device, "provider_effective": "unverified", "repeats": repeats}
+                  "device_requested": device, "provider_effective": provider_effective, "repeats": repeats}
     if repeats < 1 or warmup < 0:
         raise ValueError("repeats must be positive and warmup nonnegative")
-    if device != "cpu":
-        return [], {"backend": backend, "status": "skipped", "reason": "GPU selection not exposed; refusing CPU fallback", **provenance}
+    if skip_reason:
+        return [], {"backend": backend, "status": "skipped", "reason": skip_reason, **provenance}
     factory = backend_factory or PROVIDERS[backend]
     load_start = time.perf_counter()
     try:
@@ -749,6 +755,7 @@ def run_benchmark(
                     "task_type": task_type, "model_name": model_name, "model_variant": model_variant,
                     "feature": FEATURE_TYPES.get(backend, "text"),
                     "box_recall": "", "box_iou_mean": "",
+                    "device_requested": device, "provider_effective": provider_effective,
                 }
             )
             continue
@@ -793,6 +800,10 @@ def run_benchmark(
                 # nunca un 0.0 espurio.
                 "feature": FEATURE_TYPES.get(backend, "text"),
                 "box_recall": "", "box_iou_mean": "",
+                "device_requested": device, "provider_effective": provider_effective,
+                # Métricas por feature: este CLI no las calcula -> no evaluadas ("").
+                "layout_map": "", "layout_recall": "", "table_teds": "",
+                "ori_acc": "", "rect_sim": "",
             }
         )
 

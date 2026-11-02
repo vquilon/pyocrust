@@ -1,6 +1,6 @@
-# Feature `orientation` — banco de benchmark (esqueleto)
+# Feature `orientation` — banco de benchmark (implementado)
 
-> Origen de los números: **sin valores numéricos (esqueleto)**.
+> Origen de los números: **`medido`** — ver `REPORT.md` (comando + dataset + n + device + fecha).
 
 ## Qué mide
 
@@ -8,7 +8,7 @@ Orientación de la página completa (0/90/180/270°) antes de OCR.
 
 ## Tarea `pyocrust`
 
-`document_orientation` (`TaskPredictor`).
+`document_orientation` (`TaskPredictor`; PP-LCNet).
 
 ## Métrica
 
@@ -16,8 +16,11 @@ Orientación de la página completa (0/90/180/270°) antes de OCR.
 
 ## Dataset / ground truth
 
-No hay dataset local con GT de orientación de página. Se puede construir el GT
-rotando páginas de OmniDocBench y verificando OCR; queda documentado, no medido.
+`synthetic_orientation`: **GT sintético determinista**. Se toman las páginas de
+`OmniDocBench` ya presentes en `benchmarks/data_cache` (sin descargar nada) y se
+rotan 0/90/180/270; el GT es la etiqueta de corrección que el clasificador debe
+emitir para esa rotación, `(360 - a) mod 360` — convención **comprobada sobre las
+cuatro clases en una página real** antes de escribir el banco.
 
 ## Alternativas Python reales (a comparar)
 
@@ -29,11 +32,12 @@ rotando páginas de OmniDocBench y verificando OCR; queda documentado, no medido
 
 ## Estado
 
-Esqueleto **documentado**: declara tarea, métrica y alternativas, pero **no**
-ejecuta motores ni publica cifras mientras no haya GT local.
+**Implementado**: ejecuta `pyocrust` (`pyocrust_orientation`) sobre las páginas
+rotadas y publica la accuracy de las 4 clases. Las alternativas están
+**documentadas** (se integran como backends cuando se instalen).
 
 ## Provenance
 
-Sin valores numéricos publicados. Cuando este banco se implemente, cada cifra irá
-etiquetada `medido` (comando + dataset + n + warmup + repeats + device + fecha) o
-`[ref: <url> (consultado YYYY-MM-DD)]`; nunca mezcladas sin etiquetar.
+Cada cifra de `REPORT.md` va etiquetada **`medido`**: comando reproducible,
+dataset, `n`, `warmup`, `repeats`, `device` y fecha, guardados en el
+`summary.json` de la run. No hay valores `referencia` en esta tabla.

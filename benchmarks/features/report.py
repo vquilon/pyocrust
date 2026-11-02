@@ -30,7 +30,7 @@ from typing import Any, Sequence
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from common import BENCHMARKS_ROOT, module_available
+from common import BENCHMARKS_ROOT, module_available, select_device_rows
 
 RESULTS_DIR = BENCHMARKS_ROOT / "results"
 FEATURES_DIR = Path(__file__).resolve().parent
@@ -55,6 +55,39 @@ FEATURE_COLUMNS: dict[str, list[tuple[str, str, str, bool | None]]] = {
         ("latex_any", "Salidas con LaTeX ↑", "{:.0%}", True),
         ("mean_ms", "ms/fórmula ↓", "{:.0f}", False),
     ],
+    "layout": [
+        ("n", "n", "{}", None),
+        ("layout_map", "mAP@IoU 0.5 ↑", "{:.3f}", True),
+        ("layout_recall", "recall@IoU 0.5 ↑", "{:.3f}", True),
+        ("mean_ms", "ms/imagen ↓", "{:.0f}", False),
+    ],
+    "table": [
+        ("n", "n", "{}", None),
+        ("table_teds", "TEDS estrut. ↑", "{:.3f}", True),
+        ("mean_ms", "ms/tabla ↓", "{:.0f}", False),
+    ],
+    "full_page": [
+        ("n", "n", "{}", None),
+        ("markdown_f1", "Markdown F1 ↑", "{:.3f}", True),
+        ("block_f1", "F1 bloques ↑", "{:.3f}", True),
+        ("cer", "CER ↓", "{:.3f}", False),
+        ("mean_ms", "ms/página ↓", "{:.0f}", False),
+    ],
+    "orientation": [
+        ("n", "n", "{}", None),
+        ("ori_acc", "accuracy ↑", "{:.1%}", True),
+        ("mean_ms", "ms/página ↓", "{:.0f}", False),
+    ],
+    "text_line": [
+        ("n", "n", "{}", None),
+        ("ori_acc", "accuracy ↑", "{:.1%}", True),
+        ("mean_ms", "ms/línea ↓", "{:.0f}", False),
+    ],
+    "rectification": [
+        ("n", "n", "{}", None),
+        ("rect_sim", "SSIM ↑", "{:.3f}", True),
+        ("mean_ms", "ms/página ↓", "{:.0f}", False),
+    ],
 }
 
 # Métrica **titular** de cada feature (la que encabeza su REPORT.md): clave,
@@ -63,6 +96,12 @@ FEATURE_COLUMNS: dict[str, list[tuple[str, str, str, bool | None]]] = {
 TITULAR_METRIC: dict[str, tuple[str, str, bool]] = {
     "text": ("word_f1", "F1 palabra ↑", True),
     "formula": ("latex_sim", "Similitud LaTeX ↑", True),
+    "layout": ("layout_map", "mAP@IoU 0.5 ↑", True),
+    "table": ("table_teds", "TEDS de estructura ↑", True),
+    "full_page": ("markdown_f1", "Markdown F1 ↑", True),
+    "orientation": ("ori_acc", "accuracy ↑", True),
+    "text_line": ("ori_acc", "accuracy ↑", True),
+    "rectification": ("rect_sim", "SSIM ↑", True),
 }
 
 
@@ -82,7 +121,8 @@ def load_run(run: Path) -> tuple[list[dict], dict]:
                 for key in ("cer", "wer", "cer_ord", "wer_ord", "word_f1", "exact_match",
                             "elapsed_ms", "markdown_f1", "block_f1",
                             "latex_exact", "latex_sim", "latex_token_f1",
-                            "box_recall", "box_iou_mean"):
+                            "box_recall", "box_iou_mean",
+                            "layout_map", "layout_recall", "table_teds", "ori_acc", "rect_sim"):
                     try:
                         row[key] = float(row[key])
                     except (TypeError, ValueError):
@@ -116,8 +156,10 @@ def summarize(rows: Sequence[dict]) -> dict[str, dict[str, Any]]:
         times = sorted(r["elapsed_ms"] for r in group if r["elapsed_ms"] is not None)
         entry: dict[str, Any] = {"n": len(group),
                                  "mean_ms": statistics.fmean(times) if times else None}
-        for key in ("word_f1", "wer_ord", "cer", "wer", "box_recall", "box_iou_mean",
-                    "latex_exact", "latex_sim", "latex_token_f1"):
+        for key in ("word_f1", "wer_ord", "cer", "wer", "markdown_f1", "block_f1",
+                    "box_recall", "box_iou_mean",
+                    "latex_exact", "latex_sim", "latex_token_f1",
+                    "layout_map", "layout_recall", "table_teds", "ori_acc", "rect_sim"):
             values = [r[key] for r in group if r.get(key) is not None]
             entry[key] = statistics.fmean(values) if values else None
         report[name] = entry
@@ -129,7 +171,16 @@ def analyze(feature: str, run: Path) -> tuple[dict[str, dict[str, Any]], dict]:
     rows, summary = load_run(run)
     if not rows:
         raise SystemExit(f"{run} no tiene filas `ok` para la feature {feature}")
-    report = summarize(rows)
+    # Honestidad de proveedor: sólo cuentan las filas que de verdad corrieron en el
+    # device pedido; una fila que pidió GPU pero cayó a CPU no entra en el ranking GPU.
+    device = summary.get("device_requested", "cpu")
+    device_rows = select_device_rows(rows, device)
+    if not device_rows:
+        raise SystemExit(
+            f"{run}: ninguna fila corrio de verdad en device={device} "
+            "(provider_effective honesto: un fallback CPU no cuenta como GPU)"
+        )
+    report = summarize(device_rows)
     if feature == "formula":
         for name, value in latex_coverage(run).items():
             for key in report:
@@ -206,6 +257,10 @@ def render_md(feature: str, report: dict[str, dict[str, Any]], summary: dict, ru
         "",
         "- Ningún motor ausente se registra como `ok`: queda `skipped` con su `pip install`.",
         "- Las columnas sin GT no se rellenan con ceros: aparecen como `N/A` (no evaluada).",
+        f"- Honestidad de proveedor: el ranking sólo cuenta filas que de verdad corrieron en "
+        f"`device={summary.get('device_requested', 'cpu')}`. Mientras `pyocrust` no exponga la "
+        "selección de device (tarjeta `t_8a0f369f`), `--device gpu` queda `skipped` y un fallback "
+        "CPU nunca se cuenta como GPU.",
         "",
     ]
     return "\n".join(lines)
@@ -242,8 +297,8 @@ def plot_feature(feature: str, report: dict, summary: dict, out: Path) -> None:
     """Resumen de una feature: **calidad** (métrica titular) + **tiempo**, por motor.
 
     Cada barra lleva su valor y su `n`; el `origen` (`medido`/`referencia`) del run
-    va rotulado en título y leyenda. Nombres partidos en varias líneas y leyenda
-    fuera del área de dibujo: mismo criterio anti-solapamiento que `report_benchmarks.py`.
+    va rotulado en título y leyenda. Nombres partidos en dos líneas y leyenda fuera
+    del área de dibujo: mismo criterio anti-solapamiento que `report_benchmarks.py`.
     """
     from matplotlib.patches import Patch
     from matplotlib.ticker import FixedFormatter
