@@ -24,6 +24,56 @@ Cada carpeta de feature tiene su `README.md` (qué mide, alternativa y métrica)
 su `bank.py`. El reporte **por feature** se genera con
 `features/report.py` y se guarda junto al banco (`features/<feature>/REPORT.md`).
 
+## Resultados medidos (resumen)
+
+> Todo **`medido`** por nosotros: `warmup=1`, `repeats=1`, `pyocrust 0.1.0`, CPU,
+> 2026-11-02. El detalle por motor y la provenance completa (comando, dataset, `n`,
+> runtime) están en `features/<feature>/REPORT.md`; aquí solo la **métrica titular**
+> de cada feature con números reales.
+
+![Resumen de benchmarks por feature](SUMMARY.png)
+
+Tabla consolidada generada por `features/summary.py`: [`SUMMARY.md`](SUMMARY.md).
+(Solo incluye filas `medido`; los valores `referencia` de papers se citan aparte con
+URL dentro de cada `REPORT.md` y **no** entran aquí.)
+
+### `text` — FUNSD, n=5 (detección + reconocimiento)
+
+| Motor | F1 palabra ↑ | WER ord. ↓ | CER ↓ | ms/img ↓ |
+| :--- | ---: | ---: | ---: | ---: |
+| **pyocrust** (PP-OCRv6 tiny) | **0.734** | **0.340** | 0.402 | **1 129** |
+| rapidocr | 0.660 | 0.431 | **0.400** | 8 660 |
+| easyocr | 0.384 | 0.707 | 0.467 | 8 648 |
+
+![Reporte text](features/text/REPORT.png)
+
+### `formula` — OmniDocBench, n=5 (fórmula → LaTeX)
+
+| Motor | Similitud ↑ | F1 tokens ↑ | Salidas con LaTeX ↑ | ms/fórmula ↓ |
+| :--- | ---: | ---: | ---: | ---: |
+| **pyocrust_formulanet** (directo) | **0.550** | 0.627 | 80% | 1 107 |
+| pix2tex (LaTeX-OCR) | 0.533 | **0.729** | **100%** | 5 794 |
+| pyocrust_formula (pipeline) | 0.419 | 0.526 | 80% | 3 063 |
+| pyocrust_indra (math) | 0.184 | 0.432 | 40% | **196** |
+| easyocr (control) | 0.152 | 0.427 | 0% | 562 |
+| rapidocr (control) | 0.104 | 0.298 | 0% | 3 372 |
+
+![Reporte formula](features/formula/REPORT.png)
+
+### Cobertura global («todo en uno» + autogestión de modelos)
+
+Resumen de las 9 features y 12 capacidades que cubre el paquete, con la autogestión
+de modelos: [`FEATURES_OVERVIEW.md`](FEATURES_OVERVIEW.md).
+
+![Cobertura feature × capacidad](FEATURES_OVERVIEW.png)
+
+### Features todavía sin cifras (`esqueleto`)
+
+`layout`, `orientation`, `rectification`, `text_line`, `seal`, `table`, `full_page`:
+banco **documentado** (métrica + alternativas reales) pero **sin números** — sus
+adaptadores de GT y/o sus alternativas están pendientes. No se rellenan con ceros:
+si no hay GT, la métrica es `N/A` (no evaluada).
+
 ### Estructura
 
 ```text
