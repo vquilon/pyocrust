@@ -39,11 +39,13 @@ families and eleven task predictors; only the native binary changes:
 | `pyocrust` | *(default)* `simd` + `auto-download` | CPU | none | Linux `x86_64`/`aarch64`, Windows `x86_64`, macOS `aarch64` |
 | `pyocrust-gpu` | `cuda` | CPU + CUDA | NVIDIA driver + CUDA/cuDNN | Linux `x86_64`/`aarch64`, Windows `x86_64` (**no macOS**) |
 
-`pyocrust-gpu` is the same API compiled with the `cuda` feature: it bundles the
-CUDA execution provider of ONNX Runtime, so the wheel is **much larger** and
-needs the CUDA runtime at the destination. GPU execution is **not validated**
-in this project yet (see `IMPLEMENTATION_AUDIT.md`); the CPU distributions
-remain the verified path.
+`pyocrust-gpu` is the same API compiled with the `cuda` feature. Whether the
+CUDA execution provider of ONNX Runtime ends up actually active in the packaged
+wheel is **not verified** here (see `benchmarks/GPU.md`, task `t_8a0f369f`): the
+wheel may not ship it, in which case execution falls back to CPU. When active it
+needs the NVIDIA driver plus the CUDA/cuDNN runtime at the destination. GPU
+execution is **not validated** in this project yet (see
+`IMPLEMENTATION_AUDIT.md`); the CPU distributions remain the verified path.
 
 ## Quick start
 

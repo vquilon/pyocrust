@@ -39,11 +39,14 @@ de presets y once predictores de tarea—; solo cambia el binario nativo:
 | `pyocrust` | *(por defecto)* `simd` + `auto-download` | CPU | ninguno | Linux `x86_64`/`aarch64`, Windows `x86_64`, macOS `aarch64` |
 | `pyocrust-gpu` | `cuda` | CPU + CUDA | driver NVIDIA + CUDA/cuDNN | Linux `x86_64`/`aarch64`, Windows `x86_64` (**sin macOS**) |
 
-`pyocrust-gpu` es la misma API compilada con la feature `cuda`: incorpora el
-proveedor de ejecución CUDA de ONNX Runtime, así que el wheel es **mucho más
-grande** y necesita el runtime de CUDA en el destino. La ejecución en GPU
-**no está validada** todavía en este proyecto (ver `IMPLEMENTATION_AUDIT.md`);
-las distribuciones CPU siguen siendo el camino verificado.
+`pyocrust-gpu` es la misma API compilada con la feature `cuda`. No está
+verificado aquí si el proveedor de ejecución CUDA de ONNX Runtime queda
+realmente activo en el wheel empaquetado (ver `benchmarks/GPU.md`, tarjeta
+`t_8a0f369f`): el wheel puede no incluirlo, y en ese caso la ejecución cae a
+CPU. Cuando está activo necesita el driver de NVIDIA más el runtime CUDA/cuDNN
+en el destino. La ejecución en GPU **no está validada** todavía en este
+proyecto (ver `IMPLEMENTATION_AUDIT.md`); las distribuciones CPU siguen siendo
+el camino verificado.
 
 ## Uso rápido
 
