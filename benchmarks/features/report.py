@@ -2,7 +2,8 @@
 """Reporte **por feature** a partir de las runs de `benchmarks/results/<feature>/`.
 
 Lee la run más reciente (o `--run`) de una feature y escribe
-`benchmarks/features/<feature>/REPORT.md` con:
+`benchmarks/features/<feature>/REPORT.md` (y, para features con datos,
+`REPORT.png`/`.svg` con la comparativa por motor) con:
 
 * **provenance** explícita (comando reproducible, dataset, `n`, `warmup`,
   `repeats`, dispositivo, fecha) — todo `medido`;
@@ -54,6 +55,14 @@ FEATURE_COLUMNS: dict[str, list[tuple[str, str, str, bool | None]]] = {
         ("latex_any", "Salidas con LaTeX ↑", "{:.0%}", True),
         ("mean_ms", "ms/fórmula ↓", "{:.0f}", False),
     ],
+}
+
+# Métrica **titular** de cada feature (la que encabeza su REPORT.md): clave,
+# etiqueta y si "más es mejor". Solo entran features con banco implementado y
+# con datos; el resto no tiene gráfica (un esqueleto no publica cifras).
+TITULAR_METRIC: dict[str, tuple[str, str, bool]] = {
+    "text": ("word_f1", "F1 palabra ↑", True),
+    "formula": ("latex_sim", "Similitud LaTeX ↑", True),
 }
 
 
@@ -115,7 +124,8 @@ def summarize(rows: Sequence[dict]) -> dict[str, dict[str, Any]]:
     return report
 
 
-def build(feature: str, run: Path) -> str:
+def analyze(feature: str, run: Path) -> tuple[dict[str, dict[str, Any]], dict]:
+    """Carga la run y agrega el reporte por motor (+ cobertura LaTeX en `formula`)."""
     rows, summary = load_run(run)
     if not rows:
         raise SystemExit(f"{run} no tiene filas `ok` para la feature {feature}")
@@ -126,6 +136,11 @@ def build(feature: str, run: Path) -> str:
                 if key.split(" (")[0] == name:
                     report[key]["latex_any"] = value
 
+    return report, summary
+
+
+def render_md(feature: str, report: dict[str, dict[str, Any]], summary: dict, run: Path) -> str:
+    """Markdown del reporte por feature (provenance + comparativa + skipped)."""
     columns = FEATURE_COLUMNS[feature]
     ranked = [c for c in columns if c[3] is not None]
     best: dict[str, str] = {}
@@ -196,11 +211,113 @@ def build(feature: str, run: Path) -> str:
     return "\n".join(lines)
 
 
+def build(feature: str, run: Path) -> str:
+    """Markdown del reporte por feature (compatibilidad; = `render_md(analyze(...))`)."""
+    return render_md(feature, *analyze(feature, run), run)
+
+
+def _wrap_engine(label: str) -> str:
+    """Parte `nombre_variante (detalle)` en varias líneas: rompe en `_` y en `(`.
+
+    Nombres como `pyocrust_formulanet` son largos; partir en cada `_` evita que
+    dos etiquetas vecinas se pisen en el eje X (medido, no a ojo).
+    """
+    head, sep, tail = label.partition("(")
+    head = head.strip().replace("_", "_\n") if head.strip() else label
+    if sep and label.endswith(")") and head:
+        return f"{head}\n({tail}"
+    return head
+
+
+def _ordered_names(report: dict, key: str, higher: bool) -> list[str]:
+    """Motores ordenados por la métrica titular (mejor primero; `None` al final)."""
+    def rank(name: str):
+        value = report[name].get(key)
+        return (value is None, -(value or 0.0) if higher else (value or 0.0))
+
+    return sorted(report, key=rank)
+
+
+def plot_feature(feature: str, report: dict, summary: dict, out: Path) -> None:
+    """Resumen de una feature: **calidad** (métrica titular) + **tiempo**, por motor.
+
+    Cada barra lleva su valor y su `n`; el `origen` (`medido`/`referencia`) del run
+    va rotulado en título y leyenda. Nombres partidos en varias líneas y leyenda
+    fuera del área de dibujo: mismo criterio anti-solapamiento que `report_benchmarks.py`.
+    """
+    from matplotlib.patches import Patch
+    from matplotlib.ticker import FixedFormatter
+
+    from report_benchmarks import _pyplot
+
+    key, label, higher = TITULAR_METRIC[feature]
+    names = _ordered_names(report, key, higher)
+    quality = [report[n].get(key) for n in names]
+    times = [report[n].get("mean_ms") for n in names]
+    counts = [report[n].get("n") for n in names]
+    x = list(range(len(names)))
+
+    plt = _pyplot()
+    fig, (axq, axt) = plt.subplots(1, 2, figsize=(max(10.5, 1.55 * len(names) + 4.5), 5.8))
+
+    def bars(ax, values, color, fmt):
+        heights = [v if v is not None else float("nan") for v in values]
+        drawn = ax.bar(x, heights, 0.62, color=color)
+        for bar, value, n in zip(drawn, values, counts):
+            if value is None:
+                continue
+            ax.annotate(f"{fmt.format(value)}\nn={n}",
+                        (bar.get_x() + bar.get_width() / 2, bar.get_height()),
+                        ha="center", va="bottom", fontsize=8.5)
+
+    present_q = [v for v in quality if v is not None]
+    bars(axq, quality, "#1f6f5c", "{:.3f}")
+    axq.set_ylim(0, (max(present_q) if present_q else 1.0) * 1.28)
+    axq.set_ylabel(label)
+    axq.set_title(f"Calidad — {label}", fontsize=12, weight="bold")
+
+    present_t = [v for v in times if v is not None]
+    bars(axt, times, "#3b6fb0", "{:.0f}")
+    axt.set_ylim(0, (max(present_t) if present_t else 1.0) * 1.28)
+    axt.set_ylabel("ms/imagen ↓")
+    axt.set_title("Tiempo — ms/imagen", fontsize=12, weight="bold")
+
+    for ax in (axq, axt):
+        ax.set_xticks(x)
+        ax.set_xticklabels(names)
+        ax.xaxis.set_major_formatter(FixedFormatter([_wrap_engine(n) for n in names]))
+
+    origen = summary.get("origen") or "medido"
+    skipped = sum(1 for m in (summary.get("backends") or {}).values()
+                  if m.get("status") == "skipped")
+    dataset = summary.get("dataset", "?")
+    run_id = summary.get("timestamp", "?")
+    fig.suptitle(f"pyocrust · feature «{feature}» — comparativa por motor (origen: {origen})",
+                 fontsize=13, weight="bold")
+    fig.legend(
+        handles=[
+            Patch(color="#1f6f5c", label=f"Calidad: {label} (origen: {origen})"),
+            Patch(color="#3b6fb0", label=f"Tiempo: ms/imagen ↓ (origen: {origen})"),
+        ],
+        loc="lower center", ncol=2, frameon=False, fontsize=9, bbox_to_anchor=(0.5, -0.03),
+    )
+    fig.text(0.5, -0.075,
+             f"dataset: {dataset} · n por motor: {sorted({c for c in counts if c}) or '?'} · "
+             f"run: {run_id} · motores saltados (skipped): {skipped}",
+             ha="center", fontsize=8.5, color="#444444")
+    fig.tight_layout(rect=(0, 0.04, 1, 0.95))
+    fig.savefig(out.with_suffix(".png"), dpi=160, bbox_inches="tight", facecolor="white")
+    fig.savefig(out.with_suffix(".svg"), bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Reporte por feature")
     parser.add_argument("--feature", choices=sorted(FEATURE_COLUMNS))
     parser.add_argument("--all", action="store_true")
     parser.add_argument("--run", type=Path, default=None, help="carpeta de la run")
+    parser.add_argument("--no-md", action="store_true",
+                        help="no reescribir REPORT.md (solo la gráfica REPORT.png/.svg)")
     args = parser.parse_args(argv)
     features = sorted(FEATURE_COLUMNS) if args.all or not args.feature else [args.feature]
     rc = 0
@@ -210,11 +327,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"[report] {feature}: sin runs en results/{feature}/ (nada que reportar)")
             rc = 1
             continue
-        md = build(feature, run)
-        out = FEATURES_DIR / feature / "REPORT.md"
-        out.write_text(md + "\n", encoding="utf-8")
+        report, summary = analyze(feature, run)
+        md = render_md(feature, report, summary, run)
         print(md)
-        print(f"\n[report] {feature} -> {out}\n")
+        if not args.no_md:
+            out = FEATURES_DIR / feature / "REPORT.md"
+            out.write_text(md + "\n", encoding="utf-8")
+            print(f"\n[report] {feature} -> {out}")
+        if feature in TITULAR_METRIC:
+            out = FEATURES_DIR / feature / "REPORT"
+            plot_feature(feature, report, summary, out)
+            print(f"[report] {feature} -> {out}.png (+ .svg)")
+        print()
     return rc
 
 
