@@ -471,7 +471,7 @@ components): each capability has its own bank, its metric and real Python altern
 It measures **8 of the 9 features**; every number is `medido` (run here) or `referencia`
 (cited from a paper with a URL) — never mixed without a label.
 
-![Benchmark summary by feature](benchmarks/SUMMARY.png)
+![Benchmark summary by feature](https://raw.githubusercontent.com/vquilon/pyocrust/main/benchmarks/SUMMARY.png)
 
 | Feature | Head metric ↑ | pyocrust (measured) | Best measured alternative | Status |
 | :--- | :--- | ---: | :--- | :--- |
@@ -487,8 +487,8 @@ It measures **8 of the 9 features**; every number is `medido` (run here) or `ref
 
 CPU, `warmup=1`, `repeats=1`, pyocrust 0.1.0. Full per-engine tables, provenance
 (command, dataset, `n`, runtime) and external references with URLs live in
-[`benchmarks/README.md`](benchmarks/README.md) and
-[`benchmarks/SUMMARY.md`](benchmarks/SUMMARY.md).
+[`benchmarks/README.md`](https://github.com/vquilon/pyocrust/blob/main/benchmarks/README.md) and
+[`benchmarks/SUMMARY.md`](https://github.com/vquilon/pyocrust/blob/main/benchmarks/SUMMARY.md).
 
 ```bash
 # one bank per feature (example: text detection + recognition)

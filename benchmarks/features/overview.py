@@ -207,14 +207,15 @@ def render_markdown(statuses: dict[str, dict[str, Any]], catalog: dict[str, dict
         "## Matriz feature × capacidad — qué cubre `pyocrust`",
         "",
         "`estado`: **medido** = banco ejecutado con números reales; **esqueleto** = "
-        "documentado, sin cifras (nunca un `0`). `✔` = capacidad que sirve a la feature.",
+        "documentado, sin cifras (nunca un `0`). Celda **con color** = capacidad que "
+        "sirve a la feature; celda **blanca** = no la usa.",
         "",
         "| Feature | estado | " + " | ".join(f"`{c}`" for c in capabilities) + " |",
         "| :--- | :--- | " + " | ".join(":-:" for _ in capabilities) + " |",
     ]
     for feature in FEATURE_ORDER:
         st = statuses[feature]
-        check = " | ".join("✔" if cap in FEATURE_CAPABILITIES[feature] else "·"
+        check = " | ".join("●" if cap in FEATURE_CAPABILITIES[feature] else "·"
                            for cap in capabilities)
         lines.append(f"| **{feature}** | {st['estado']} | {check} |")
     lines += [
@@ -255,10 +256,8 @@ def plot_overview(statuses: dict[str, dict[str, Any]], catalog: dict[str, dict[s
     ax.imshow(np.ma.masked_invalid(data), cmap=cmap,
               norm=BoundaryNorm([0.5, 1.5, 2.5], cmap.N), aspect="auto")
 
-    for i, feature in enumerate(FEATURE_ORDER):
-        for j, cap in enumerate(capabilities):
-            if cap in FEATURE_CAPABILITIES[feature]:
-                ax.text(j, i, "✔", ha="center", va="center", color="white", fontsize=11)
+    # Sin marca de texto dentro de la celda: el color ya indica cobertura
+    # (blanco = no cubierto), así que no se pinta ningún ✔.
 
     ax.set_xticks(list(range(len(capabilities))))
     ax.set_xticklabels([c.replace("_", "\n") for c in capabilities], fontsize=9)

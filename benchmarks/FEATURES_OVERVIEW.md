@@ -31,19 +31,19 @@
 
 ## Matriz feature × capacidad — qué cubre `pyocrust`
 
-`estado`: **medido** = banco ejecutado con números reales; **esqueleto** = documentado, sin cifras (nunca un `0`). `✔` = capacidad que sirve a la feature.
+`estado`: **medido** = banco ejecutado con números reales; **esqueleto** = documentado, sin cifras (nunca un `0`). Celda **con color** = capacidad que sirve a la feature; celda **blanca** = no la usa.
 
 | Feature | estado | `text_detection` | `text_recognition` | `layout_detection` | `table_classification` | `table_structure_recognition` | `table_cell_detection` | `document_orientation` | `text_line_orientation` | `document_rectification` | `seal_text_detection` | `formula_recognition` | `indra` |
 | :--- | :--- | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
-| **text** | medido | ✔ | ✔ | · | · | · | · | · | · | · | · | · | · |
-| **layout** | medido | · | · | ✔ | · | · | · | · | · | · | · | · | · |
-| **orientation** | medido | · | · | · | · | · | · | ✔ | · | · | · | · | · |
-| **rectification** | medido | · | · | · | · | · | · | · | · | ✔ | · | · | · |
-| **text_line** | medido | · | · | · | · | · | · | · | ✔ | · | · | · | · |
-| **seal** | esqueleto | · | · | · | · | · | · | · | · | · | ✔ | · | · |
-| **formula** | medido | · | · | · | · | · | · | · | · | · | · | ✔ | · |
-| **table** | medido | · | · | · | ✔ | ✔ | ✔ | · | · | · | · | · | · |
-| **full_page** | medido | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | · | · | · | · | ✔ | ✔ |
+| **text** | medido | ● | ● | · | · | · | · | · | · | · | · | · | · |
+| **layout** | medido | · | · | ● | · | · | · | · | · | · | · | · | · |
+| **orientation** | medido | · | · | · | · | · | · | ● | · | · | · | · | · |
+| **rectification** | medido | · | · | · | · | · | · | · | · | ● | · | · | · |
+| **text_line** | medido | · | · | · | · | · | · | · | ● | · | · | · | · |
+| **seal** | esqueleto | · | · | · | · | · | · | · | · | · | ● | · | · |
+| **formula** | medido | · | · | · | · | · | · | · | · | · | · | ● | · |
+| **table** | medido | · | · | · | ● | ● | ● | · | · | · | · | · | · |
+| **full_page** | medido | ● | ● | ● | ● | ● | ● | · | · | · | · | ● | ● |
 
 ## Provenance (sin mezclar orígenes)
 
