@@ -33,6 +33,9 @@ if __package__ in (None, ""):
 from common import BENCHMARKS_ROOT, module_available, select_device_rows
 
 RESULTS_DIR = BENCHMARKS_ROOT / "results"
+# Runs GPU en su propia jerarquía (`--output-dir benchmarks/results/_gpu`), para
+# que `latest_run` CPU (glob `results/<feature>/*/`) no se confunda con ellas.
+GPU_RESULTS_DIR = RESULTS_DIR / "_gpu"
 FEATURES_DIR = Path(__file__).resolve().parent
 
 # Columnas del reporte por feature: (clave, etiqueta, formato, ¿más es mejor?)
@@ -112,10 +115,64 @@ TITULAR_METRIC: dict[str, tuple[str, str, bool]] = {
 }
 
 
-def latest_run(feature: str) -> Path | None:
-    base = RESULTS_DIR / feature
+def latest_run(feature: str, root: Path = RESULTS_DIR) -> Path | None:
+    base = root / feature
     runs = sorted((p for p in base.glob("*/") if any(p.glob("*.csv"))), reverse=True) if base.is_dir() else []
     return runs[0] if runs else None
+
+
+def _provider_of(summary: dict, backend: str) -> str:
+    """`provider_effective` real del backend en el `summary.json` de una run."""
+    meta = (summary.get("backends") or {}).get(backend) or {}
+    return meta.get("provider_effective") or "n/a"
+
+
+def render_cpu_gpu(feature: str, cpu_rep: dict, gpu_rep: dict | None,
+                   gpu_sum: dict | None) -> list[str]:
+    """Sección `## CPU vs GPU`: misma calidad (mismo GT), distinto tiempo por device.
+
+    Honestidad dura: la columna GPU solo lleva filas que de verdad corrieron en un
+    acelerador. Un motor que no corre en GPU queda `N/A` con su motivo, nunca un
+    valor de CPU disfrazado de GPU. `N/A` = no ejecutado (jamás un `0.0`).
+    """
+    key, label, _higher = TITULAR_METRIC[feature]
+    lines = [
+        "## CPU vs GPU (`device_requested` vs `provider_effective`)",
+        "",
+        "> Mismo banco, mismo dataset y mismo GT en ambas columnas: la **calidad** debe "
+        "coincidir; lo que cambia es el **tiempo**. La columna GPU solo lista motores que "
+        "de verdad corrieron en un acelerador (`provider_effective` ∈ cuda/directml/…); "
+        "un fallback CPU nunca se cuenta como GPU. `N/A` = ese motor **no** corre en GPU "
+        "en este banco (queda `skipped` con motivo), no un valor de CPU repetido.",
+        "",
+        f"| Motor (variante) | {label} (CPU) | {label} (GPU) | ms CPU | ms GPU | provider GPU |",
+        "| :--- | ---: | ---: | ---: | ---: | :--- |",
+    ]
+    if not gpu_rep:
+        lines.append("| _(sin run GPU)_ | | | | | |")
+    else:
+        for name in sorted(set(cpu_rep) | set(gpu_rep)):
+            c = cpu_rep.get(name) or {}
+            g = gpu_rep.get(name) or {}
+            gq = g.get(key)
+            gms = g.get("mean_ms")
+            backend = name.split(" (")[0]
+            lines.append(
+                f"| {name} | "
+                f"{'N/A' if cpu_rep.get(name, {}).get(key) is None else format(cpu_rep[name][key], '.3f')} | "
+                f"{'N/A' if gq is None else format(gq, '.3f')} | "
+                f"{'N/A' if c.get('mean_ms') is None else format(c['mean_ms'], '.0f')} | "
+                f"{'N/A' if gms is None else format(gms, '.0f')} | "
+                f"{(_provider_of(gpu_sum or {}, backend)) if name in gpu_rep else 'n/a (no corre en GPU)'} |"
+            )
+    lines += [
+        "",
+        "> El `provider GPU` sale del `provider_effective` real del `summary.json` GPU "
+        "(`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU "
+        "inventadas: lo que no corrió en acelerador se ve como `N/A`.",
+        "",
+    ]
+    return lines
 
 
 def load_run(run: Path) -> tuple[list[dict], dict]:
@@ -197,7 +254,8 @@ def analyze(feature: str, run: Path) -> tuple[dict[str, dict[str, Any]], dict]:
     return report, summary
 
 
-def render_md(feature: str, report: dict[str, dict[str, Any]], summary: dict, run: Path) -> str:
+def render_md(feature: str, report: dict[str, dict[str, Any]], summary: dict, run: Path,
+              gpu: tuple[dict, dict] | None = None) -> str:
     """Markdown del reporte por feature (provenance + comparativa + skipped)."""
     columns = FEATURE_COLUMNS[feature]
     ranked = [c for c in columns if c[3] is not None]
@@ -270,6 +328,9 @@ def render_md(feature: str, report: dict[str, dict[str, Any]], summary: dict, ru
         "CPU nunca se cuenta como GPU.",
         "",
     ]
+    if gpu is not None:
+        gpu_rep, gpu_sum = gpu
+        lines += render_cpu_gpu(feature, report, gpu_rep, gpu_sum)
     return "\n".join(lines)
 
 
@@ -300,7 +361,8 @@ def _ordered_names(report: dict, key: str, higher: bool) -> list[str]:
     return sorted(report, key=rank)
 
 
-def plot_feature(feature: str, report: dict, summary: dict, out: Path) -> None:
+def plot_feature(feature: str, report: dict, summary: dict, out: Path,
+                 gpu_report: dict | None = None) -> None:
     """Resumen de una feature: **calidad** (métrica titular) + **tiempo**, por motor.
 
     Cada barra lleva su valor y su `n`; el `origen` (`medido`/`referencia`) del run
@@ -339,10 +401,32 @@ def plot_feature(feature: str, report: dict, summary: dict, out: Path) -> None:
     axq.set_title(f"Calidad — {label}", fontsize=12, weight="bold")
 
     present_t = [v for v in times if v is not None]
-    bars(axt, times, "#3b6fb0", "{:.0f}")
+    # Series GPU (solo motores que corrieron en acelerador real): misma calidad,
+    # distinto tiempo. Sin datos GPU, la barra GPU simplemente no aparece.
+    gpu_times = [((gpu_report or {}).get(n) or {}).get("mean_ms") for n in names]
+    has_gpu = any(v is not None for v in gpu_times)
+    if has_gpu:
+        w = 0.38
+        offsets_c = [xi - w / 2 for xi in x]
+        offsets_g = [xi + w / 2 for xi in x]
+        bc = axt.bar(offsets_c, [v if v is not None else float("nan") for v in times],
+                     w, color="#3b6fb0", label="CPU")
+        bg = axt.bar(offsets_g, [v if v is not None else float("nan") for v in gpu_times],
+                     w, color="#c0693b", label="GPU (acelerador real)")
+        for bars_, values in ((bc, times), (bg, gpu_times)):
+            for bar, value in zip(bars_, values):
+                if value is None:
+                    continue
+                axt.annotate(f"{value:.0f}",
+                             (bar.get_x() + bar.get_width() / 2, bar.get_height()),
+                             ha="center", va="bottom", fontsize=7.5)
+        axt.legend(loc="upper right", fontsize=8, frameon=False)
+        present_t = present_t + [v for v in gpu_times if v is not None]
+    else:
+        bars(axt, times, "#3b6fb0", "{:.0f}")
     axt.set_ylim(0, (max(present_t) if present_t else 1.0) * 1.28)
     axt.set_ylabel("ms/imagen ↓")
-    axt.set_title("Tiempo — ms/imagen", fontsize=12, weight="bold")
+    axt.set_title("Tiempo — ms/imagen (CPU vs GPU)", fontsize=12, weight="bold")
 
     for ax in (axq, axt):
         ax.set_xticks(x)
@@ -367,10 +451,64 @@ def plot_feature(feature: str, report: dict, summary: dict, out: Path) -> None:
              f"dataset: {dataset} · n por motor: {sorted({c for c in counts if c}) or '?'} · "
              f"run: {run_id} · motores saltados (skipped): {skipped}",
              ha="center", fontsize=8.5, color="#444444")
-    fig.tight_layout(rect=(0, 0.04, 1, 0.95))
+    # rect con mas aire arriba: con `ms` altos (p. ej. layout >2 s) el ultimo tick
+    # del eje de tiempo asoma por encima del area y chocaba con el suptitulo.
+    fig.tight_layout(rect=(0, 0.04, 1, 0.90))
     fig.savefig(out.with_suffix(".png"), dpi=160, bbox_inches="tight", facecolor="white")
     fig.savefig(out.with_suffix(".svg"), bbox_inches="tight", facecolor="white")
     plt.close(fig)
+
+
+def load_gpu(feature: str) -> tuple[dict, dict] | None:
+    """Reporte y summary de la run GPU (`results/_gpu/<feature>/`) más reciente.
+
+    Devuelve `None` si no hay run GPU o si ninguna fila corrió de verdad en un
+    acelerador (honestidad: un fallback CPU no produce columna GPU).
+    """
+    run = latest_run(feature, GPU_RESULTS_DIR)
+    if run is None:
+        return None
+    try:
+        return analyze(feature, run)
+    except SystemExit:
+        return None
+
+
+def consolidated_table(features: Sequence[str]) -> str:
+    """Tabla única CPU vs GPU (para el README): calidad igual, tiempo distinto."""
+    lines = [
+        "# CPU vs GPU por feature — misma calidad, distinto tiempo",
+        "",
+        "> Runs **CPU**: `benchmarks/results/<feature>/` · runs **GPU**: "
+        "`benchmarks/results/_gpu/<feature>/` — mismo banco, mismo dataset y mismo GT "
+        "en ambas. La columna GPU solo lista motores que corrieron en un acelerador "
+        "real (`provider_effective`); el resto queda `N/A` (no corre en GPU / `skipped`). "
+        "`N/A` = no ejecutado, jamás un `0`. En este host el acelerador real de pyocrust "
+        "es **DirectML** (`--device gpu` → `device=auto` → `provider_effective=directml`).",
+        "",
+        "| Feature | Motor (variante) | Calidad (titular) | ms CPU | ms GPU | provider GPU |",
+        "| :--- | :--- | ---: | ---: | ---: | :--- |",
+    ]
+    for feature in features:
+        run = latest_run(feature)
+        if run is None:
+            continue
+        cpu_rep, _ = analyze(feature, run)
+        gpu = load_gpu(feature)
+        gpu_rep, gpu_sum = gpu if gpu else ({}, {})
+        key = TITULAR_METRIC[feature][0]
+        for name in sorted(set(cpu_rep) | set(gpu_rep)):
+            c, g = cpu_rep.get(name) or {}, gpu_rep.get(name) or {}
+            backend = name.split(" (")[0]
+            q = c.get(key) if c.get(key) is not None else g.get(key)
+            lines.append(
+                f"| `{feature}` | {name} | "
+                f"{'N/A' if q is None else format(q, '.3f')} | "
+                f"{'N/A' if c.get('mean_ms') is None else format(c['mean_ms'], '.0f')} | "
+                f"{'N/A' if g.get('mean_ms') is None else format(g['mean_ms'], '.0f')} | "
+                f"{(_provider_of(gpu_sum, backend)) if name in gpu_rep else 'n/a (no corre en GPU)'} |"
+            )
+    return "\n".join(lines) + "\n"
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -380,6 +518,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--run", type=Path, default=None, help="carpeta de la run")
     parser.add_argument("--no-md", action="store_true",
                         help="no reescribir REPORT.md (solo la gráfica REPORT.png/.svg)")
+    parser.add_argument("--no-gpu", action="store_true",
+                        help="no anexar la sección CPU vs GPU (ignora results/_gpu/)")
     args = parser.parse_args(argv)
     features = sorted(FEATURE_COLUMNS) if args.all or not args.feature else [args.feature]
     rc = 0
@@ -390,7 +530,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             rc = 1
             continue
         report, summary = analyze(feature, run)
-        md = render_md(feature, report, summary, run)
+        gpu = None if args.no_gpu else load_gpu(feature)
+        md = render_md(feature, report, summary, run, gpu=gpu)
         print(md)
         if not args.no_md:
             out = FEATURES_DIR / feature / "REPORT.md"
@@ -398,9 +539,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"\n[report] {feature} -> {out}")
         if feature in TITULAR_METRIC:
             out = FEATURES_DIR / feature / "REPORT"
-            plot_feature(feature, report, summary, out)
+            plot_feature(feature, report, summary, out, gpu_report=(gpu[0] if gpu else None))
             print(f"[report] {feature} -> {out}.png (+ .svg)")
         print()
+    if features == sorted(FEATURE_COLUMNS):
+        consolidated = BENCHMARKS_ROOT / "CPU_VS_GPU.md"
+        consolidated.write_text(consolidated_table(features), encoding="utf-8")
+        print(f"[report] tabla consolidada -> {consolidated}")
     return rc
 
 
