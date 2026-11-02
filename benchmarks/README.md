@@ -33,9 +33,11 @@ su `bank.py`. El reporte **por feature** se genera con
 
 ![Resumen de benchmarks por feature](SUMMARY.png)
 
-Tabla consolidada generada por `features/summary.py`: [`SUMMARY.md`](SUMMARY.md).
-(Solo incluye filas `medido`; los valores `referencia` de papers se citan aparte con
-URL dentro de cada `REPORT.md` y **no** entran aquí.)
+Tabla consolidada (9 features) generada por `features/summary.py`: [`SUMMARY.md`](SUMMARY.md).
+Cada panel distingue tres orígenes: **`medido`** (barra verde/azul, ejecutado aquí),
+**`referencia`** (barra rayada: valor de paper con URL en `features/<feature>/REFERENCES.md`)
+y **`pendiente`** (sin datos aún, nunca ceros). Las referencias se muestran marcadas
+porque **no son comparables 1:1** con nuestras métricas (otro dataset/formato).
 
 ### `text` — FUNSD, n=5 (detección + reconocimiento)
 
