@@ -398,6 +398,213 @@ def _tesseract_backend() -> Callable[[Image.Image], OcrOutput]:
     return run
 
 
+# TATR (`table-transformer-structure-recognition`) es la alternativa REAL al
+# `table_structure_recognition` de `pyocrust` en el banco de `table`. Su `config`
+# es `model_type=table-transformer`, así que la clase es `TableTransformer...` y
+# no `DetrForObjectDetection` (aunque comparte arquitectura DETR).
+TATR_MODEL_ID = "microsoft/table-transformer-structure-recognition"
+
+
+def _patch_legacy_timm_feature_index() -> None:
+    """Rellena `index` en `FeatureInfo.get_dicts()` de timm 0.5.4.
+
+    `transformers>=5` exige la clave `index` al envolver un backbone timm
+    (`TimmBackbone.__init__`), pero timm 0.5.4 no la añade (llegó en timm 0.9).
+    Este intérprete tiene timm 0.5.4 **fijado por `pix2tex`**, que importa
+    `timm.models.resnetv2` (eliminado en timm 1.x): subir timm rompería la
+    alternativa de fórmulas. El parche da al dict la posición real del módulo en
+    `feature_info.info`, que es justo lo que hace el timm moderno. Idempotente.
+    """
+    try:
+        from timm.models.features import FeatureInfo  # noqa: PLC0415
+    except ImportError:  # pragma: no cover - entorno sin timm
+        return
+    if getattr(FeatureInfo.get_dicts, "_pyocrust_index_patch", False):
+        return
+    original = FeatureInfo.get_dicts
+
+    def get_dicts(self, keys=None, idx=None):
+        infos = original(self, None, idx)
+        if idx is None:
+            positions = self.out_indices
+        elif isinstance(idx, (tuple, list)):
+            positions = idx
+        else:
+            positions = [idx]
+        for position, info in zip(positions, infos):
+            info.setdefault("index", position)
+        return infos if keys is None else [{k: d[k] for k in keys} for d in infos]
+
+    get_dicts._pyocrust_index_patch = True  # type: ignore[attr-defined]
+    FeatureInfo.get_dicts = get_dicts
+
+
+def _tatr_grid_html(n_rows: int, n_cols: int) -> str:
+    """Gramática HTML de una rejilla `n_rows`×`n_cols` (lo que consume `table_teds`).
+
+    El modelo de estructura no emite texto de celda; `table_teds` compara la
+    secuencia de etiquetas, así que basta `<tr>`/`<td>` por celda.
+    """
+    return "<table>" + "".join(
+        "<tr>" + "<td></td>" * n_cols + "</tr>" for _ in range(n_rows)
+    ) + "</table>"
+
+
+def _tatr_backend() -> Callable[[Image.Image], OcrOutput]:
+    """TATR (`microsoft/table-transformer-structure-recognition`) vía `transformers`.
+
+    Reconstruye la **estructura** de la tabla como una rejilla HTML: las cajas
+    `table row` / `table column header` son filas y las `table column` /
+    `table projected row header` son columnas (mismo reparto que el
+    `objects_to_structures` oficial). Emite la gramática que consume
+    `table_teds` (`<tr>`/`<td>`), sin texto de celda — igual que `pyocrust_table`.
+
+    ponytail: rejilla filas×columnas, sin `rowspan`/`colspan`; `table_teds` compara
+    la SECUENCIA de etiquetas e ignora atributos y texto, así que el span de TATR
+    no cambiaría el TEDS-S. Si algún día se puntúa el TEDS de árbol completo, aquí
+    entra el `objects_to_structures` + `structure_to_cells` oficiales.
+    """
+    try:
+        import torch  # noqa: PLC0415 - import tardío (carga pesada)
+        from transformers import AutoImageProcessor, TableTransformerForObjectDetection  # noqa: PLC0415
+    except ImportError as exc:
+        raise ProviderUnavailable("pip install transformers torch (TATR)") from exc
+
+    image_processor = AutoImageProcessor.from_pretrained(TATR_MODEL_ID)
+    _patch_legacy_timm_feature_index()
+    model = TableTransformerForObjectDetection.from_pretrained(TATR_MODEL_ID)
+    model.eval()
+    id2label = {int(key): str(value) for key, value in model.config.id2label.items()}
+    row_labels = frozenset({"table row", "table column header"})
+    col_labels = frozenset({"table column", "table projected row header"})
+
+    def run(image: Image.Image) -> OcrOutput:
+        # El preprocesado (resize/normalize) va **fuera** del cronómetro, igual que
+        # el re-encode PNG del resto de adaptadores (fairness, B4/D12).
+        inputs = image_processor(images=image, return_tensors="pt")
+        start = time.perf_counter()
+        with torch.no_grad():
+            outputs = model(**inputs)
+        # El post-proceso es parte de la salida del motor (como el decode interno
+        # de rapidocr/easyocr): también dentro del cronómetro.
+        results = image_processor.post_process_object_detection(
+            outputs, threshold=0.5, target_sizes=torch.tensor([image.size[::-1]])
+        )[0]
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+
+        labels = [id2label[int(label)] for label in results["labels"]]
+        n_rows = sum(label in row_labels for label in labels)
+        n_cols = sum(label in col_labels for label in labels)
+        html = _tatr_grid_html(n_rows, n_cols)
+        scores = [float(score) for score in results["scores"]]
+        return OcrOutput(
+            text=html,
+            n_regions=len(labels),
+            mean_confidence=(sum(scores) / len(scores)) if scores else 0.0,
+            elapsed_ms=elapsed_ms,
+            extra={
+                "engine": "table-transformer",
+                "model": TATR_MODEL_ID,
+                "labels": labels,
+                "boxes": [[float(v) for v in box] for box in results["boxes"]],
+            },
+        )
+
+    return run
+
+
+# ---------------------------------------------------------------------------
+# Alternativas reales de `layout` (`transformers`): RT-DETR / Deformable-DETR
+# ---------------------------------------------------------------------------
+# Detectores de layout de documentos publicados en HF: `docling-layout-heron-101`
+# (RT-DETR v2) y `deformable-detr-DocLayNet` (Deformable-DETR). Comparten el
+# vocabulario DocLayNet (`Caption/Footnote/Formula/List-item/Page-footer/`
+# `Page-header/Picture/Section-header/Table/Text/Title`); heron-101 anade 6 mas.
+# El vocabulario de `pyocrust` (`common.datasets.LAYOUT_MODEL_TO_GT`) solo tiene
+# equivalencia para una parte: las clases sin equivalencia (List-item, Code,
+# Form, Checkbox-*, Document Index, Key-Value Region) **no se emiten**, asi que
+# no entran ni a favor ni en contra (regla del banco).
+LAYOUT_DOCLAYNET_LABEL_TO_MODEL = {
+    "text": "text",
+    "title": "doc_title",
+    "section-header": "paragraph_title",
+    "formula": "display_formula",
+    "table": "table",
+    "picture": "image",
+    "caption": "figure_title",
+    "page-header": "header",
+    "page-footer": "footer",
+    "footnote": "footnote",
+}
+
+# Backend -> `model_id` de HF (pesos en la cache HF local; ruta **offline**).
+LAYOUT_HF_MODELS = {
+    "docling_heron_101": "docling-project/docling-layout-heron-101",
+    "deformable_detr": "Aryn/deformable-detr-DocLayNet",
+}
+
+
+def _hf_layout_backend(model_id: str, threshold: float = 0.5) -> Callable[[Image.Image], OcrOutput]:
+    """Detector de layout de `transformers` (RT-DETR / Deformable-DETR) -> `elements`.
+
+    Carga **offline** (`local_files_only=True`): si los pesos no estan en la cache
+    HF (`HF_HOME`) el backend queda `skipped` con motivo honesto, en vez de
+    descargar en mitad del banco. Emite `extra["elements"]` en el vocabulario que
+    consume `score_layout` (`element_type`, `score`, `bbox` = 4 puntos).
+
+    ponytail: `AutoImageProcessor` + `AutoModelForObjectDetection` cubren las
+    arquitecturas del card; otro detector entra como una linea mas en
+    `LAYOUT_HF_MODELS`, sin duplicar el adaptador.
+    """
+    try:
+        import torch  # noqa: PLC0415 - import tardio (carga pesada)
+        from transformers import AutoImageProcessor, AutoModelForObjectDetection  # noqa: PLC0415
+    except ImportError as exc:
+        raise ProviderUnavailable("pip install transformers torch (detectores de layout)") from exc
+
+    try:
+        image_processor = AutoImageProcessor.from_pretrained(model_id, local_files_only=True)
+        model = AutoModelForObjectDetection.from_pretrained(model_id, local_files_only=True)
+    except Exception as exc:  # noqa: BLE001 - pesos no cacheados: es un `skipped`, no un OCR malo
+        raise ProviderUnavailable(
+            f"pesos de {model_id} no estan en la cache HF local ({type(exc).__name__}: {exc})"
+        ) from exc
+    model.eval()
+    id2label = {int(key): str(value) for key, value in model.config.id2label.items()}
+
+    def run(image: Image.Image) -> OcrOutput:
+        # El preprocesado va **fuera** del cronometro, simetrico con TATR (B4/D12).
+        inputs = image_processor(images=image, return_tensors="pt")
+        start = time.perf_counter()
+        with torch.no_grad():
+            outputs = model(**inputs)
+        # El post-proceso es parte de la salida del motor (como el decode de
+        # rapidocr/easyocr): tambien dentro del cronometro.
+        results = image_processor.post_process_object_detection(
+            outputs, threshold=threshold, target_sizes=torch.tensor([image.size[::-1]])
+        )[0]
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+        elements: list[dict] = []
+        boxes: list[list[float]] = []
+        for label, score, box in zip(results["labels"], results["scores"], results["boxes"]):
+            element_type = LAYOUT_DOCLAYNET_LABEL_TO_MODEL.get(id2label[int(label)].strip().lower())
+            if element_type is None:
+                continue  # clase sin equivalencia declarada: fuera de la metrica
+            x1, y1, x2, y2 = (float(v) for v in box)
+            elements.append({
+                "element_type": element_type,
+                "score": float(score),
+                "bbox": [[x1, y1], [x2, y1], [x2, y2], [x1, y2]],
+            })
+            boxes.append([x1, y1, x2, y2])
+        return OcrOutput(
+            text="", n_regions=len(elements), elapsed_ms=elapsed_ms,
+            extra={"engine": "transformers", "model": model_id, "elements": elements, "boxes": boxes},
+        )
+
+    return run
+
+
 def _predictor_output(task: str, result: dict, elapsed_ms: float) -> OcrOutput:
     """`dict` devuelto por una tarea de `TaskPredictor` -> `OcrOutput` común.
 
@@ -480,6 +687,9 @@ PROVIDERS: dict[str, Callable[..., Callable[[Image.Image], OcrOutput]]] = {
     "rapidocr": _rapidocr_backend,
     "easyocr": _easyocr_backend,
     "tesseract": _tesseract_backend,
+    # Alternativa real al `table_structure_recognition` de `pyocrust` en el banco
+    # de `table`: TATR vía `transformers` (solo CPU; `--device gpu` -> `skipped`).
+    "tatr": _tatr_backend,
 }
 
 
@@ -507,7 +717,9 @@ TASK_TYPES = {"pyocrust_structure": "structure", "pyocrust_formula": "formula", 
               # Tareas sueltas: su `task_type` es el nombre de su banco de feature.
               "pyocrust_layout": "layout", "pyocrust_table": "table",
               "pyocrust_orientation": "orientation", "pyocrust_textline": "text_line",
-              "pyocrust_rectify": "rectification"}
+              "pyocrust_rectify": "rectification",
+              # Alternativa real de `table` (TATR): estructura de tabla, mismo GT.
+              "tatr": "table"}
 MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"), "pyocrust_structure": ("pp_structurev3", "default"),
                "pyocrust_formula": ("pp_structurev3", "pp-formulanet-s"), "pyocrust_formulanet": ("pp-formulanet-s", "direct"),
                "pyocrust_formulanet_l": ("pp-formulanet-l", "direct"),
@@ -519,7 +731,9 @@ MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"), "pyocrust_structure": ("pp_stru
                "pyocrust_table": ("slanet_plus", "default"),
                "pyocrust_orientation": ("pp-lcnet_x1_0_doc_ori", "default"),
                "pyocrust_textline": ("pp-lcnet_x1_0_textline_ori", "default"),
-               "pyocrust_rectify": ("uvdoc", "default")}
+               "pyocrust_rectify": ("uvdoc", "default"),
+               # Alternativa real de `table` (TATR, `transformers`).
+               "tatr": ("table-transformer-structure-recognition", "default")}
 # Banco de feature al que pertenece cada backend conocido (columna `feature`).
 FEATURE_TYPES = {"pyocrust_structure": "full_page", "pyocrust_indra": "full_page",
                  "pyocrust_formula": "formula", "pyocrust_formulanet": "formula",
@@ -527,7 +741,9 @@ FEATURE_TYPES = {"pyocrust_structure": "full_page", "pyocrust_indra": "full_page
                  "pyocrust_formulanet_plusm": "formula", "pyocrust_formulanet_plusl": "formula",
                  "pyocrust_layout": "layout", "pyocrust_table": "table",
                  "pyocrust_orientation": "orientation", "pyocrust_textline": "text_line",
-                 "pyocrust_rectify": "rectification"}
+                 "pyocrust_rectify": "rectification",
+                 # Alternativa real del banco `table` (TATR, `transformers`).
+                 "tatr": "table"}
 
 
 def run_benchmark(

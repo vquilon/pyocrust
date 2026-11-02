@@ -4,17 +4,18 @@
 
 ## Provenance
 
-- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/table/bank.py --limit 8 --device cpu`
+- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/table/bank.py --limit 8 --backends pyocrust_table,tatr`
 - **dataset**: `omnidocbench_table` · **n** (por motor): `8` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **seed**: no aplica (banco determinista, sin aleatoriedad)
-- **run**: `benchmarks/results/table/2026-11-02_12-57-49` · **fecha**: `2026-11-02_12-57-49`
-- **runtime**: {'python': '3.14.9', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0'}
+- **run**: `benchmarks/results/table/2026-11-02_15-33-31` · **fecha**: `2026-11-02_15-33-31`
+- **runtime**: {'python': '3.14.9', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['directml']}
 
 ## Comparativa (media por motor)
 
 | Motor (variante) | n | TEDS estrut. ↑ | ms/tabla ↓ |
 | :--- | ---: | ---: | ---: |
-| pyocrust_table (default) | 8 | 0.885 | 693 |
+| pyocrust_table (default) | 8 | **0.885** | 1001 |
+| tatr (default) | 8 | 0.737 | **219** |
 
 > En negrita, el mejor de cada métrica entre los motores **medidos** de `table`. `N/A` = no evaluada (sin GT de esa columna), nunca un `0.0` inventado.
 
