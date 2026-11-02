@@ -25,19 +25,28 @@ use crate::core::{
     types::{BoundingBox, ModelPaths, ModelSpec, OcrOutput, OcrResult, OcrSize, TextRegion},
     OcrEngineBackend,
 };
+use oar_ocr::core::config::OrtSessionConfig;
 
 /// Función de fábrica para crear un motor de texto.
 ///
+/// `ort_session` fija el execution provider del pipeline (vía
+/// `core::device::resolve_device`); el default de la API Python es CPU.
 /// Uso típico:
 /// ```rust
 /// use pyocrust::engines::create_oar_text_engine;
 /// use pyocrust::core::types::{ModelPaths, ModelSpec};
-/// 
+/// use oar_ocr::core::config::OrtSessionConfig;
+///
 /// let paths = ModelPaths::new(&Path::new("/models"), &ModelSpec::PpOcrV6(crate::core::OcrSize::Tiny));
-/// let engine = create_oar_text_engine(&paths)?;
+/// let engine = create_oar_text_engine(&paths, OrtSessionConfig::new())?;
 /// ```
-pub fn create_oar_text_engine(paths: &ModelPaths) -> Result<OarTextEngine, OcrError> {
-    OarTextEngine::new_with_model(paths)
+pub fn create_oar_text_engine(
+    paths: &ModelPaths,
+    ort_session: OrtSessionConfig,
+) -> Result<OarTextEngine, OcrError> {
+    let mut engine = OarTextEngine::new().with_ort_session(ort_session);
+    engine.load_model(paths)?;
+    Ok(engine)
 }
 
 /// Backend OAR para texto (PP-OCRv6).
@@ -48,12 +57,22 @@ pub fn create_oar_text_engine(paths: &ModelPaths) -> Result<OarTextEngine, OcrEr
 #[derive(Debug)]
 pub struct OarTextEngine {
     pipeline: Option<Arc<oar_ocr::oarocr::OAROCR>>,
+    ort_session: Option<OrtSessionConfig>,
 }
 
 impl OarTextEngine {
     /// Crea un backend sin modelo cargado.
     pub fn new() -> Self {
-        Self { pipeline: None }
+        Self {
+            pipeline: None,
+            ort_session: None,
+        }
+    }
+
+    /// Fija el execution provider que aplicará `load_model` (opt-in).
+    pub fn with_ort_session(mut self, config: OrtSessionConfig) -> Self {
+        self.ort_session = Some(config);
+        self
     }
 
     /// Crea un backend y carga el modelo en una sola operación.
@@ -117,6 +136,11 @@ impl OcrEngineBackend for OarTextEngine {
             char_dict,
         )
         .text_detection_config(detection_config);
+
+        let builder = match &self.ort_session {
+            Some(ort_session) => builder.ort_session(ort_session.clone()),
+            None => builder,
+        };
 
         let pipeline = builder.build().map_err(|e| OcrError::ModelLoad {
             model_path: paths.detection_model.display().to_string(),

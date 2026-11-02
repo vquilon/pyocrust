@@ -47,6 +47,15 @@ needs the NVIDIA driver plus the CUDA/cuDNN runtime at the destination. GPU
 execution is **not validated** in this project yet (see
 `IMPLEMENTATION_AUDIT.md`); the CPU distributions remain the verified path.
 
+> [!WARNING]
+> Wheels are published only for **Linux `x86_64`/`aarch64` (glibc), Windows
+> `x86_64` and macOS `aarch64` (Apple Silicon)**. **Windows `i686` (32-bit) and
+> macOS `x86_64` (Intel) are not supported**, and no source distribution is
+> published either: on those platforms `pip install pyocrust` fails with *No
+> matching distribution found*, and compiling from source does not help —
+> `oar-ocr` builds with its default `download-binaries` feature and the ONNX
+> Runtime binary catalog published by `ort-sys` ships no binaries for them.
+
 ## Quick start
 
 ```python
