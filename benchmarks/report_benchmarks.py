@@ -483,7 +483,7 @@ def plot_speed(report: dict[str, dict[str, Any]], out: Path) -> None:
     _readable_xticks(ax, backends)
     ax.set_ylabel("ms por página")
     ax2.set_ylabel("páginas por segundo")
-    ax.set_title("Velocidad de OCR (provider efectivo no instrumentado)", fontsize=12, weight="bold")
+    ax.set_title("Velocidad de OCR (CPU; provider efectivo por fila en el CSV)", fontsize=12, weight="bold")
     handles = [bars, bars2]
     # leyenda fuera del área de plot, a la derecha: no tapa barras
     ax.legend(handles=handles, labels=[h.get_label() for h in handles],
