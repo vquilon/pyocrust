@@ -474,7 +474,7 @@ componentes de `oar-ocr`): cada capacidad tiene su banco, su métrica y alternat
 reales en Python. Mide **8 de las 9 features**; cada número es `medido` (ejecutado
 aquí) o `referencia` (citado de un paper con URL) — nunca mezclados sin etiquetar.
 
-![Resumen de benchmarks por feature](benchmarks/SUMMARY.png)
+![Resumen de benchmarks por feature](https://raw.githubusercontent.com/vquilon/pyocrust/main/benchmarks/SUMMARY.png)
 
 | Feature | Métrica titular ↑ | pyocrust (medido) | Mejor alternativa medida | Estado |
 | :--- | :--- | ---: | :--- | :--- |

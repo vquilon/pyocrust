@@ -41,6 +41,12 @@ FEATURES = [
 
 REF_URL = re.compile(r"\[ref:\s*(https?://[^\]]+)\]")
 
+# Features cuya referencia externa usa una MÉTRICA distinta a la nuestra (y por tanto
+# no es comparable ni en sentido): se avisa en el panel y en el markdown.
+REF_NOTE = {
+    "rectification": "ref = CER↓ (otra métrica; no comparable con SSIM↑)",
+}
+
 
 def _clean(cell: str) -> str:
     return cell.strip().replace("**", "").replace("`", "")
@@ -117,19 +123,24 @@ def parse_references(feature: str) -> tuple[dict[str, float], str, str]:
                 vi = next((i for i, h in enumerate(header) if "↑" in h), None)
             if vi is not None:
                 metric = header[mi] if mi is not None else header[vi]
+                ui = next((i for i, h in enumerate(header) if h.lower().startswith("fuente")), None)
                 out: dict[str, float] = {}
+                urls: dict[str, str] = {}
                 for cells in rows:
                     if vi < len(cells):
                         v = _num(cells[vi])
                         if v is not None:
                             out[cells[0]] = v
+                            if ui is not None and ui < len(cells):
+                                m2 = REF_URL.search(cells[ui])
+                                urls[cells[0]] = m2.group(1) if m2 else url
                 if out:
-                    return out, metric, url
+                    return out, metric, urls
 
     # fallback: sección de referencias dentro del REPORT.md
     rep = BENCH / "features" / feature / "REPORT.md"
     if not rep.exists():
-        return {}, "", url if 'url' in dir() else ""
+        return {}, "", {}
     text = rep.read_text(encoding="utf-8")
     m = REF_URL.search(text)
     url = m.group(1) if m else ""
@@ -137,13 +148,13 @@ def parse_references(feature: str) -> tuple[dict[str, float], str, str]:
     i = next((i for i, ln in enumerate(lines)
               if ln.strip().lower().startswith("## referencias externas")), None)
     if i is None:
-        return {}, "", url
+        return {}, "", {}
     header, rows = _rows_from(lines, i + 1)
     if not header or not rows:
-        return {}, "", url
+        return {}, "", {}
     col = next((k for k in header if "↑" in k), None)
     if col is None:
-        return {}, "", url
+        return {}, "", {}
     idx = header.index(col)
     out = {}
     for cells in rows:
@@ -151,7 +162,7 @@ def parse_references(feature: str) -> tuple[dict[str, float], str, str]:
             v = _num(cells[idx])
             if v is not None:
                 out[cells[0]] = v
-    return out, col, url
+    return out, col, {n: url for n in out}
 
 
 def _panel(ax, measured, refs, title):
@@ -208,17 +219,21 @@ def main() -> int:
 
     for k, (feature, titular, title) in enumerate(FEATURES):
         measured = parse_measured(feature, titular)
-        refs, metric, url = parse_references(feature)
-        _panel(axes[k], measured, refs, title)
+        refs, metric, ref_urls = parse_references(feature)
+        nota = REF_NOTE.get(feature)
+        _panel(axes[k], measured, refs, f"{title}\n({nota})" if nota else title)
         status = "medido" if measured else ("referencia" if refs else "pendiente")
         md += [f"## {title} — `{status}`", ""]
+        if nota:
+            md += [f"> ⚠️ **{nota}**", ""]
         if measured or refs:
             md += ["| Motor | Valor | Origen |", "| :--- | ---: | :--- |"]
             for nm, v in sorted(measured.items(), key=lambda p: -p[1]):
                 mark = "**" if "pyocrust" in nm else ""
                 md.append(f"| {mark}{nm}{mark} | {v:.3f} | medido |")
             for nm, v in sorted(refs.items(), key=lambda p: -p[1]):
-                md.append(f"| {nm} | {v:.3f} | referencia [ref: {url or 'ver REFERENCES.md'}] |")
+                src = ref_urls.get(nm, "") or "ver REFERENCES.md"
+                md.append(f"| {nm} | {v:.3f} | referencia [ref: {src}] |")
         else:
             md.append("_Sin datos ni referencia todavía._")
         md.append("")
