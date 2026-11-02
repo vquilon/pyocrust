@@ -122,5 +122,16 @@ motivo. No hay ninguna fila `ok` con `provider_effective=cpu` bajo device GPU.
 ```
 
 Con el build CUDA (que no registra en este host), `--device gpu` sale **todo
-`skipped`** con su motivo: **no** aparecería ninguna fila `ok` con
-`provider_effective=cpu` bajo un device GPU.
+`skipped`** — comprobado de extremo a extremo:
+
+```
+$ .venv/Scripts/python.exe -m maturin develop --features cuda      # EXIT=0
+$ .venv/Scripts/python.exe benchmarks/features/text/bank.py --limit 3 --device gpu --backends pyocrust
+[run] pyocrust ...
+  skipped: device=gpu pedido pero el motor corre en 'cpu' (sin acelerador confirmado;
+  available_providers()=[]); se niega a etiquetar CPU como GPU
+# CSV: 1 línea (solo cabecera, 0 filas `ok`)
+```
+
+Es decir, **nunca** aparece una fila `ok` con `provider_effective=cpu` bajo un
+device GPU.
