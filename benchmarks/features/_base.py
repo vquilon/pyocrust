@@ -7,11 +7,11 @@ Cada feature tiene su carpeta con:
 * `bank.py`   — el banco. Expone `SPEC` (un `FeatureSpec`) y `main(argv)`.
 
 Los bancos ya implementados (`text`, `formula`, `layout`, `table`, `full_page`,
-`orientation`, `text_line`, `rectification`) cargan un dataset con GT —o generan
-uno sintético determinista— y ejecutan `common.runner.run_backends` con la métrica
-de su feature. El que sigue siendo **esqueleto documentado** (sin dataset GT
-público local) expone su `SPEC` y `run_skeleton` imprime el plan y qué
-alternativas están disponibles, sin inventar números.
+`orientation`, `text_line`, `rectification`, `seal`) cargan un dataset con GT —o
+generan uno sintético determinista— y ejecutan `common.runner.run_backends` con la
+métrica de su feature. `run_skeleton` sigue disponible para cualquier feature sin
+dataset GT que se documente en el futuro, pero hoy no queda ninguna: `seal` pasó a
+medido con un set **sintético** (sello pegado en posición conocida).
 """
 
 from __future__ import annotations
@@ -125,11 +125,11 @@ def run_skeleton(spec: FeatureSpec, argv: Sequence[str] | None = None) -> int:
 FEATURES_DIR = Path(__file__).resolve().parent
 IMPLEMENTED_FEATURES = (
     "text", "formula", "layout", "table", "full_page", "orientation",
-    "text_line", "rectification",
+    "text_line", "rectification", "seal",
 )
-# Solo `seal` sigue siendo esqueleto: no hay set con sellos anotados y no se
-# inventa GT (la detección de sellos de `pyocrust` sí existe como tarea).
-SKELETON_FEATURES = ("seal",)
+# Ninguna feature sigue siendo esqueleto: `seal` pasa a medido con un set
+# **sintetico** determinista (no hay anotacion humana de sellos local).
+SKELETON_FEATURES = ()
 
 
 def all_feature_dirs() -> list[str]:

@@ -599,6 +599,84 @@ def _perspective_warp(image: Image.Image) -> Image.Image:
 
 
 # ---------------------------------------------------------------------------
+# GT sintetico determinista para `seal` (sello pegado sobre documento blanco)
+# ---------------------------------------------------------------------------
+# No hay set publico local con sellos anotados (OmniDocBench v1.6 no anota
+# `category_type=seal`; verificado sobre la anotacion cacheada). El GT de `seal`
+# es **barato y determinista**: se pega un sello (tampon) en una posicion conocida
+# de un documento blanco y la caja GT es el rectangulo del sello pegado. Es un set
+# **SINTETICO** y asi se declara en el provenance del banco — no es anotacion
+# humana de sellos reales.
+
+SEAL_DOC_SIZE = (1000, 960)
+SEAL_STAMP_SIZE = (420, 160)
+SEAL_TEXTS = ("SELLO OFICIAL", "AYUNTAMIENTO", "REGISTRO CIVIL", "NOTARIA",
+              "MINISTERIO", "CERTIFICADO", "COLEGIO OFICIAL", "SECRETARIA")
+# Posiciones deterministas (esquina superior izquierda del sello) dentro del doc.
+SEAL_POSITIONS = ((120, 140), (500, 260), (180, 640), (520, 720),
+                  (300, 380), (140, 300), (560, 120), (260, 760))
+
+
+def _seal_font(size: int):
+    """Fuente determinista para el texto del sello (truetype del sistema si hay)."""
+    from PIL import ImageFont
+
+    for name in ("arial.ttf", "DejaVuSans.ttf", "LiberationSans-Regular.ttf"):
+        try:
+            return ImageFont.truetype(name, size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
+
+def _draw_seal_stamp(text: str) -> Image.Image:
+    """Tampon sintetico: doble borde rojo redondeado + texto centrado en rojo.
+
+    El dibujo es determinista (mismas medidas, misma fuente); la caja GT del banco
+    es el rectangulo del sello pegado, **independiente** de la fuente.
+    """
+    from PIL import ImageDraw
+
+    width, height = SEAL_STAMP_SIZE
+    stamp = Image.new("RGB", (width, height), "white")
+    draw = ImageDraw.Draw(stamp)
+    draw.rounded_rectangle((3, 3, width - 4, height - 4), radius=16,
+                           outline=(200, 30, 30), width=7)
+    draw.rounded_rectangle((15, 15, width - 16, height - 16), radius=12,
+                           outline=(200, 30, 30), width=2)
+    font = _seal_font(52)
+    try:
+        draw.text((width / 2, height / 2), text, font=font, fill=(200, 30, 30), anchor="mm")
+    except ValueError:  # pragma: no cover - fuente bitmap sin `anchor`
+        draw.text((width / 4, height / 2 - 26), text, font=font, fill=(200, 30, 30))
+    return stamp
+
+
+def load_synthetic_seal(limit: int | None = None, cache_dir: Path | None = None) -> list[Sample]:
+    """Sellos **sinteticos** pegados en posicion conocida; GT = caja del sello.
+
+    Set determinista y declarado **sintetico** (no hay anotacion humana de sellos
+    local). La caja GT es el rectangulo del tampon pegado, que es lo que el detector
+    de sellos (`seal_text_detection`) debe localizar.
+    """
+    count = limit if limit is not None else len(SEAL_TEXTS)
+    samples: list[Sample] = []
+    for i in range(count):
+        text = SEAL_TEXTS[i % len(SEAL_TEXTS)]
+        x, y = SEAL_POSITIONS[i % len(SEAL_POSITIONS)]
+        document = Image.new("RGB", SEAL_DOC_SIZE, "white")
+        stamp = _draw_seal_stamp(text)
+        document.paste(stamp, (x, y))
+        width, height = SEAL_STAMP_SIZE
+        samples.append(Sample(
+            image_id=f"synthetic_seal::{i:02d}::{x},{y}",
+            image=document, gt_text="",
+            gt_boxes=((float(x), float(y), float(x + width), float(y + height)),),
+        ))
+    return samples
+
+
+# ---------------------------------------------------------------------------
 # Registro de datasets por nombre (cada feature declara el suyo)
 # ---------------------------------------------------------------------------
 
@@ -614,6 +692,8 @@ DATASETS = {
     "synthetic_orientation": lambda limit, split, cache: load_synthetic_orientation(limit=limit, cache_dir=cache),
     "synthetic_text_line": lambda limit, split, cache: load_synthetic_text_line(limit=limit, cache_dir=cache),
     "synthetic_rectification": lambda limit, split, cache: load_synthetic_rectification(limit=limit, cache_dir=cache),
+    # Sello sintetico determinista (tampon pegado en documento blanco; GT = caja).
+    "synthetic_seal": lambda limit, split, cache: load_synthetic_seal(limit=limit, cache_dir=cache),
 }
 
 
@@ -673,9 +753,16 @@ def _self_check() -> None:
     expected_datasets = {
         "funsd", "omnidocbench", "omnidocbench_formula", "omnidocbench_layout",
         "omnidocbench_table", "omnidocbench_full_page", "synthetic_orientation",
-        "synthetic_text_line", "synthetic_rectification",
+        "synthetic_text_line", "synthetic_rectification", "synthetic_seal",
     }
     assert expected_datasets <= set(DATASETS), sorted(expected_datasets - set(DATASETS))
+    # Sello sintetico: la caja GT es el rectangulo del sello pegado (determinista).
+    seals = load_synthetic_seal(limit=2)
+    assert [s.gt_boxes for s in seals] == [
+        ((120.0, 140.0, 540.0, 300.0),),
+        ((500.0, 260.0, 920.0, 420.0),),
+    ], [s.gt_boxes for s in seals]
+    assert seals[0].image.size == SEAL_DOC_SIZE
     print("common.datasets self-check OK")
 
 

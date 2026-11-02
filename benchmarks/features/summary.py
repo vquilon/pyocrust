@@ -34,7 +34,7 @@ FEATURES = [
     ("orientation", "accuracy", "orientation"),
     ("rectification", "SSIM", "rectification"),
     ("text_line", "accuracy", "text_line"),
-    ("seal", None, "seal"),
+    ("seal", "recall@IoU 0.5", "seal — sintético"),
     ("table", "TEDS", "table — PubTabNet"),
     ("full_page", "Markdown F1", "full_page — OmniDocBench"),
 ]

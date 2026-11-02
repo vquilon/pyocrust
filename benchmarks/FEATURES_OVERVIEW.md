@@ -40,14 +40,14 @@
 | **orientation** | medido | · | · | · | · | · | · | ● | · | · | · | · | · |
 | **rectification** | medido | · | · | · | · | · | · | · | · | ● | · | · | · |
 | **text_line** | medido | · | · | · | · | · | · | · | ● | · | · | · | · |
-| **seal** | esqueleto | · | · | · | · | · | · | · | · | · | ● | · | · |
+| **seal** | medido | · | · | · | · | · | · | · | · | · | ● | · | · |
 | **formula** | medido | · | · | · | · | · | · | · | · | · | · | ● | · |
 | **table** | medido | · | · | · | ● | ● | ● | · | · | · | · | · | · |
 | **full_page** | medido | ● | ● | ● | ● | ● | ● | · | · | · | · | ● | ● |
 
 ## Provenance (sin mezclar orígenes)
 
-- **`medido`** (8): `text`, `layout`, `orientation`, `rectification`, `text_line`, `formula`, `table`, `full_page`.
-- **`esqueleto`** (1): `seal` — banco y README documentados, sin cifras.
+- **`medido`** (9): `text`, `layout`, `orientation`, `rectification`, `text_line`, `seal`, `formula`, `table`, `full_page`.
+- **`esqueleto`** (0):  — banco y README documentados, sin cifras.
 - **`referencia`**:  citan tablas externas **con URL** en su `REPORT.md` (no comparables 1:1).
 

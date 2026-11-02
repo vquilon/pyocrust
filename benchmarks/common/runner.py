@@ -845,6 +845,7 @@ PROVIDERS: dict[str, Callable[..., Callable[[Image.Image], OcrOutput]]] = {
     "pyocrust_orientation": lambda device="cpu": _task_predictor_backend("document_orientation", device=device),
     "pyocrust_textline": lambda device="cpu": _task_predictor_backend("text_line_orientation", device=device),
     "pyocrust_rectify": lambda device="cpu": _task_predictor_backend("document_rectification", device=device),
+    "pyocrust_seal": lambda device="cpu": _task_predictor_backend("seal_text_detection", device=device),
     # Alternativas reales de orientation/text_line/rectification (`onnxruntime`
     # sobre los MISMO pesos de PaddleOCR que usa `pyocrust`; solo CPU).
     "lcnet_doc_ori": lambda: _lcnet_classify_backend("lcnet_doc_ori", ["0", "90", "180", "270"], (224, 224), 256),
@@ -889,7 +890,7 @@ TASK_TYPES = {"pyocrust_structure": "structure", "pyocrust_formula": "formula", 
               # Alternativas reales de `layout` (transformers): mismo task_type.
               "docling_heron_101": "layout", "deformable_detr": "layout",
               "pyocrust_orientation": "orientation", "pyocrust_textline": "text_line",
-              "pyocrust_rectify": "rectification",
+              "pyocrust_rectify": "rectification", "pyocrust_seal": "seal",
               # Alternativas reales de esas tareas (`onnxruntime`): mismo task_type.
               "lcnet_doc_ori": "orientation", "lcnet_textline_ori": "text_line",
               "uvdoc": "rectification",
@@ -910,6 +911,7 @@ MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"), "pyocrust_structure": ("pp_stru
                "pyocrust_orientation": ("pp-lcnet_x1_0_doc_ori", "default"),
                "pyocrust_textline": ("pp-lcnet_x1_0_textline_ori", "default"),
                "pyocrust_rectify": ("uvdoc", "default"),
+               "pyocrust_seal": ("pp-ocrv4_mobile_seal_det", "default"),
                # Alternativas reales (PaddleOCR via onnxruntime): mismo peso, otro runtime.
                "lcnet_doc_ori": ("pp-lcnet_x1_0_doc_ori", "onnxruntime"),
                "lcnet_textline_ori": ("pp-lcnet_x1_0_textline_ori", "onnxruntime"),
@@ -925,7 +927,7 @@ FEATURE_TYPES = {"pyocrust_structure": "full_page", "pyocrust_indra": "full_page
                  # Alternativas reales de `layout` (transformers): mismo banco.
                  "docling_heron_101": "layout", "deformable_detr": "layout",
                  "pyocrust_orientation": "orientation", "pyocrust_textline": "text_line",
-                 "pyocrust_rectify": "rectification",
+                 "pyocrust_rectify": "rectification", "pyocrust_seal": "seal",
                  # Alternativas reales de esas tareas (`onnxruntime`): mismo banco.
                  "lcnet_doc_ori": "orientation", "lcnet_textline_ori": "text_line",
                  "uvdoc": "rectification",

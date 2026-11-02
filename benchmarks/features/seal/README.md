@@ -1,38 +1,53 @@
-# Feature `seal` — banco de benchmark (esqueleto)
+# Feature `seal` — banco de benchmark
 
-> Origen de los números: **sin valores numéricos (esqueleto)**.
+> Origen de los números: **`medido`** por este banco (ejecutado en este repo).
 
 ## Qué mide
 
-Detección de texto dentro de sellos (tampones) superpuestos al documento.
+Detección de **regiones de sello** (tampones) superpuestas al documento.
 
 ## Tarea `pyocrust`
 
-`seal_text_detection` (`TaskPredictor`).
+`seal_text_detection` (`TaskPredictor`; PP-OCRv4 mobile seal det).
 
 ## Métrica
 
-**IoU / detección**: precision@IoU de las cajas de sello.
+**Cajas**: `box_recall` = recall@IoU 0.5 de las cajas de sello, `box_iou_mean` =
+IoU medio del mejor candidato por caja GT. Son las métricas de cajas compartidas
+(`common/metrics.py::box_metrics`), que el runner ya calcula cuando la muestra
+anota `gt_boxes`; el banco no duplica un scorer de IoU.
 
 ## Dataset / ground truth
 
-No hay dataset local con GT de sellos. Requiere un set con sellos anotados; no se
-inventa GT.
+**`synthetic_seal` — GT SINTÉTICO determinista.** No hay set público local con
+sellos anotados: OmniDocBench v1.6 **no** anota `category_type=seal` (verificado
+sobre la anotación cacheada en `benchmarks/data_cache`). El banco **genera**
+documentos blancos con un tampón (doble borde rojo + texto) pegado en una posición
+conocida; la caja GT es el rectángulo del sello pegado. El set se declara
+**sintético** aquí y en el `provenance` del banco: **no** es anotación humana de
+sellos reales.
 
 ## Alternativas Python reales (a comparar)
 
-| Alternativa | Módulo / `pip install` |
-| :--- | :--- |
-| paddleocr (seal) | `paddleocr paddlepaddle` |
-| doctrl | `doctrl` |
+| Alternativa | Módulo / `pip install` | Estado |
+| :--- | :--- | :--- |
+| paddleocr (seal) | `paddleocr paddlepaddle` | no integrada (queda `skipped`) |
+| doctrl | `doctrl` | no integrada (queda `skipped`) |
+
+## Uso
+
+```
+.venv/Scripts/python.exe benchmarks/features/seal/bank.py --limit 8 --backends pyocrust_seal
+.venv/Scripts/python.exe benchmarks/features/report.py --feature seal
+```
 
 ## Estado
 
-Esqueleto **documentado**: declara tarea, métrica y alternativas, pero **no**
-ejecuta motores ni publica cifras mientras no haya GT local.
+**Implementado** y medido sobre el set sintético determinista.
 
 ## Provenance
 
-Sin valores numéricos publicados. Cuando este banco se implemente, cada cifra irá
-etiquetada `medido` (comando + dataset + n + warmup + repeats + device + fecha) o
-`[ref: <url> (consultado YYYY-MM-DD)]`; nunca mezcladas sin etiquetar.
+Todo valor publicado aquí es `medido` (comando + dataset + `n` + `warmup` +
+`repeats` + device + fecha guardados en el `summary.json` de la run). El dataset es
+**sintético**: el `provenance` lo deja explícito. Los valores de `referencia`
+(externos) no los produce este banco y solo se citarían con su URL.

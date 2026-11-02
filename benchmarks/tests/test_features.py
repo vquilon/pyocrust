@@ -136,6 +136,26 @@ def test_tatr_registrado_como_alternativa_de_table_sin_tocar_el_csv():
     assert table_teds(_tatr_grid_html(0, 0), grid) == 0.0
 
 
+def test_seal_registrado_y_medido_sobre_gt_sintetico():
+    """`seal` es una feature medida: backend registrado y dataset sintético con GT.
+
+    El GT es sintético determinista (sello pegado en posición conocida); la métrica
+    es la de cajas compartida, así que no se añade un scorer propio.
+    """
+    from common.datasets import DATASETS, load_synthetic_seal
+    from common.runner import FEATURE_TYPES, MODEL_NAMES, PROVIDERS, TASK_TYPES
+    from features import _base
+
+    assert "seal" in _base.IMPLEMENTED_FEATURES and "seal" not in _base.SKELETON_FEATURES
+    assert "pyocrust_seal" in PROVIDERS
+    assert TASK_TYPES["pyocrust_seal"] == FEATURE_TYPES["pyocrust_seal"] == "seal"
+    assert MODEL_NAMES["pyocrust_seal"][0] == "pp-ocrv4_mobile_seal_det"
+    assert "synthetic_seal" in DATASETS
+    # GT determinista: la primera caja es el rectángulo del sello pegado.
+    sample = load_synthetic_seal(limit=1)[0]
+    assert sample.gt_boxes == ((120.0, 140.0, 540.0, 300.0),)
+
+
 def test_alternativas_onnx_de_orientation_textline_rectification():
     """`lcnet_doc_ori`/`lcnet_textline_ori`/`uvdoc` están registradas y preprocesan bien.
 

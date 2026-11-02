@@ -51,9 +51,11 @@
 | lcnet_textline_ori (onnxruntime) | 2 | 1.000 |
 | **pyocrust_textline** | 31 | 1.000 |
 
-## seal — device `?`
+## seal — sintético — device `cpu`
 
-_Sin tiempo medido todavía._
+| Motor | ms/imagen ↓ | calidad ↑ |
+| :--- | ---: | ---: |
+| **pyocrust_seal (default)** | 579 | 0.750 |
 
 ## table — PubTabNet — device `cpu`
 
