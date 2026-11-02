@@ -63,7 +63,14 @@ from PIL import Image
 from latex_metrics import latex_exact, latex_similarity, latex_token_f1
 
 # Origen único del mapeo backend -> banco por feature (columna aditiva `feature`).
-from common.runner import FEATURE_TYPES, device_outcome
+from common.runner import (
+    FEATURE_TYPES,
+    GPU_NOT_CONFIRMED,
+    GPU_PROVIDERS,
+    available_providers,
+    device_outcome,
+    pyocrust_device_arg,
+)
 
 # ---------------------------------------------------------------------------
 # Configuración
@@ -478,10 +485,10 @@ def _image_bytes(image: Image.Image) -> bytes:
     return buf.getvalue()
 
 
-def _pyocrust_backend(preset: str, formula_only: bool = False) -> Callable[[Image.Image], OcrOutput]:
+def _pyocrust_backend(preset: str, formula_only: bool = False, device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
     import pyocrust  # noqa: PLC0415 - import tardío para no penalizar el arranque
 
-    engine = pyocrust.VeloceOCR(preset=preset)
+    engine = pyocrust.VeloceOCR(preset=preset, device=device)
 
     def run(image: Image.Image) -> OcrOutput:
         # La preparación de la entrada va **fuera** del cronómetro: lo medido es
@@ -507,6 +514,7 @@ def _pyocrust_backend(preset: str, formula_only: bool = False) -> Callable[[Imag
             extra={"kind": type(result).__name__, "blocks": [e.kind for e in getattr(result, "elements", [])]},
         )
 
+    run.provider_effective = getattr(engine, "provider_effective", None)
     return run
 
 
@@ -571,7 +579,7 @@ def _easyocr_backend(languages: Sequence[str] = ("en",)) -> Callable[[Image.Imag
     return run
 
 
-def _pyocrust_formula_variant_backend(model_file: str) -> Callable[[Image.Image], OcrOutput]:
+def _pyocrust_formula_variant_backend(model_file: str, device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
     """PP-FormulaNet **directo** de una variante concreta (`formula_recognition`).
 
     Sin layout propio: recibe el recorte de la formula tal cual. Aisla el modelo de
@@ -591,6 +599,7 @@ def _pyocrust_formula_variant_backend(model_file: str) -> Callable[[Image.Image]
     predictor = pyocrust.TaskPredictor(
         task="formula_recognition",
         models={"model": str(model_path), "tokenizer": str(tokenizer)},
+        device=device,
     )
 
     def run(image: Image.Image) -> OcrOutput:
@@ -604,6 +613,7 @@ def _pyocrust_formula_variant_backend(model_file: str) -> Callable[[Image.Image]
             extra={"kind": "formula_recognition", "model_file": model_file},
         )
 
+    run.provider_effective = getattr(predictor, "provider_effective", None)
     return run
 
 
@@ -625,19 +635,20 @@ def _tesseract_backend() -> Callable[[Image.Image], OcrOutput]:
     return run
 
 
-# nombre -> factoría (el preset por defecto es el de `pp_ocrv6` = Tiny)
-PROVIDERS: dict[str, Callable[[], Callable[[Image.Image], OcrOutput]]] = {
-    "pyocrust": lambda: _pyocrust_backend("pp_ocrv6"),
-    "pyocrust_structure": lambda: _pyocrust_backend("pp_structurev3"),
-    "pyocrust_formula": lambda: _pyocrust_backend("pp_structurev3", formula_only=True),
-    "pyocrust_formulanet": lambda: _pyocrust_formula_variant_backend("pp-formulanet-s.onnx"),
+# nombre -> factoría (el preset por defecto es el de `pp_ocrv6` = Tiny). Las de
+# `pyocrust` reciben el `device` resuelto (`cpu`/`auto`); el resto lo ignoran.
+PROVIDERS: dict[str, Callable[..., Callable[[Image.Image], OcrOutput]]] = {
+    "pyocrust": lambda device="cpu": _pyocrust_backend("pp_ocrv6", device=device),
+    "pyocrust_structure": lambda device="cpu": _pyocrust_backend("pp_structurev3", device=device),
+    "pyocrust_formula": lambda device="cpu": _pyocrust_backend("pp_structurev3", formula_only=True, device=device),
+    "pyocrust_formulanet": lambda device="cpu": _pyocrust_formula_variant_backend("pp-formulanet-s.onnx", device=device),
     # Variantes PP-FormulaNet del registro ModelScope `greatv/oar-ocr` (oar-ocr-core
     # registry.rs): mismo adaptador, distinto `.onnx`. Se saltan si falta el fichero.
-    "pyocrust_formulanet_l": lambda: _pyocrust_formula_variant_backend("pp-formulanet-l.onnx"),
-    "pyocrust_formulanet_pluss": lambda: _pyocrust_formula_variant_backend("pp-formulanet_plus-s.onnx"),
-    "pyocrust_formulanet_plusm": lambda: _pyocrust_formula_variant_backend("pp-formulanet_plus-m.onnx"),
-    "pyocrust_formulanet_plusl": lambda: _pyocrust_formula_variant_backend("pp-formulanet_plus-l.onnx"),
-    "pyocrust_indra": lambda: _pyocrust_backend("indra"),
+    "pyocrust_formulanet_l": lambda device="cpu": _pyocrust_formula_variant_backend("pp-formulanet-l.onnx", device=device),
+    "pyocrust_formulanet_pluss": lambda device="cpu": _pyocrust_formula_variant_backend("pp-formulanet_plus-s.onnx", device=device),
+    "pyocrust_formulanet_plusm": lambda device="cpu": _pyocrust_formula_variant_backend("pp-formulanet_plus-m.onnx", device=device),
+    "pyocrust_formulanet_plusl": lambda device="cpu": _pyocrust_formula_variant_backend("pp-formulanet_plus-l.onnx", device=device),
+    "pyocrust_indra": lambda device="cpu": _pyocrust_backend("indra", device=device),
     "rapidocr": _rapidocr_backend,
     "easyocr": _easyocr_backend,
     "tesseract": _tesseract_backend,
@@ -657,6 +668,7 @@ def _describe_runtime() -> dict:
         "machine": platform.machine(),
         "processor": platform.processor(),
         "pyocrust": pyocrust.__version__,
+        "available_providers": available_providers(),
     }
 
 
@@ -696,15 +708,22 @@ def run_benchmark(
     model_name, model_variant = MODEL_NAMES.get(backend, (backend, "default"))
     provider_effective, skip_reason = device_outcome(backend, device)
     provenance = {"task_type": task_type, "model_name": model_name, "model_variant": model_variant,
-                  "device_requested": device, "provider_effective": provider_effective, "repeats": repeats}
+                  "device_requested": device,
+                  "provider_effective": provider_effective or "n/a", "repeats": repeats}
     if repeats < 1 or warmup < 0:
         raise ValueError("repeats must be positive and warmup nonnegative")
     if skip_reason:
+        # Backend CPU-only con `--device gpu`: se rechaza ANTES de cargar el motor,
+        # para no medir un fallback CPU bajo la etiqueta de GPU.
         return [], {"backend": backend, "status": "skipped", "reason": skip_reason, **provenance}
     factory = backend_factory or PROVIDERS[backend]
     load_start = time.perf_counter()
     try:
-        runner = factory()
+        # Los backends `pyocrust` reciben el `device` resuelto (`cpu`/`auto`); el
+        # resto —y las factorías inyectadas (p. ej. en tests)— no lo aceptan.
+        runner = (factory(pyocrust_device_arg(device))
+                  if backend_factory is None and backend.startswith("pyocrust")
+                  else factory())
     except ProviderUnavailable as exc:
         return [], {
             "backend": backend,
@@ -721,6 +740,20 @@ def run_benchmark(
             "reason": f"{type(exc).__name__}: {exc}",
             **provenance,
         }
+
+    # Confirmación honesta del EP: pedir GPU NO cuenta como GPU. El provider real
+    # solo se conoce al construir el motor (`engine.provider_effective`); si no es
+    # un acelerador, la fila/backend queda `skipped` — nunca CPU etiquetado GPU.
+    if provider_effective is None:
+        engine_provider = getattr(runner, "provider_effective", None) or "desconocido"
+        if engine_provider not in GPU_PROVIDERS:
+            return [], {
+                "backend": backend, "dataset": dataset, "status": "skipped",
+                "reason": GPU_NOT_CONFIRMED.format(engine=engine_provider, available=available_providers()),
+                **provenance,
+            }
+        provider_effective = engine_provider
+        provenance["provider_effective"] = provider_effective
 
     load_ms = (time.perf_counter() - load_start) * 1000
     rows: list[dict] = []

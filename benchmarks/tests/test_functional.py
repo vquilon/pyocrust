@@ -14,6 +14,7 @@ import pytest
 import pyocrust
 from run_benchmarks import (
     CSV_FIELDS,
+    OcrOutput,
     cer,
     levenshtein,
     normalize,
@@ -275,19 +276,50 @@ def test_b7_skipped_backend_never_produces_rows(b7_sample, failure):
     assert meta["provider_effective"] == ("n/a" if failure == "gpu" else "cpu")
     assert meta["provider_effective"] not in ("cuda", "gpu")
     assert meta["device_requested"] == ("gpu" if failure == "gpu" else "cpu")
-    assert calls == ([] if failure == "gpu" else ["load"])
+    # Con `--device gpu` se CONSTRUYE el motor para confirmar el EP real: la
+    # factoría sí se llama (ya no se rechaza antes de cargar).
+    assert calls == ["load"]
 
 
 def test_device_outcome_is_honest_about_provider():
-    """Regla dura: la GPU sólo se etiqueta si se puede CONFIRMAR; hoy no, -> skipped."""
+    """Regla dura: la GPU sólo se etiqueta si el motor la CONFIRMA; si no, skipped."""
     from run_benchmarks import device_outcome
 
     assert device_outcome("pyocrust", "cpu") == ("cpu", None)
-    provider, reason = device_outcome("pyocrust", "gpu")
-    assert provider == "n/a" and "t_8a0f369f" in reason
-    assert provider not in ("cuda", "gpu")
+    # pyocrust + gpu: el provider no se adivina aquí -> se CONFIRMA al construir el
+    # motor (None = "por resolver"), nunca se asume cuda/directml.
+    assert device_outcome("pyocrust", "gpu") == (None, None)
     provider, reason = device_outcome("rapidocr", "gpu")
     assert provider == "n/a" and "solo CPU" in reason
+
+
+def test_gpu_row_is_confirmed_or_skipped_never_faked(b7_sample):
+    """`--device gpu`: fila `ok` sólo con acelerador real; fallback CPU -> `skipped`."""
+    from run_benchmarks import run_benchmark as rb
+
+    def factory_for(provider: str):
+        def factory(device: str = "cpu"):
+            def run(image):
+                return OcrOutput("hola", elapsed_ms=1.0)
+
+            run.provider_effective = provider
+            return run
+
+        return factory
+
+    # El motor confirma un acelerador (directml) -> filas `ok` con ese provider.
+    rows, meta = rb([b7_sample], "pyocrust", "local", warmup=0, device="gpu",
+                    backend_factory=factory_for("directml"))
+    assert meta["status"] == "ok" and meta["provider_effective"] == "directml"
+    assert rows and {r["provider_effective"] for r in rows} == {"directml"}
+    assert {r["device_requested"] for r in rows} == {"gpu"}
+
+    # El motor cae a CPU -> `skipped` con motivo; nunca CPU bajo etiqueta GPU.
+    rows, meta = rb([b7_sample], "pyocrust", "local", warmup=0, device="gpu",
+                    backend_factory=factory_for("cpu"))
+    assert rows == [] and meta["status"] == "skipped"
+    assert meta["provider_effective"] not in ("cuda", "directml", "gpu")
+    assert "CPU como GPU" in meta["reason"]
 
 
 def test_b7_unknown_backend_summary_is_skipped(tmp_path, monkeypatch):
@@ -488,7 +520,7 @@ def test_b7_formula_adapter_extracts_latex_not_page_markdown(b7_sample, monkeypa
         calls.append("recognize")
         return Result()
 
-    def factory(*, preset):
+    def factory(*, preset, device="cpu"):
         calls.append(preset)
         return SimpleNamespace(recognize=recognize)
 

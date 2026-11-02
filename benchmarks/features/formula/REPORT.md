@@ -36,7 +36,7 @@
 
 - Ningún motor ausente se registra como `ok`: queda `skipped` con su `pip install`.
 - Las columnas sin GT no se rellenan con ceros: aparecen como `N/A` (no evaluada).
-- Honestidad de proveedor: el ranking sólo cuenta filas que de verdad corrieron en `device=cpu`. Mientras `pyocrust` no exponga la selección de device (tarjeta `t_8a0f369f`), `--device gpu` queda `skipped` y un fallback CPU nunca se cuenta como GPU.
+- Honestidad de proveedor: el ranking sólo cuenta filas que de verdad corrieron en `device=cpu`. `pyocrust` confirma el EP real en `provider_effective`; si no hay acelerador, `--device gpu` queda `skipped` — un fallback CPU nunca se cuenta como GPU.
 
 ## Referencias externas (calidad)
 

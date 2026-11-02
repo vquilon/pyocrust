@@ -64,9 +64,11 @@ from common.runner import (  # noqa: F401
     PROVIDERS,
     ProviderUnavailable,
     TASK_TYPES,
+    available_providers,
     device_outcome,
     main,
     module_available,
+    pyocrust_device_arg,
     run_backends,
     run_benchmark,
     select_device_rows,
@@ -88,6 +90,7 @@ __all__ = [
     # runner
     "BENCHMARKS_ROOT", "CSV_FIELDS", "DEFAULT_RESULTS_DIR", "FEATURE_TYPES",
     "GPU_PROVIDERS", "MODEL_NAMES", "OcrOutput", "PROVIDERS", "ProviderUnavailable",
-    "TASK_TYPES", "device_outcome", "main", "module_available", "run_backends",
+    "TASK_TYPES", "available_providers", "device_outcome", "main", "module_available",
+    "pyocrust_device_arg", "run_backends",
     "run_benchmark", "select_device_rows", "write_csv",
 ]
