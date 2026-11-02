@@ -32,7 +32,7 @@ if __package__ in (None, ""):
 from datetime import datetime
 
 from common import load_dataset, run_backends
-from features._base import FeatureSpec, common_argparser, feature_out_dir
+from features._base import FeatureSpec, common_argparser, feature_out_dir, unavailable_factory
 
 SPEC = FeatureSpec(
     feature="full_page",
@@ -51,8 +51,20 @@ SPEC = FeatureSpec(
     provenance="valores MEDIDOS por este banco (markdown_f1/block_f1 contra la GT reconstruida de OmniDocBench)",
 )
 
+# --- alternativas de pipeline documental -------------------------------------
+# `opendatalab/PDF-Extract-Kit-1.0` (pesos ya en cache HF) aún no tiene adaptador
+# escrito: se registra como `skipped` con motivo honesto (nunca `ok`).
+EXTRA_FACTORIES = {
+    "pdf_extract_kit": unavailable_factory(
+        "pdf_extract_kit",
+        "pdf-extract-kit (opendatalab/PDF-Extract-Kit-1.0; pesos en cache HF, adaptador pendiente)",
+    ),
+}
+EXTRA_MODELS = {name: (name, "default") for name in EXTRA_FACTORIES}
+
 # `pyocrust_indra` se salta solo si sus 9 artefactos no están en disco (motivo en el informe).
-DEFAULT_BACKENDS = "pyocrust_structure,pyocrust_indra"
+# Orden: pipeline propio de pyocrust y, al final, la alternativa documental.
+DEFAULT_BACKENDS = "pyocrust_structure,pyocrust_indra,pdf_extract_kit"
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -67,7 +79,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         [b.strip() for b in (args.backends or DEFAULT_BACKENDS).split(",") if b.strip()],
         dataset, out_dir, timestamp,
         warmup=args.warmup, repeats=args.repeats, device=args.device,
-        feature=SPEC.feature,
+        feature=SPEC.feature, factories=EXTRA_FACTORIES, models=EXTRA_MODELS,
     )
     print(f"\n[full_page] resultados en {out_dir}")
     return 0
