@@ -348,8 +348,10 @@ def build(run: Path) -> str:
         "un CAS. Las diferencias de **fuente** (`\\mathcal`, `\\mathbf`) y de **agrupación de "
         "llaves** se conservan a propósito (cambian el significado); por eso `LaTeX exacto norm.` "
         "queda por debajo de `Similitud norm.`.",
-        "* Una sola run, `repeats=1`, **CPU**: los ms no llevan intervalo de confianza y "
-        "`provider_effective = unverified` (no se instrumenta el provider real).",
+        "* Una sola run, `repeats=1`, **CPU** (`provider_effective = cpu` por fila: ONNX Runtime usa "
+        "su EP por defecto y pyocrust no fija execution provider). La GPU **no** se instrumenta "
+        "todavía (tarjeta `t_8a0f369f`); `--device gpu` queda `skipped` en lugar de contar un "
+        "fallback CPU como GPU.",
     ]
     if skipped:
         lines += ["", "**Skipped** (modelo/entorno ausente, no un OCR malo):"]

@@ -68,10 +68,15 @@ def test_esqueletos_no_publican_cifras(feature):
 
 def test_el_csv_conserva_las_22_columnas_y_solo_anade():
     assert CSV_FIELDS[: len(LEGACY_CSV_FIELDS)] == LEGACY_CSV_FIELDS
-    added = CSV_FIELDS[len(LEGACY_CSV_FIELDS):]
+    added = set(CSV_FIELDS[len(LEGACY_CSV_FIELDS):])
     assert added, "la reorganización debe añadir columnas aditivas"
-    assert set(added) == {"latex_exact", "latex_sim", "latex_token_f1", "feature",
-                          "box_recall", "box_iou_mean"}
+    # El contrato exige que las columnas aditivas INCLUYAN estas; no se fija la
+    # lista exacta porque cada banco por feature añade las suyas (layout, tabla,
+    # orientación, rectificado...) además de las de proveedor.
+    required = {"latex_exact", "latex_sim", "latex_token_f1", "feature",
+                "box_recall", "box_iou_mean",
+                "device_requested", "provider_effective"}
+    assert required <= added, f"faltan columnas aditivas del contrato: {required - added}"
 
 
 def test_alternativa_no_instalada_es_skipped_no_ok():
