@@ -479,22 +479,24 @@ Models are resolved in this priority order (see `DESIGN.md` §3.2):
 
 Outside `src/`, `benchmarks/` is organised **by feature/component** (like `oar-ocr`'s
 components): each capability has its own bank, its metric and real Python alternatives.
-It measures **8 of the 9 features**; every number is `medido` (run here) or `referencia`
+It measures **all 9 features**; every number is `medido` (run here) or `referencia`
 (cited from a paper with a URL) — never mixed without a label.
 
 ![Benchmark summary by feature](https://raw.githubusercontent.com/vquilon/pyocrust/main/benchmarks/SUMMARY.png)
 
+![Quality vs time per feature](https://raw.githubusercontent.com/vquilon/pyocrust/main/benchmarks/SUMMARY_QUALITY_VS_TIME.png)
+
 | Feature | Head metric ↑ | pyocrust (measured) | Best measured alternative | Status |
 | :--- | :--- | ---: | :--- | :--- |
-| `text` | word F1 | **0.734** | rapidocr 0.660 | measured |
-| `formula` | LaTeX similarity | **0.550** | pix2tex 0.533 | measured |
-| `layout` | mAP@IoU 0.5 | **0.764** | — | measured |
-| `orientation` | accuracy | **1.000** | — | measured |
-| `rectification` | SSIM | **0.704** | — | measured |
-| `text_line` | accuracy | **1.000** | — | measured |
-| `table` | TEDS (struct.) | **0.885** | — | measured |
-| `full_page` | Markdown F1 | 0.158 | — | measured |
-| `seal` | IoU / detection | — | — | pending |
+| `text` | word F1 | **0.734** | rapidocr 0.659 | measured |
+| `formula` | LaTeX similarity | **0.550** | pix2tex 0.486 | measured |
+| `layout` | mAP@IoU 0.5 | **0.764** | docling_heron_101 0.658 | measured |
+| `orientation` | accuracy | **1.000** | lcnet_doc_ori 1.000 | measured |
+| `rectification` | SSIM | **0.704** | uvdoc 0.701 | measured |
+| `text_line` | accuracy | **1.000** | lcnet_textline_ori 1.000 | measured |
+| `table` | TEDS (struct.) | **0.885** | tatr 0.737 | measured |
+| `full_page` | Markdown F1 | **0.176** | — | measured |
+| `seal` | recall@IoU 0.5 | **0.750** | — | measured |
 
 CPU, `warmup=1`, `repeats=1`, pyocrust 0.1.0. Full per-engine tables, provenance
 (command, dataset, `n`, runtime) and external references with URLs live in
@@ -510,8 +512,8 @@ CPU, `warmup=1`, `repeats=1`, pyocrust 0.1.0. Full per-engine tables, provenance
 ```
 
 Engines that are not installed are recorded `skipped`, never as run; metrics without
-ground truth are `N/A`, never `0`. `seal` has no annotated set in cache, so it stays
-*pending*.
+ground truth are `N/A`, never `0`. `seal` has no human-annotated set in cache, so it is
+measured against a deterministic **synthetic** set (`synthetic_seal`), declared as such.
 
 ## PyPI publication (CI/CD)
 

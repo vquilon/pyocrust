@@ -21,30 +21,73 @@ from __future__ import annotations
 
 import math
 import re
+import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 BENCH = HERE.parent
 
-# (feature, prefijo de la métrica titular ↑ o None, título del panel)
+# (feature, prefijo de la métrica titular ↑ o None). El título del panel NO se
+# escribe a mano: sale de `feature_title()`, que lee el `dataset` REAL del
+# `REPORT.md` de la feature (fuente única -> imposible que el título mienta).
 FEATURES = [
-    ("text", "F1 palabra", "text — FUNSD"),
-    ("formula", "Similitud", "formula — OmniDocBench"),
-    ("layout", "mAP@IoU 0.5", "layout — DocLayNet"),
-    ("orientation", "accuracy", "orientation"),
-    ("rectification", "SSIM", "rectification"),
-    ("text_line", "accuracy", "text_line"),
-    ("seal", "recall@IoU 0.5", "seal — sintético"),
-    ("table", "TEDS", "table — PubTabNet"),
-    ("full_page", "Markdown F1", "full_page — OmniDocBench"),
+    ("text", "F1 palabra"),
+    ("formula", "Similitud"),
+    ("layout", "mAP@IoU 0.5"),
+    ("orientation", "accuracy"),
+    ("rectification", "SSIM"),
+    ("text_line", "accuracy"),
+    ("seal", "recall@IoU 0.5"),
+    ("table", "TEDS"),
+    ("full_page", "Markdown F1"),
 ]
 
-REF_URL = re.compile(r"\[ref:\s*(https?://[^\]]+)\]")
+# token `dataset` del REPORT.md -> nombre legible para el título del panel.
+# Solo es una etiqueta: el dato (qué dataset se midió) SIEMPRE sale del REPORT.
+DATASET_TITLES = {
+    "funsd": "FUNSD",
+    "omnidocbench_formula": "OmniDocBench",
+    "omnidocbench_layout": "OmniDocBench",
+    "omnidocbench_table": "OmniDocBench",
+    "omnidocbench_full_page": "OmniDocBench",
+    "synthetic_orientation": "sintético",
+    "synthetic_rectification": "sintético",
+    "synthetic_text_line": "sintético",
+    "synthetic_seal": "sintético",
+}
 
-# Features cuya referencia externa usa una MÉTRICA distinta a la nuestra (y por tanto
-# no es comparable ni en sentido): se avisa en el panel y en el markdown.
+REF_URL = re.compile(r"\[ref:\s*(https?://[^\]]+)\]")
+DATASET_RE = re.compile(r"\*\*dataset\*\*:\s*`([^`]+)`")
+
+
+def parse_dataset(feature: str) -> str:
+    """Token del `dataset`/GT realmente medido (`**dataset**: \\`x\\`` del REPORT)."""
+    p = BENCH / "features" / feature / "REPORT.md"
+    if not p.exists():
+        return ""
+    m = DATASET_RE.search(p.read_text(encoding="utf-8"))
+    return m.group(1) if m else ""
+
+
+def feature_title(feature: str) -> str:
+    """`<feature> — <dataset medido>`; el dataset viene del REPORT (fuente única)."""
+    ds = parse_dataset(feature)
+    if not ds:
+        return feature
+    return f"{feature} — {DATASET_TITLES.get(ds, ds)}"
+
+
+# Features cuya tabla mezcla `medido` (nuestro GT) con `referencia` externa: el
+# panel lo avisa para que NUNCA se lea como una comparación 1:1. La referencia
+# usa otro dataset y/o otra métrica; se dice cuál. La nota entra en el título del
+# panel, así que se mantiene CORTA (<= ~45 car.) para no invadir el panel vecino.
 REF_NOTE = {
-    "rectification": "ref = CER↓ (otra métrica; no comparable con SSIM↑)",
+    "rectification": "ref: UVDoc CER↓ (otra métrica y dataset)",
+    "layout": "ref: DocLayNet mAP (otro dataset/GT)",
+    "table": "ref: PubTabNet/ICDAR (otro dataset/GT)",
+    "orientation": "ref: PP-LCNet (otro conjunto de eval.)",
+    "text_line": "ref: PP-LCNet (otro conjunto de eval.)",
+    "full_page": "ref: OmniDocBench Overall (otra escala 0-100)",
 }
 
 
@@ -217,13 +260,16 @@ def main() -> int:
           "> `medido` = ejecutado en este repo · `referencia` = publicado en un paper (con URL),",
           "> **no comparable 1:1** · `pendiente` = aún sin datos. Una barra rayada es referencia.", ""]
 
-    for k, (feature, titular, title) in enumerate(FEATURES):
+    for k, (feature, titular) in enumerate(FEATURES):
         measured = parse_measured(feature, titular)
         refs, metric, ref_urls = parse_references(feature)
+        ds = parse_dataset(feature)
+        title = feature_title(feature)
         nota = REF_NOTE.get(feature)
         _panel(axes[k], measured, refs, f"{title}\n({nota})" if nota else title)
         status = "medido" if measured else ("referencia" if refs else "pendiente")
-        md += [f"## {title} — `{status}`", ""]
+        src = f" · **dataset medido**: `{ds}`" if ds else ""
+        md += [f"## {title} — `{status}`{src}", ""]
         if nota:
             md += [f"> ⚠️ **{nota}**", ""]
         if measured or refs:
@@ -245,9 +291,13 @@ def main() -> int:
         Patch(facecolor="#2e7d32", label="pyocrust (medido)"),
         Patch(facecolor="#607d8b", label="alternativa (medida)"),
         Patch(facecolor="#b0bec5", hatch="//", edgecolor="#78909c", label="referencia (externo)"),
-    ], loc="lower center", ncol=3, frameon=False, fontsize=10)
+    ], loc="lower center", bbox_to_anchor=(0.5, 0.035), ncol=3, frameon=False, fontsize=10)
     fig.suptitle("pyocrust — benchmarks por feature: medido vs referencia externa", fontsize=14)
-    fig.tight_layout(rect=(0, 0.03, 1, 0.96))
+    fig.text(0.5, 0.006,
+             "Barra sólida = MEDIDO (dataset del título del panel) · barra rayada = REFERENCIA "
+             "externa de OTRO dataset/métrica (ver nota del panel). No comparables 1:1.",
+             ha="center", fontsize=8, color="#555555")
+    fig.tight_layout(rect=(0, 0.075, 1, 0.96))
     for ext in ("png", "svg"):
         fig.savefig(BENCH / f"SUMMARY.{ext}", dpi=150, bbox_inches="tight", facecolor="white")
     (BENCH / "SUMMARY.md").write_text("\n".join(md), encoding="utf-8")
@@ -256,5 +306,23 @@ def main() -> int:
     return 0
 
 
+def _self_check() -> None:
+    """El título de cada panel lleva el dataset REAL del REPORT (nada a mano)."""
+    for feature, _titular in FEATURES:
+        token = parse_dataset(feature)
+        assert token, f"{feature}: REPORT.md sin `**dataset**`"
+        assert token in DATASET_TITLES, f"{feature}: dataset {token!r} sin etiqueta legible"
+        title = feature_title(feature)
+        assert title.startswith(f"{feature} — "), title
+        assert DATASET_TITLES[token] in title, title
+    # Toda feature con referencias externas avisa de que son otro dataset/métrica.
+    for feature in ("layout", "table", "rectification", "orientation", "text_line", "full_page"):
+        assert feature in REF_NOTE, f"falta REF_NOTE para {feature}"
+    print("features.summary self-check OK")
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    if "--self-check" in sys.argv:
+        _self_check()
+    else:
+        raise SystemExit(main())

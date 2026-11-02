@@ -3,30 +3,35 @@
 > `medido` = ejecutado en este repo · `referencia` = publicado en un paper (con URL),
 > **no comparable 1:1** · `pendiente` = aún sin datos. Una barra rayada es referencia.
 
-## text — FUNSD — `medido`
+## text — FUNSD — `medido` · **dataset medido**: `funsd`
 
 | Motor | Valor | Origen |
 | :--- | ---: | :--- |
 | **pyocrust (tiny)** | 0.734 | medido |
-| rapidocr (default) | 0.660 | medido |
+| rapidocr (default) | 0.659 | medido |
 | easyocr (default) | 0.384 | medido |
 
-## formula — OmniDocBench — `medido`
+## formula — OmniDocBench — `medido` · **dataset medido**: `omnidocbench_formula`
 
 | Motor | Valor | Origen |
 | :--- | ---: | :--- |
 | **pyocrust_formulanet (direct)** | 0.550 | medido |
-| pix2tex (default) | 0.489 | medido |
+| pix2tex (default) | 0.486 | medido |
 | **pyocrust_formula (pp-formulanet-s)** | 0.419 | medido |
 | easyocr (default) | 0.152 | medido |
 | rapidocr (default) | 0.104 | medido |
 
-## layout — DocLayNet — `medido`
+## layout — OmniDocBench — `medido` · **dataset medido**: `omnidocbench_layout`
+
+> ⚠️ **ref: DocLayNet mAP (otro dataset/GT)**
 
 | Motor | Valor | Origen |
 | :--- | ---: | :--- |
-| **pyocrust_layout (default)** | 0.764 | medido |
-| docling_heron_101 (default) | 0.508 | medido |
+| **pyocrust_layout (130M)** | 0.764 | medido |
+| docling_heron_101 (default) | 0.658 | medido |
+| yolo26m (21.8M) | 0.297 | medido |
+| yolov10x (31.7M) | 0.226 | medido |
+| yolov10b (20.5M) | 0.145 | medido |
 | YOLOv10-x (DocLayNet fine-tune) | 0.924 | referencia [ref: https://huggingface.co/omoured/YOLOv10-Document-Layout-Analysis] |
 | YOLOv10-b (DocLayNet fine-tune) | 0.922 | referencia [ref: https://huggingface.co/omoured/YOLOv10-Document-Layout-Analysis] |
 | YOLOv10-l (DocLayNet fine-tune) | 0.921 | referencia [ref: https://huggingface.co/omoured/YOLOv10-Document-Layout-Analysis] |
@@ -40,40 +45,46 @@
 | YOLO-doclaynet (MinerU) | 0.675 | referencia [ref: https://arxiv.org/abs/2502.14949] |
 | Surya | 0.404 | referencia [ref: https://arxiv.org/abs/2502.14949] |
 
-## orientation — `medido`
+## orientation — sintético — `medido` · **dataset medido**: `synthetic_orientation`
+
+> ⚠️ **ref: PP-LCNet (otro conjunto de eval.)**
 
 | Motor | Valor | Origen |
 | :--- | ---: | :--- |
 | lcnet_doc_ori (onnxruntime) | 1.000 | medido |
-| **pyocrust_orientation (default)** | 1.000 | medido |
+| **pyocrust_orientation (6.8M)** | 1.000 | medido |
 | PP-LCNet_x1_0_doc_ori (4 clases: 0/90/180/270°) | 0.991 | referencia [ref: https://paddlepaddle.github.io/PaddleX/latest/en/pipeline_usage/tutorials/ocr_pipelines/PP-StructureV3.html] |
 
-## rectification — `medido`
+## rectification — sintético — `medido` · **dataset medido**: `synthetic_rectification`
 
-> ⚠️ **ref = CER↓ (otra métrica; no comparable con SSIM↑)**
+> ⚠️ **ref: UVDoc CER↓ (otra métrica y dataset)**
 
 | Motor | Valor | Origen |
 | :--- | ---: | :--- |
-| **pyocrust_rectify (default)** | 0.704 | medido |
+| **pyocrust_rectify (31.7M)** | 0.704 | medido |
 | uvdoc (onnxruntime) | 0.701 | medido |
 | UVDoc | 0.179 | referencia [ref: https://paddlepaddle.github.io/PaddleX/latest/en/pipeline_usage/tutorials/ocr_pipelines/PP-StructureV3.html] |
 
-## text_line — `medido`
+## text_line — sintético — `medido` · **dataset medido**: `synthetic_text_line`
+
+> ⚠️ **ref: PP-LCNet (otro conjunto de eval.)**
 
 | Motor | Valor | Origen |
 | :--- | ---: | :--- |
 | lcnet_textline_ori (onnxruntime) | 1.000 | medido |
-| **pyocrust_textline (default)** | 1.000 | medido |
+| **pyocrust_textline (6.8M)** | 1.000 | medido |
 | PP-LCNet_x1_0_textline_ori | 0.994 | referencia [ref: https://paddlepaddle.github.io/PaddleX/latest/en/pipeline_usage/tutorials/ocr_pipelines/OCR.html] |
 | PP-LCNet_x0_25_textline_ori | 0.989 | referencia [ref: https://paddlepaddle.github.io/PaddleX/latest/en/pipeline_usage/tutorials/ocr_pipelines/OCR.html] |
 
-## seal — sintético — `medido`
+## seal — sintético — `medido` · **dataset medido**: `synthetic_seal`
 
 | Motor | Valor | Origen |
 | :--- | ---: | :--- |
-| **pyocrust_seal (default)** | 0.750 | medido |
+| **pyocrust_seal (4.8M)** | 0.750 | medido |
 
-## table — PubTabNet — `medido`
+## table — OmniDocBench — `medido` · **dataset medido**: `omnidocbench_table`
+
+> ⚠️ **ref: PubTabNet/ICDAR (otro dataset/GT)**
 
 | Motor | Valor | Origen |
 | :--- | ---: | :--- |
@@ -83,7 +94,9 @@
 | TATR-v1.1-Pub | 0.961 | referencia [ref: https://arxiv.org/html/2512.10888v1] |
 | TableFormer | 0.950 | referencia [ref: https://docling.ai/papers/] |
 
-## full_page — OmniDocBench — `medido`
+## full_page — OmniDocBench — `medido` · **dataset medido**: `omnidocbench_full_page`
+
+> ⚠️ **ref: OmniDocBench Overall (otra escala 0-100)**
 
 | Motor | Valor | Origen |
 | :--- | ---: | :--- |

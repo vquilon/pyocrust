@@ -482,22 +482,24 @@ parámetro `custom_path` → `OAR_HOME` / `OCR_MODELS_CACHE_DIR` → `~/.oar`.
 
 Fuera de `src/`, `benchmarks/` está organizado **por feature/componente** (como los
 componentes de `oar-ocr`): cada capacidad tiene su banco, su métrica y alternativas
-reales en Python. Mide **8 de las 9 features**; cada número es `medido` (ejecutado
+reales en Python. Mide **las 9 features**; cada número es `medido` (ejecutado
 aquí) o `referencia` (citado de un paper con URL) — nunca mezclados sin etiquetar.
 
 ![Resumen de benchmarks por feature](https://raw.githubusercontent.com/vquilon/pyocrust/main/benchmarks/SUMMARY.png)
 
+![Calidad vs tiempo por feature](https://raw.githubusercontent.com/vquilon/pyocrust/main/benchmarks/SUMMARY_QUALITY_VS_TIME.png)
+
 | Feature | Métrica titular ↑ | pyocrust (medido) | Mejor alternativa medida | Estado |
 | :--- | :--- | ---: | :--- | :--- |
-| `text` | F1 palabra | **0.734** | rapidocr 0.660 | medido |
-| `formula` | Similitud LaTeX | **0.550** | pix2tex 0.533 | medido |
-| `layout` | mAP@IoU 0.5 | **0.764** | — | medido |
-| `orientation` | accuracy | **1.000** | — | medido |
-| `rectification` | SSIM | **0.704** | — | medido |
-| `text_line` | accuracy | **1.000** | — | medido |
-| `table` | TEDS estrut. | **0.885** | — | medido |
-| `full_page` | Markdown F1 | 0.158 | — | medido |
-| `seal` | IoU / detección | — | — | pendiente |
+| `text` | F1 palabra | **0.734** | rapidocr 0.659 | medido |
+| `formula` | Similitud LaTeX | **0.550** | pix2tex 0.486 | medido |
+| `layout` | mAP@IoU 0.5 | **0.764** | docling_heron_101 0.658 | medido |
+| `orientation` | accuracy | **1.000** | lcnet_doc_ori 1.000 | medido |
+| `rectification` | SSIM | **0.704** | uvdoc 0.701 | medido |
+| `text_line` | accuracy | **1.000** | lcnet_textline_ori 1.000 | medido |
+| `table` | TEDS estrut. | **0.885** | tatr 0.737 | medido |
+| `full_page` | Markdown F1 | **0.176** | — | medido |
+| `seal` | recall@IoU 0.5 | **0.750** | — | medido |
 
 CPU, `warmup=1`, `repeats=1`, pyocrust 0.1.0. Tablas por motor, provenance completa
 (comando, dataset, `n`, runtime) y referencias externas con URL en
@@ -513,8 +515,8 @@ CPU, `warmup=1`, `repeats=1`, pyocrust 0.1.0. Tablas por motor, provenance compl
 ```
 
 Los motores no instalados quedan `skipped`, nunca como ejecutados; las métricas sin
-ground truth son `N/A`, nunca `0`. `seal` no tiene set anotado en caché: sigue
-*pendiente*.
+ground truth son `N/A`, nunca `0`. `seal` no tiene set anotado a mano en caché: se mide
+contra un set **sintético** determinista (`synthetic_seal`), declarado como tal.
 
 ## Publicación a PyPI (CI/CD)
 
