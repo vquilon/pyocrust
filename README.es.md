@@ -426,6 +426,11 @@ pyocrust/
   `pip install torch` resuelve en silencio a la wheel de CPU, así que el eje GPU de
   la comparativa no se puede medir). El crate de Rust sigue cubriendo 3.10+ vía
   `abi3-py310`: es una restricción del banco de medida, no del paquete.
+- El set de dependencias del banco **fija `protobuf==3.20.3`**: `paddlepaddle-gpu`
+  2.6.2 pide `protobuf<=3.20.2` en Windows mientras que `onnxruntime-gpu` pide
+  `>=4.25`. Con 3.20.3 funcionan los dos (verificado con una sesión CUDA real de
+  ORT); si `paddlex` lo sube, `import paddle` muere con un `TypeError: Descriptors
+  cannot be created directly`.
 - Enlazador de C: en Windows, MSVC Build Tools (`cl.exe` en el `PATH`).
 
 ## Desarrollo

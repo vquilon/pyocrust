@@ -424,6 +424,10 @@ pyocrust/
   comparison cannot be measured at all). The Rust crate keeps covering 3.10+
   through `abi3-py310`: this is a constraint of the measuring bench, not of the
   package.
+- The bank's dependency set **pins `protobuf==3.20.3`**: `paddlepaddle-gpu` 2.6.2 asks
+  for `protobuf<=3.20.2` on Windows while `onnxruntime-gpu` asks for `>=4.25`. With
+  3.20.3 both work (verified with a real CUDA ORT session); if `paddlex` raises it,
+  `import paddle` dies with `Descriptors cannot be created directly`.
 - C linker: on Windows, MSVC Build Tools (`cl.exe` in `PATH`).
 
 ## Development
