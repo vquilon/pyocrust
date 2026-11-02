@@ -606,6 +606,74 @@ def _hf_layout_backend(model_id: str, threshold: float = 0.5) -> Callable[[Image
 
 
 # ---------------------------------------------------------------------------
+# Alternativa real de `layout` con YOLO (`ultralytics`, pesos `.pt` en cache)
+# ---------------------------------------------------------------------------
+# Los tres YOLO documentales comparten el vocabulario DocLayNet de arriba, asi
+# que reutilizan `LAYOUT_DOCLAYNET_LABEL_TO_MODEL` tal cual. `DocLayout-YOLO`
+# usa su propio vocabulario y lleva su mapa aparte. El tamano del modelo va en
+# el nombre visible (`MODEL_NAMES`) para que la tabla diga que se comparo.
+YOLO_LAYOUT_MODELS = {
+    "yolov10x": "D:/Environments/cache/models/layout/yolo10/yolov10x_best.pt",
+    "yolov10b": "D:/Environments/cache/models/layout/yolo10/yolov10b_best.pt",
+    "yolo26m": "D:/Environments/cache/models/layout/yolo26/yolo26m_doc_layout.pt",
+}
+
+
+def _yolo_layout_backend(name: str, imgsz: int = 1024) -> Callable[[Image.Image], OcrOutput]:
+    """Detector YOLO documental (`ultralytics`) -> `extra["elements"]`.
+
+    Mismo contrato que `_hf_layout_backend`: emite `element_type`, `score` y
+    `bbox` de 4 puntos en el vocabulario de `score_layout`, y deja fuera las
+    clases sin equivalencia declarada.
+
+    ponytail: se cronometra `model.predict(...)` entero, que incluye el
+    preprocesado interno de ultralytics; los adaptadores de `transformers`
+    cronometran solo forward+post-proceso. La nota va en el README para no
+    comparar peras con manzanas. Separarlo exige reimplementar el letterbox.
+    """
+    try:
+        from ultralytics import YOLO  # noqa: PLC0415 - import tardio (carga pesada)
+    except ImportError as exc:
+        raise ProviderUnavailable("pip install ultralytics (YOLO documental)") from exc
+
+    weights = YOLO_LAYOUT_MODELS[name]
+    try:
+        model = YOLO(weights)
+    except Exception as exc:  # noqa: BLE001 - pesos ausentes: es un `skipped`
+        raise ProviderUnavailable(f"pesos YOLO no disponibles ({weights}): {exc}") from exc
+    label_map = LAYOUT_DOCLAYNET_LABEL_TO_MODEL
+    params_m = round(sum(p.numel() for p in model.model.parameters()) / 1e6, 1)
+
+    def run(image: Image.Image) -> OcrOutput:
+        start = time.perf_counter()
+        results = model.predict(image, imgsz=imgsz, conf=0.5, device="cpu", verbose=False)
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+        elements: list[dict] = []
+        boxes: list[list[float]] = []
+        names = results[0].names if results else {}
+        for box, cls, conf in zip(
+            results[0].boxes.xyxy.tolist(), results[0].boxes.cls.tolist(), results[0].boxes.conf.tolist()
+        ):
+            element_type = label_map.get(str(names.get(int(cls), "")).strip().lower())
+            if element_type is None:
+                continue  # clase sin equivalencia declarada: fuera de la metrica
+            x1, y1, x2, y2 = (float(v) for v in box)
+            elements.append({
+                "element_type": element_type,
+                "score": float(conf),
+                "bbox": [[x1, y1], [x2, y1], [x2, y2], [x1, y2]],
+            })
+            boxes.append([x1, y1, x2, y2])
+        return OcrOutput(
+            text="", n_regions=len(elements), elapsed_ms=elapsed_ms,
+            extra={"engine": "ultralytics", "model": weights, "params_m": params_m,
+                   "imgsz": imgsz, "elements": elements, "boxes": boxes},
+        )
+
+    return run
+
+
+# ---------------------------------------------------------------------------
 # Alternativas reales de `orientation` / `text_line` / `rectification`
 # (`onnxruntime` sobre los pesos canonicos de PaddleOCR)
 # ---------------------------------------------------------------------------
@@ -855,6 +923,11 @@ PROVIDERS: dict[str, Callable[..., Callable[[Image.Image], OcrOutput]]] = {
     # RT-DETR (docling heron-101) y Deformable-DETR (DocLayNet). Solo CPU.
     "docling_heron_101": lambda: _hf_layout_backend(LAYOUT_HF_MODELS["docling_heron_101"]),
     "deformable_detr": lambda: _hf_layout_backend(LAYOUT_HF_MODELS["deformable_detr"]),
+    # Alternativas YOLO documentales (`ultralytics`, pesos `.pt` en cache; solo CPU).
+    # El nombre lleva el tamano para que la tabla y la grafica digan QUE se midio.
+    "yolov10x": lambda: _yolo_layout_backend("yolov10x"),
+    "yolov10b": lambda: _yolo_layout_backend("yolov10b"),
+    "yolo26m": lambda: _yolo_layout_backend("yolo26m"),
     "rapidocr": _rapidocr_backend,
     "easyocr": _easyocr_backend,
     "tesseract": _tesseract_backend,
@@ -889,6 +962,7 @@ TASK_TYPES = {"pyocrust_structure": "structure", "pyocrust_formula": "formula", 
               "pyocrust_layout": "layout", "pyocrust_table": "table",
               # Alternativas reales de `layout` (transformers): mismo task_type.
               "docling_heron_101": "layout", "deformable_detr": "layout",
+              "yolov10x": "layout", "yolov10b": "layout", "yolo26m": "layout",
               "pyocrust_orientation": "orientation", "pyocrust_textline": "text_line",
               "pyocrust_rectify": "rectification", "pyocrust_seal": "seal",
               # Alternativas reales de esas tareas (`onnxruntime`): mismo task_type.
@@ -903,15 +977,20 @@ MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"), "pyocrust_structure": ("pp_stru
                "pyocrust_formulanet_plusm": ("pp-formulanet_plus-m", "direct"),
                "pyocrust_formulanet_plusl": ("pp-formulanet_plus-l", "direct"),
                "pyocrust_indra": ("indra", "math"),
-               "pyocrust_layout": ("pp-doclayoutv3", "default"),
+               "pyocrust_layout": ("pp-doclayoutv3", "130M"),
                # Alternativas reales de `layout` (transformers, DocLayNet/RT-DETR).
                "docling_heron_101": ("docling-layout-heron-101", "default"),
                "deformable_detr": ("deformable-detr-DocLayNet", "default"),
+               # Alternativas YOLO documentales (`ultralytics`). El nombre es el
+               # tamano del modelo: x/b/m y el DocStructBench de 1024 px.
+               "yolov10x": ("yolov10x (DocLayNet)", "31.7M"),
+               "yolov10b": ("yolov10b (DocLayNet)", "20.5M"),
+               "yolo26m": ("yolo26m (doc-layout)", "21.8M"),
                "pyocrust_table": ("slanet_plus", "default"),
-               "pyocrust_orientation": ("pp-lcnet_x1_0_doc_ori", "default"),
-               "pyocrust_textline": ("pp-lcnet_x1_0_textline_ori", "default"),
-               "pyocrust_rectify": ("uvdoc", "default"),
-               "pyocrust_seal": ("pp-ocrv4_mobile_seal_det", "default"),
+               "pyocrust_orientation": ("pp-lcnet_x1_0_doc_ori", "6.8M"),
+               "pyocrust_textline": ("pp-lcnet_x1_0_textline_ori", "6.8M"),
+               "pyocrust_rectify": ("uvdoc", "31.7M"),
+               "pyocrust_seal": ("pp-ocrv4_mobile_seal_det", "4.8M"),
                # Alternativas reales (PaddleOCR via onnxruntime): mismo peso, otro runtime.
                "lcnet_doc_ori": ("pp-lcnet_x1_0_doc_ori", "onnxruntime"),
                "lcnet_textline_ori": ("pp-lcnet_x1_0_textline_ori", "onnxruntime"),
@@ -926,6 +1005,7 @@ FEATURE_TYPES = {"pyocrust_structure": "full_page", "pyocrust_indra": "full_page
                  "pyocrust_layout": "layout", "pyocrust_table": "table",
                  # Alternativas reales de `layout` (transformers): mismo banco.
                  "docling_heron_101": "layout", "deformable_detr": "layout",
+              "yolov10x": "layout", "yolov10b": "layout", "yolo26m": "layout",
                  "pyocrust_orientation": "orientation", "pyocrust_textline": "text_line",
                  "pyocrust_rectify": "rectification", "pyocrust_seal": "seal",
                  # Alternativas reales de esas tareas (`onnxruntime`): mismo banco.

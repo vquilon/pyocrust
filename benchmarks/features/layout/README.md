@@ -44,19 +44,33 @@ ni como fallo, porque el dataset no las anota de forma separable.
 
 ## Alternativas Python reales (a comparar)
 
-| Alternativa | Módulo / `pip install` |
-| :--- | :--- |
-| layoutparser | `layoutparser` |
-| docling | `docling` |
-| unstructured | `unstructured` |
-| paddleocr | `paddleocr paddlepaddle` |
-| TATR (transformers) | `transformers` + `table-transformer` |
+| Alternativa | Módulo / `pip install` | Medida |
+| :--- | :--- | :--- |
+| docling-layout-heron-101 (RT-DETR) | `transformers` | sí (`docling_heron_101`) |
+| yolo26m (doc-layout) | `ultralytics` | sí (`yolo26m`, 21.8M) |
+| yolov10b (DocLayNet) | `ultralytics` | sí (`yolov10b`, 20.5M) |
+| yolov10x (DocLayNet) | `ultralytics` | sí (`yolov10x`, 31.7M) |
+| deformable-detr-DocLayNet | `transformers` | `skipped` (sin `preprocessor_config.json` en caché) |
+| layoutparser | `layoutparser` | no integrada |
+| docling | `docling` | no integrada |
+| unstructured | `unstructured` | no integrada |
+| paddleocr | `paddleocr paddlepaddle` | no integrada |
+
+Los tres YOLO documentales comparten el vocabulario DocLayNet; `pyocrust_layout`
+usa `pp-doclayoutv3`. Pesos `.pt` en `D:\Environments\cache\models\layout\`, todo
+en CPU.
+
+> **Nota de equidad del tiempo.** Los adaptadores de `transformers` cronometran
+> solo forward + post-proceso (preprocesado fuera, igual que `pyocrust`).
+> `ultralytics` cronometra su `model.predict(...)` entero, que **incluye** su
+> preprocesado interno; su columna `ms/imagen` es por tanto algo conservadora y no
+> mide exactamente el mismo tramo. Separarlo exigiría reimplementar el letterbox.
 
 ## Estado
 
 **Implementado**: ejecuta `pyocrust` (`pyocrust_layout`) con warmup/repeats sobre
-el GT de layout de OmniDocBench y publica mAP/recall por clase. Las alternativas
-de la tabla están **documentadas** (se integran como backends cuando se instalen).
+el GT de layout de OmniDocBench y publica mAP/recall por clase, más las
+alternativas reales ya integradas (RT-DETR heron-101 y tres YOLO documentales).
 
 ## Provenance
 
