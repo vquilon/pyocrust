@@ -316,6 +316,53 @@ LAYOUT_MODEL_TO_GT = {
     "reference_content": "reference",
 }
 
+# Vocabulario de las alternativas con pesos del tipo DocLayNet (RT-DETR
+# `docling-layout-heron-101`, Deformable-DETR y los tres YOLO documentales):
+# etiqueta del modelo -> categoria anotada de OmniDocBench. Es la **composicion**
+# de `runner.LAYOUT_DOCLAYNET_LABEL_TO_MODEL` con `LAYOUT_MODEL_TO_GT` de arriba,
+# cacheada aqui para no encadenar dos diccionarios al puntuar; el por que de cada
+# par, con su fuente, esta en `features/layout/class_map.md`.
+#
+# DocLayNet (11 clases) **no tiene** clase para `page_number` ni `reference`: esas
+# categorias anotadas no son emitibles por estos modelos y por tanto se **ignoran**
+# al puntuarlos (ver `layout_gt_classes`), en vez de contarse como fallo.
+LAYOUT_DOCLAYNET_LABEL_TO_GT = {
+    "text": "text_block",
+    "title": "title",
+    "section-header": "title",
+    "formula": "equation_isolated",
+    "table": "table",
+    "picture": "figure",
+    "caption": "figure_caption",
+    "page-header": "header",
+    "page-footer": "footer",
+    "footnote": "page_footnote",
+}
+
+# Categorias anotadas que puede emitir cada familia de modelo (proyeccion de su
+# vocabulario al de OmniDocBench). La metrica macro promedia solo sobre la
+# **interseccion** GT-cap emitibles: una categoria que el modelo no puede emitir
+# se cuenta como **ignorada** (ni acierto ni fallo silencioso).
+_LAYOUT_PP_GT_CLASSES = frozenset(LAYOUT_MODEL_TO_GT.values())
+_LAYOUT_DOCLAYNET_GT_CLASSES = frozenset(LAYOUT_DOCLAYNET_LABEL_TO_GT.values())
+
+# `extra["engine"]` de los adaptadores cuyo vocabulario es DocLayNet.
+LAYOUT_DOCLAYNET_ENGINES = frozenset({"transformers", "ultralytics"})
+
+
+def layout_gt_classes(engine: str | None) -> frozenset[str]:
+    """Categorias anotadas que puede emitir un motor de layout por su `engine`.
+
+    Sin `engine` (o uno desconocido) se devuelve el conjunto **completo** de
+    `LAYOUT_MODEL_TO_GT` — el vocabulario mas amplio, el de `pp_doclayoutv3`
+    (detector propio): asi un motor nuevo no pierde categorias por defecto. Solo
+    los vocabularios **mas estrechos** (DocLayNet) recortan la interseccion.
+    """
+    if str(engine or "").strip().lower() in LAYOUT_DOCLAYNET_ENGINES:
+        return _LAYOUT_DOCLAYNET_GT_CLASSES
+    return _LAYOUT_PP_GT_CLASSES
+
+
 # Categorias de OmniDocBench -> vocabulario de `kind` que emite el pipeline
 # completo (`pp_structurev3`), para que `block_f1` compare la misma taxonomia en
 # ambos lados en vez de restar dos vocabularios distintos.
@@ -750,6 +797,21 @@ def _self_check() -> None:
         {"text_block", "title", "equation_isolated", "table", "figure", "figure_caption",
          "header", "footer", "page_number", "page_footnote", "reference"}
     )
+    # El mapa DocLayNet es la composicion runner.LAYOUT_DOCLAYNET_LABEL_TO_MODEL
+    # (vocabulario pp_doclayoutv3) con LAYOUT_MODEL_TO_GT, y es mas estrecho: no
+    # tiene `page_number` ni `reference`, que por tanto se ignoran al puntuar.
+    assert LAYOUT_DOCLAYNET_LABEL_TO_GT == {
+        "text": "text_block", "title": "title", "section-header": "title",
+        "formula": "equation_isolated", "table": "table", "picture": "figure",
+        "caption": "figure_caption", "page-header": "header",
+        "page-footer": "footer", "footnote": "page_footnote",
+    }
+    assert layout_gt_classes(None) == frozenset(LAYOUT_MODEL_TO_GT.values())
+    assert layout_gt_classes("PyOcrust") == frozenset(LAYOUT_MODEL_TO_GT.values())
+    doclaynet = layout_gt_classes("transformers")
+    assert doclaynet == layout_gt_classes("ultralytics")
+    assert {"page_number", "reference"}.isdisjoint(doclaynet)
+    assert doclaynet < layout_gt_classes(None)
     expected_datasets = {
         "funsd", "omnidocbench", "omnidocbench_formula", "omnidocbench_layout",
         "omnidocbench_table", "omnidocbench_full_page", "synthetic_orientation",
