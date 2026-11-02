@@ -26,7 +26,7 @@ Diseñar y desarrollar un wrapper nativo en Rust utilizando **PyO3** y **Maturin
 | Estructura | PP-StructureV3 vía `OARStructureBuilder`: layout, tablas (HTML) y fórmulas (LaTeX). **Estado real (`D2`, commit `b128566`):** el backend carga los 9 artefactos y `recognize` **no aplana**: devuelve el Markdown del documento (tablas HTML + fórmulas LaTeX), los elementos de layout (`LayoutRegion`) y las regiones OCR, y todo ello cruza a Python (ADR-003 **cumplido**) | — |
 | Motor de inferencia | **ONNX Runtime** exclusivamente | **Candle** y `oar-ocr-vl` (VLM ~0.9B), pospuestos a v2 (ADR-001) |
 | Distribución de modelos | `auto-download` (ModelScope → `$OAR_HOME`) + descargador Hugging Face resiliente (ADR-007). **Estado real (D1):** el descargador está implementado pero no conectado al pipeline (§9.1 ADR-007) | otros repositorios |
-| Plataforma de ejecución | CPU y GPU (features `cuda`, `directml`), Python 3.10+ (abi3) | `tensorrt`, `openvino`, `coreml`, `webgpu` |
+| Plataforma de ejecución | CPU y GPU (features `cuda`, `directml`), Python 3.10+ (abi3). El **banco de benchmarks** fija el intérprete del repo a **Python 3.12** (`.venv`): `paddlepaddle-gpu` y las wheels CUDA de `torch`/`torchvision` no existen para 3.13/3.14 en Windows | `tensorrt`, `openvino`, `coreml`, `webgpu` |
 
 `oar-ocr` `0.10.1` cubre además PP-OCRv4/v5, UniMERNet y PP-FormulaNet (fórmulas), SLANet/SLANet+/SLANeXt + RT-DETR (tablas), PP-DocLayoutV2/V3 (layout) y PP-LCNet/UVDoc (orientación y rectificación). El árbol actual expone tres familias de presets: `pp_ocrv6*`, `pp_structurev3` e `indra`; `S2.2` sigue parcial (§3.1.1).
 

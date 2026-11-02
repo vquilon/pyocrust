@@ -420,6 +420,12 @@ pyocrust/
 
 - Rust toolchain con `rustc`/`cargo` **1.95** o superior (MSRV de `oar-ocr`).
 - Python **3.10** o superior (el crate usa `abi3-py310`).
+- **El banco de benchmarks exige Python 3.12**, y eso es lo que hay en el
+  `.venv/Scripts/python.exe` del repo: `paddlepaddle-gpu` y las wheels CUDA de
+  `torch`/`torchvision` no publican builds para Windows en 3.13/3.14 (en 3.14
+  `pip install torch` resuelve en silencio a la wheel de CPU, así que el eje GPU de
+  la comparativa no se puede medir). El crate de Rust sigue cubriendo 3.10+ vía
+  `abi3-py310`: es una restricción del banco de medida, no del paquete.
 - Enlazador de C: en Windows, MSVC Build Tools (`cl.exe` en el `PATH`).
 
 ## Desarrollo
