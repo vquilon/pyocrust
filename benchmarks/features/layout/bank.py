@@ -60,7 +60,7 @@ SPEC = FeatureSpec(
 # Orden: detector propio de `pyocrust` y, después, las alternativas reales
 # (`transformers`, offline desde la cache HF). Las que no tengan pesos en caché
 # quedan `skipped` con su motivo — nunca `ok`.
-DEFAULT_BACKENDS = "pyocrust_layout,docling_heron_101,deformable_detr"
+DEFAULT_BACKENDS = "pyocrust_layout,docling_heron_101,yolov10x,yolov10b,yolo26m,deformable_detr"
 
 
 def _model_bbox(element: dict) -> tuple[float, float, float, float] | None:
