@@ -27,7 +27,8 @@
 
 | Motor | ms/imagen ↓ | calidad ↑ |
 | :--- | ---: | ---: |
-| **pyocrust_layout** | 1989 | 0.764 |
+| docling_heron_101 (default) | 966 | 0.508 |
+| **pyocrust_layout** | 1899 | 0.764 |
 
 ## orientation — device `cpu`
 

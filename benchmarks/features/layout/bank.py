@@ -55,6 +55,11 @@ SPEC = FeatureSpec(
     provenance="valores MEDIDOS por este banco (mAP/recall@IoU sobre las cajas anotadas de OmniDocBench)",
 )
 
+# Orden: detector propio de `pyocrust` y, después, las alternativas reales
+# (`transformers`, offline desde la cache HF). Las que no tengan pesos en caché
+# quedan `skipped` con su motivo — nunca `ok`.
+DEFAULT_BACKENDS = "pyocrust_layout,docling_heron_101,deformable_detr"
+
 
 def _model_bbox(element: dict) -> tuple[float, float, float, float] | None:
     """Caja envolvente `(x1, y1, x2, y2)` de los 4 puntos que emite el detector."""
@@ -98,7 +103,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     out_dir = feature_out_dir(args.output_dir, SPEC) / timestamp
     run_backends(
         samples,
-        [b.strip() for b in (args.backends or "pyocrust_layout").split(",") if b.strip()],
+        [b.strip() for b in (args.backends or DEFAULT_BACKENDS).split(",") if b.strip()],
         dataset, out_dir, timestamp,
         warmup=args.warmup, repeats=args.repeats, device=args.device,
         feature=SPEC.feature, scorer=score_layout,

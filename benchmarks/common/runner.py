@@ -684,6 +684,10 @@ PROVIDERS: dict[str, Callable[..., Callable[[Image.Image], OcrOutput]]] = {
     "pyocrust_orientation": lambda device="cpu": _task_predictor_backend("document_orientation", device=device),
     "pyocrust_textline": lambda device="cpu": _task_predictor_backend("text_line_orientation", device=device),
     "pyocrust_rectify": lambda device="cpu": _task_predictor_backend("document_rectification", device=device),
+    # Alternativas reales de `layout` (`transformers`, offline desde la cache HF):
+    # RT-DETR (docling heron-101) y Deformable-DETR (DocLayNet). Solo CPU.
+    "docling_heron_101": lambda: _hf_layout_backend(LAYOUT_HF_MODELS["docling_heron_101"]),
+    "deformable_detr": lambda: _hf_layout_backend(LAYOUT_HF_MODELS["deformable_detr"]),
     "rapidocr": _rapidocr_backend,
     "easyocr": _easyocr_backend,
     "tesseract": _tesseract_backend,
@@ -716,6 +720,8 @@ TASK_TYPES = {"pyocrust_structure": "structure", "pyocrust_formula": "formula", 
               "pyocrust_indra": "full_page",
               # Tareas sueltas: su `task_type` es el nombre de su banco de feature.
               "pyocrust_layout": "layout", "pyocrust_table": "table",
+              # Alternativas reales de `layout` (transformers): mismo task_type.
+              "docling_heron_101": "layout", "deformable_detr": "layout",
               "pyocrust_orientation": "orientation", "pyocrust_textline": "text_line",
               "pyocrust_rectify": "rectification",
               # Alternativa real de `table` (TATR): estructura de tabla, mismo GT.
@@ -728,6 +734,9 @@ MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"), "pyocrust_structure": ("pp_stru
                "pyocrust_formulanet_plusl": ("pp-formulanet_plus-l", "direct"),
                "pyocrust_indra": ("indra", "math"),
                "pyocrust_layout": ("pp-doclayoutv3", "default"),
+               # Alternativas reales de `layout` (transformers, DocLayNet/RT-DETR).
+               "docling_heron_101": ("docling-layout-heron-101", "default"),
+               "deformable_detr": ("deformable-detr-DocLayNet", "default"),
                "pyocrust_table": ("slanet_plus", "default"),
                "pyocrust_orientation": ("pp-lcnet_x1_0_doc_ori", "default"),
                "pyocrust_textline": ("pp-lcnet_x1_0_textline_ori", "default"),
@@ -740,6 +749,8 @@ FEATURE_TYPES = {"pyocrust_structure": "full_page", "pyocrust_indra": "full_page
                  "pyocrust_formulanet_l": "formula", "pyocrust_formulanet_pluss": "formula",
                  "pyocrust_formulanet_plusm": "formula", "pyocrust_formulanet_plusl": "formula",
                  "pyocrust_layout": "layout", "pyocrust_table": "table",
+                 # Alternativas reales de `layout` (transformers): mismo banco.
+                 "docling_heron_101": "layout", "deformable_detr": "layout",
                  "pyocrust_orientation": "orientation", "pyocrust_textline": "text_line",
                  "pyocrust_rectify": "rectification",
                  # Alternativa real del banco `table` (TATR, `transformers`).
