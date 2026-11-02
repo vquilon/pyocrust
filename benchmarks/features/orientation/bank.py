@@ -1,17 +1,20 @@
 #!/usr/bin/env python
-"""Banco de la feature **orientation** — esqueleto documentado.
+"""Banco de la feature **orientation** (orientación de página completa).
 
-Orientación de la página completa (0/90/180/270°) antes de OCR.
+Orientación de la página completa (0/90/180/270°) antes de OCR. Mide la
+**accuracy** de las 4 clases.
 
-Estado: **esqueleto**. No hay dataset local con GT de orientación de página;
-requiere rotar un set con orientación conocida y GT legible. Sin GT, la calidad
-se reporta **no evaluada** (nunca un `0.0` espurio).
+Dataset por defecto: `synthetic_orientation` — **GT sintético determinista**. Se
+toman las páginas de OmniDocBench ya presentes en `benchmarks/data_cache` (sin
+descargar nada) y se rotan 0/90/180/270; el GT es la etiqueta de corrección que el
+clasificador debe emitir para esa rotación, `(360 - a) mod 360`, comprobada sobre
+las cuatro clases en una página real antes de escribir el banco.
 
-Provenance: este esqueleto **no publica valores numéricos** — no hay nada
-ejecutado que respalde una cifra.
+Provenance: todo número que salga de aquí es **`medido`**; el `summary.json` de la
+run guarda comando, dataset, `n`, `warmup`, `repeats`, dispositivo y fecha.
 
 Uso:
-    .venv/Scripts/python.exe benchmarks/features/orientation/bank.py
+    .venv/Scripts/python.exe benchmarks/features/orientation/bank.py --limit 8
 """
 
 from __future__ import annotations
@@ -24,28 +27,57 @@ from typing import Sequence
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from features._base import FeatureSpec, run_skeleton
+from datetime import datetime
+
+from common import load_dataset, run_backends
+from features._base import FeatureSpec, common_argparser, feature_out_dir, orientation_accuracy
 
 SPEC = FeatureSpec(
     feature="orientation",
     summary="Orientación de la página completa (0/90/180/270°) antes de OCR.",
-    pyocrust_task="document_orientation (TaskPredictor)",
+    pyocrust_task="document_orientation (TaskPredictor; PP-LCNet)",
     metric="accuracy de la rotación (4 clases)",
-    dataset="No hay dataset local con GT de orientación de página; requiere rotar un set con orientación conocida y GT legible.",
+    dataset="synthetic_orientation: páginas cacheadas rotadas 0/90/180/270; GT = etiqueta de corrección ((360-a) mod 360)",
     alternatives={
         "paddleocr": ("paddleocr", "paddleocr paddlepaddle"),
         "docling": ("docling", "docling"),
         "surya": ("surya", "surya-ocr (requiere torch)"),
     },
-    status="skeleton",
-    note="Se puede construir GT rotando páginas de OmniDocBench y comprobando OCR; documentado, no medido todavía.",
-    provenance="esqueleto: sin valores numéricos (no hay GT local; nada ejecutado)",
+    status="implemented",
+    note="GT sintético determinista y reproducible: la rotación aplicada es conocida y su etiqueta esperada también.",
+    provenance="valores MEDIDOS por este banco (accuracy sobre GT sintético determinista, sin descargar nada)",
 )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    return run_skeleton(SPEC, argv)
+    args = common_argparser(SPEC.feature, SPEC.summary).parse_args(argv)
+    dataset = args.dataset or "synthetic_orientation"
+    samples = load_dataset(dataset, limit=args.limit, split=args.split)
+    print(f"[orientation] dataset={dataset} muestras={len(samples)}")
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    out_dir = feature_out_dir(args.output_dir, SPEC) / timestamp
+    run_backends(
+        samples,
+        [b.strip() for b in (args.backends or "pyocrust_orientation").split(",") if b.strip()],
+        dataset, out_dir, timestamp,
+        warmup=args.warmup, repeats=args.repeats, device=args.device,
+        feature=SPEC.feature, scorer=orientation_accuracy,
+    )
+    print(f"\n[orientation] resultados en {out_dir}")
+    return 0
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+def _self_check() -> None:
+    """La etiqueta de corrección del GT sintético es la esperada para cada rotación."""
+    from common.datasets import ORIENTATION_ANGLES
+
+    assert ORIENTATION_ANGLES == (0, 90, 180, 270)
+    assert [str((360 - a) % 360) for a in ORIENTATION_ANGLES] == ["0", "270", "180", "90"]
+    print("features.orientation self-check OK")
+
+
+if __name__ == "__main__":  # pragma: no cover - ejecución manual
+    if "--self-check" in sys.argv:
+        _self_check()
+    else:
+        raise SystemExit(main())

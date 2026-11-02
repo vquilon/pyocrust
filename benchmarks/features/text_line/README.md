@@ -1,6 +1,6 @@
-# Feature `text_line` — banco de benchmark (esqueleto)
+# Feature `text_line` — banco de benchmark (implementado)
 
-> Origen de los números: **sin valores numéricos (esqueleto)**.
+> Origen de los números: **`medido`** — ver `REPORT.md` (comando + dataset + n + device + fecha).
 
 ## Qué mide
 
@@ -8,7 +8,7 @@ Orientación de cada línea de texto (0/180°) antes de reconocerla.
 
 ## Tarea `pyocrust`
 
-`text_line_orientation` (`TaskPredictor`).
+`text_line_orientation` (`TaskPredictor`; PP-LCNet).
 
 ## Métrica
 
@@ -16,8 +16,11 @@ Orientación de cada línea de texto (0/180°) antes de reconocerla.
 
 ## Dataset / ground truth
 
-No hay dataset local con GT de orientación de línea. El GT es barato de generar
-(voltear líneas recortadas) pero no está incluido aún.
+`synthetic_text_line`: **GT sintético determinista**. Se recortan los bloques de
+texto anotados de las páginas de `OmniDocBench` ya presentes en
+`benchmarks/data_cache` (sin descargar nada) y se giran 0/180; el GT es la
+etiqueta de orientación aplicada. La entrada es un **recorte de línea** (la tarea
+espera una línea, no una página completa).
 
 ## Alternativas Python reales (a comparar)
 
@@ -28,11 +31,12 @@ No hay dataset local con GT de orientación de línea. El GT es barato de genera
 
 ## Estado
 
-Esqueleto **documentado**: declara tarea, métrica y alternativas, pero **no**
-ejecuta motores ni publica cifras mientras no haya GT local.
+**Implementado**: ejecuta `pyocrust` (`pyocrust_textline`) sobre las líneas giradas
+y publica la accuracy 0/180. Las alternativas están **documentadas** (se integran
+como backends cuando se instalen).
 
 ## Provenance
 
-Sin valores numéricos publicados. Cuando este banco se implemente, cada cifra irá
-etiquetada `medido` (comando + dataset + n + warmup + repeats + device + fecha) o
-`[ref: <url> (consultado YYYY-MM-DD)]`; nunca mezcladas sin etiquetar.
+Cada cifra de `REPORT.md` va etiquetada **`medido`**: comando reproducible,
+dataset, `n`, `warmup`, `repeats`, `device` y fecha, guardados en el
+`summary.json` de la run. No hay valores `referencia` en esta tabla.

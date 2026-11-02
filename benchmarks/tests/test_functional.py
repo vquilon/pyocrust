@@ -227,13 +227,19 @@ def test_b7_csv_contract_and_optional_markdown(b7_sample, tmp_path, backend):
         "latex_exact", "latex_sim", "latex_token_f1",
         # Aditivas del banco por feature: banco que produjo la fila + detección.
         "feature", "box_recall", "box_iou_mean",
+        # Honestidad de proveedor (aditiva): device pedido vs. el que de verdad corrió.
+        "device_requested", "provider_effective",
+        # Métricas por feature (aditivas): layout/tabla/orientación/rectificado.
+        "layout_map", "layout_recall", "table_teds", "ori_acc", "rect_sim",
     ]
     assert CSV_FIELDS == expected
     assert set(rows[0]) == set(expected) - {"run_timestamp"}
     assert rows[0]["markdown_f1"] == rows[0]["block_f1"] == ""
     assert meta["markdown_quality"] == "not_evaluated"
     assert meta["device_requested"] == "cpu"
-    assert meta["provider_effective"] == "unverified"
+    assert meta["provider_effective"] == "cpu"
+    assert rows[0]["device_requested"] == "cpu"
+    assert rows[0]["provider_effective"] == "cpu"
     path = write_csv(rows, tmp_path, "b7")
     with path.open(encoding="utf-8", newline="") as stream:
         assert next(csv.reader(stream)) == expected
@@ -266,9 +272,22 @@ def test_b7_skipped_backend_never_produces_rows(b7_sample, failure):
     assert meta["reason"]
     assert meta["task_type"] == "structure"
     assert (meta["model_name"], meta["model_variant"]) == ("pp_structurev3", "default")
-    assert meta["provider_effective"] == "unverified"
+    assert meta["provider_effective"] == ("n/a" if failure == "gpu" else "cpu")
+    assert meta["provider_effective"] not in ("cuda", "gpu")
     assert meta["device_requested"] == ("gpu" if failure == "gpu" else "cpu")
     assert calls == ([] if failure == "gpu" else ["load"])
+
+
+def test_device_outcome_is_honest_about_provider():
+    """Regla dura: la GPU sólo se etiqueta si se puede CONFIRMAR; hoy no, -> skipped."""
+    from run_benchmarks import device_outcome
+
+    assert device_outcome("pyocrust", "cpu") == ("cpu", None)
+    provider, reason = device_outcome("pyocrust", "gpu")
+    assert provider == "n/a" and "t_8a0f369f" in reason
+    assert provider not in ("cuda", "gpu")
+    provider, reason = device_outcome("rapidocr", "gpu")
+    assert provider == "n/a" and "solo CPU" in reason
 
 
 def test_b7_unknown_backend_summary_is_skipped(tmp_path, monkeypatch):

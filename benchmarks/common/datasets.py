@@ -46,6 +46,15 @@ class Sample:
     # references (e.g. OmniDocBench annotates each display formula's LaTeX), so
     # the formula task can be scored against formula GT instead of page prose.
     gt_by_task: dict[str, str] | None = None
+    # GT de **layout**: clase -> cajas `(x1, y1, x2, y2)`. OmniDocBench anota
+    # `category_type` + `poly` por bloque; permite mAP@IoU por clase.
+    gt_layout: dict[str, tuple[tuple[float, float, float, float], ...]] | None = None
+    # GT de **estructura de tabla**: el `html` anotado del bloque `table`.
+    gt_html: str | None = None
+    # GT de **clasificación** (orientación de página/línea): la etiqueta anotada.
+    gt_label: str | None = None
+    # GT de **rectificación**: la imagen limpia de la que se partió.
+    gt_image: Image.Image | None = None
 
 
 def load_local(manifest: Path, limit: int | None = None) -> list[Sample]:
@@ -149,6 +158,23 @@ def _odb_page_formulas(page: dict) -> str:
     return "\n".join(filter(None, (d.get("latex") for d in blocks)))
 
 
+def _odb_rich_first(pages: list) -> list:
+    """Orden determinista: páginas con tabla o fórmula primero, luego el resto.
+
+    El dataset arranca con páginas ricas porque son las que cubren las
+    casuísticas de `pyocrust` (estructura, tablas, fórmulas) sin dejar de lado
+    las de texto; el orden es estable entre ejecuciones (no hay aleatoriedad).
+    """
+    rich_idx = [i for i, p in enumerate(pages) if _odb_kinds(p) & {"table", "equation_isolated"}]
+    rich = set(rich_idx)
+    return [pages[i] for i in rich_idx + [i for i in range(len(pages)) if i not in rich]]
+
+
+def _odb_kinds(page: dict) -> set[str]:
+    """Categorías anotadas (no ignoradas) de la página."""
+    return {d["category_type"] for d in page["layout_dets"] if not d.get("ignore")}
+
+
 def load_omnidocbench(limit: int | None = None, cache_dir: Path | None = None) -> list[Sample]:
     """Carga OmniDocBench (dataset documental con GT) desde Hugging Face.
 
@@ -157,21 +183,13 @@ def load_omnidocbench(limit: int | None = None, cache_dir: Path | None = None) -
     tabla o formula para cubrir las casuisticas de `pyocrust` (estructura,
     formulas) sin dejar de lado las de texto.
     """
-    pages = _load_omnidocbench_pages(cache_dir)
-
-    def kinds(page: dict) -> set[str]:
-        return {d["category_type"] for d in page["layout_dets"] if not d.get("ignore")}
-
-    # Deterministic: rich pages (tabla o formula) primero, luego el resto.
-    rich_idx = [i for i, p in enumerate(pages) if kinds(p) & {"table", "equation_isolated"}]
-    rest_idx = [i for i in range(len(pages)) if i not in set(rich_idx)]
-    ordered = [pages[i] for i in (rich_idx + rest_idx)]
+    pages = _odb_rich_first(_load_omnidocbench_pages(cache_dir))
     if limit is not None:
-        ordered = ordered[:limit]
+        pages = pages[:limit]
 
     cache = cache_dir or DATA_CACHE
     samples: list[Sample] = []
-    for page in ordered:
+    for page in pages:
         name = str(page["page_info"]["image_path"])
         image = _odb_image(name, cache)
         formulas = _odb_page_formulas(page)
@@ -270,6 +288,317 @@ def load_omnidocbench_formulas(limit: int | None = None, cache_dir: Path | None 
 
 
 # ---------------------------------------------------------------------------
+# Adaptadores de GT de OmniDocBench por feature
+# ---------------------------------------------------------------------------
+#
+# El dataset anota cada bloque con su `category_type` + `poly`, y ademas lleva
+# `latex` (formulas) y `html` (tablas). Los adaptadores de aqui traducen esa
+# anotacion a la GT que cada banco necesita, **sin inventar nada**: lo que el
+# dataset no anota se queda a `None` y la metrica correspondiente sale `N/A`.
+
+# Vocabulario del detector de layout de `pyocrust` (`pp_doclayoutv3`, 25 clases;
+# oar-ocr-core `layout_detection_adapter.rs`) -> categorias de OmniDocBench. Solo
+# se evaluan las categorias que aparecen como destino de este mapa; el resto de
+# etiquetas del modelo se ignoran (y se documenta asi en el README del banco).
+LAYOUT_MODEL_TO_GT = {
+    "text": "text_block",
+    "doc_title": "title",
+    "paragraph_title": "title",
+    "display_formula": "equation_isolated",
+    "table": "table",
+    "image": "figure",
+    "figure_title": "figure_caption",
+    "header": "header",
+    "footer": "footer",
+    "number": "page_number",
+    "footnote": "page_footnote",
+    "reference": "reference",
+    "reference_content": "reference",
+}
+
+# Categorias de OmniDocBench -> vocabulario de `kind` que emite el pipeline
+# completo (`pp_structurev3`), para que `block_f1` compare la misma taxonomia en
+# ambos lados en vez de restar dos vocabularios distintos.
+ODB_CATEGORY_TO_KIND = {
+    "text_block": "text",
+    "title": "paragraph_title",
+    "header": "header",
+    "footer": "footer",
+    "page_number": "number",
+    "list_group": "list",
+    "reference": "reference",
+    "page_footnote": "footnote",
+    "table_footnote": "footnote",
+    "figure_footnote": "footnote",
+    "figure_caption": "figure_title",
+    "table_caption": "figure_title",
+    "equation_caption": "figure_title",
+    "code_txt_caption": "figure_title",
+    "code_txt": "text",
+    "equation_explanation": "text",
+    "equation_isolated": "formula",
+    "equation_semantic": "formula",
+    "table": "table",
+    "figure": "image",
+}
+
+# Categorias que NO aportan contenido legible (mascaras de region).
+_NON_CONTENT_SUFFIX = "_mask"
+
+
+def _odb_poly_bbox(poly: Sequence[float]) -> tuple[float, float, float, float]:
+    """Caja envolvente `(x1, y1, x2, y2)` del poligono anotado."""
+    xs, ys = list(poly)[0::2], list(poly)[1::2]
+    return (float(min(xs)), float(min(ys)), float(max(xs)), float(max(ys)))
+
+
+def _odb_content_blocks(page: dict) -> list[dict]:
+    """Bloques de contenido de la pagina, en orden de lectura.
+
+    Se excluyen los `ignore` y las mascaras (`*_mask`, `abandon`), que no son
+    contenido del documento.
+    """
+    blocks = [d for d in page["layout_dets"]
+              if not d.get("ignore")
+              and d["category_type"] != "abandon"
+              and not d["category_type"].endswith(_NON_CONTENT_SUFFIX)]
+    blocks.sort(key=lambda d: d.get("order") or (1 << 30))
+    return blocks
+
+
+def _odb_block_body(det: dict) -> str:
+    """Contenido anotado de un bloque: su texto, su LaTeX o su HTML de tabla."""
+    return str(det.get("text") or det.get("latex") or det.get("html") or "")
+
+
+def _odb_page_markdown(page: dict) -> str:
+    """Markdown GT reconstruido de los bloques anotados en orden de lectura.
+
+    La release de OmniDocBench no publica un Markdown de pagina renderizado, pero
+    **si** anota el contenido de cada bloque (`text`/`latex`/`html`) y su `order`:
+    el Markdown de referencia es la concatenacion de esos contenidos en ese
+    orden. No se inventa contenido; solo se serializa lo que ya esta anotado.
+    """
+    return "\n\n".join(filter(None, (_odb_block_body(d) for d in _odb_content_blocks(page))))
+
+
+def _odb_page_blocks(page: dict) -> tuple[str, ...]:
+    """Tipos de bloque (vocabulario `kind`) de los bloques con contenido."""
+    kinds = (ODB_CATEGORY_TO_KIND.get(d["category_type"]) for d in _odb_content_blocks(page))
+    return tuple(kind for kind in kinds if kind)
+
+
+def _odb_page_layout(page: dict) -> dict[str, tuple[tuple[float, float, float, float], ...]]:
+    """GT de layout: categoria de bloque -> cajas, solo categorias mapeadas."""
+    mapped = set(LAYOUT_MODEL_TO_GT.values())
+    boxes: dict[str, list] = {}
+    for det in page["layout_dets"]:
+        category = det["category_type"]
+        if det.get("ignore") or category not in mapped:
+            continue
+        boxes.setdefault(category, []).append(_odb_poly_bbox(det["poly"]))
+    return {category: tuple(values) for category, values in boxes.items()}
+
+
+def load_omnidocbench_layout(limit: int | None = None, cache_dir: Path | None = None) -> list[Sample]:
+    """Paginas con GT de **layout** (cajas anotadas por clase de bloque)."""
+    cache = cache_dir or DATA_CACHE
+    pages = _odb_rich_first(_load_omnidocbench_pages(cache_dir))
+    samples: list[Sample] = []
+    for page in pages:
+        layout = _odb_page_layout(page)
+        if not layout:
+            continue
+        name = str(page["page_info"]["image_path"])
+        samples.append(Sample(image_id=name, image=_odb_image(name, cache),
+                              gt_text="", gt_layout=layout))
+        if limit is not None and len(samples) >= limit:
+            break
+    return samples
+
+
+def load_omnidocbench_tables(limit: int | None = None, cache_dir: Path | None = None) -> list[Sample]:
+    """Una muestra por tabla anotada: recorte del `poly` + su `html` como GT."""
+    cache = cache_dir or DATA_CACHE
+    pages = _odb_rich_first(_load_omnidocbench_pages(cache_dir))
+    samples: list[Sample] = []
+    for page in pages:
+        dets = [d for d in page["layout_dets"]
+                if d["category_type"] == "table" and not d.get("ignore") and d.get("html")]
+        if not dets:
+            continue
+        name = str(page["page_info"]["image_path"])
+        image = _odb_image(name, cache)
+        for det in dets:
+            samples.append(Sample(
+                image_id=f"{Path(name).stem}::{det.get('anno_id', 'tbl')}",
+                image=_crop_poly(image, det["poly"]),
+                gt_text="", gt_html=str(det["html"]),
+            ))
+            if limit is not None and len(samples) >= limit:
+                return samples
+    return samples
+
+
+def load_omnidocbench_full_page(limit: int | None = None, cache_dir: Path | None = None) -> list[Sample]:
+    """Paginas con GT de **documento** completo (Markdown + bloques en orden)."""
+    cache = cache_dir or DATA_CACHE
+    pages = _odb_rich_first(_load_omnidocbench_pages(cache_dir))
+    samples: list[Sample] = []
+    for page in pages:
+        markdown = _odb_page_markdown(page)
+        if not markdown:
+            continue
+        name = str(page["page_info"]["image_path"])
+        samples.append(Sample(
+            image_id=name, image=_odb_image(name, cache),
+            gt_text=_odb_page_text(page), gt_markdown=markdown,
+            gt_blocks=_odb_page_blocks(page),
+        ))
+        if limit is not None and len(samples) >= limit:
+            break
+    return samples
+
+
+# ---------------------------------------------------------------------------
+# GT sintetico determinista (orientacion / linea de texto / rectificacion)
+# ---------------------------------------------------------------------------
+#
+# Estas tres features no tienen un dataset con GT publico, pero su GT es **barato
+# de generar y determinista**: se transforma una imagen limpia con una operacion
+# conocida y el GT es esa operacion. Las imagenes base son las paginas de
+# OmniDocBench **ya presentes en `benchmarks/data_cache`**, asi que no se
+# descarga nada al ejecutar el banco.
+
+ORIENTATION_ANGLES = (0, 90, 180, 270)
+TEXT_LINE_ANGLES = (0, 180)
+# Esquinas del destino deformado (fracciones del ancho/alto) de la homografia.
+PERSPECTIVE_OFFSETS = ((0.06, 0.03), (0.96, 0.08), (0.93, 0.96), (0.08, 0.94))
+
+
+def _cached_page_images(cache_dir: Path | None = None) -> list[Path]:
+    """Paginas de OmniDocBench ya presentes en la cache local (sin red)."""
+    root = (cache_dir or DATA_CACHE) / "datasets--opendatalab--OmniDocBench"
+    return sorted(root.glob("snapshots/*/images/*.png"))
+
+
+def _cached_page_annotation(cache_dir: Path | None = None) -> list:
+    """Anotacion de OmniDocBench ya descargada (lista vacia si no esta)."""
+    root = (cache_dir or DATA_CACHE) / "datasets--opendatalab--OmniDocBench"
+    files = sorted(root.glob("snapshots/*/OmniDocBench.json"))
+    return json.loads(files[0].read_text(encoding="utf-8")) if files else []
+
+
+def _cached_text_lines(cache_dir: Path | None = None) -> list[tuple[str, Image.Image]]:
+    """Recortes de bloques de texto de las paginas cacheadas (para `text_line`)."""
+    pages = {str(p["page_info"]["image_path"]): p for p in _cached_page_annotation(cache_dir)}
+    lines: list[tuple[str, Image.Image]] = []
+    for path in _cached_page_images(cache_dir):
+        page = pages.get(path.name)
+        if page is None:
+            continue
+        image = Image.open(path).convert("RGB")
+        for det in page["layout_dets"]:
+            if det["category_type"] != "text_block" or det.get("ignore"):
+                continue
+            x1, y1, x2, y2 = _odb_poly_bbox(det["poly"])
+            crop = image.crop((int(x1), int(y1), int(x2), int(y2)))
+            if crop.width > 40 and 8 < crop.height < 120:
+                lines.append((f"{path.stem}::{det.get('anno_id', 'line')}", crop))
+    return lines
+
+
+def load_synthetic_orientation(limit: int | None = None, cache_dir: Path | None = None) -> list[Sample]:
+    """Paginas rotadas 0/90/180/270; GT = la etiqueta de **correccion** esperada.
+
+    El clasificador de `pyocrust` (`document_orientation`, PP-LCNet) devuelve la
+    rotacion que hay que **aplicar** para enderezar la pagina, no la que se le
+    aplico: sobre una pagina rotada `a` grados emite `(360 - a) mod 360`
+    (comprobado con las cuatro clases en una pagina real antes de escribir el
+    banco). El GT sintetico es exactamente esa etiqueta.
+    """
+    paths = _cached_page_images(cache_dir)
+    if not paths:
+        raise DatasetUnavailable(
+            "no hay paginas de OmniDocBench en benchmarks/data_cache para el GT sintetico"
+        )
+    samples: list[Sample] = []
+    for i, path in enumerate(paths if limit is None else paths[:limit]):
+        angle = ORIENTATION_ANGLES[i % len(ORIENTATION_ANGLES)]
+        image = Image.open(path).convert("RGB")
+        samples.append(Sample(
+            image_id=f"{path.stem}::rot{angle}",
+            image=image.rotate(angle, expand=True) if angle else image,
+            gt_text="", gt_label=str((360 - angle) % 360),
+        ))
+    return samples
+
+
+def load_synthetic_text_line(limit: int | None = None, cache_dir: Path | None = None) -> list[Sample]:
+    """Lineas de texto giradas 0/180; GT = la etiqueta de orientacion aplicada."""
+    lines = _cached_text_lines(cache_dir)
+    if not lines:
+        raise DatasetUnavailable(
+            "no hay paginas de OmniDocBench en benchmarks/data_cache para cortar lineas"
+        )
+    samples: list[Sample] = []
+    for i, (name, image) in enumerate(lines if limit is None else lines[:limit]):
+        angle = TEXT_LINE_ANGLES[i % len(TEXT_LINE_ANGLES)]
+        samples.append(Sample(image_id=f"{name}::rot{angle}",
+                              image=image.rotate(180) if angle else image,
+                              gt_text="", gt_label=str(angle)))
+    return samples
+
+
+def load_synthetic_rectification(limit: int | None = None, cache_dir: Path | None = None) -> list[Sample]:
+    """Paginas deformadas con una homografia conocida; GT = la **imagen limpia**.
+
+    La deformacion es determinista (cuatro esquinas fijas), asi que el par
+    (deformada, limpia) es reproducible sin descargar ningun dataset: el motor
+    debe devolver una imagen rectificada que se compara con la original.
+    """
+    paths = _cached_page_images(cache_dir)
+    if not paths:
+        raise DatasetUnavailable(
+            "no hay paginas de OmniDocBench en benchmarks/data_cache para el GT sintetico"
+        )
+    samples: list[Sample] = []
+    for path in (paths if limit is None else paths[:limit]):
+        clean = _resize_max(Image.open(path).convert("RGB"), 1000)
+        samples.append(Sample(image_id=f"{path.stem}::persp",
+                              image=_perspective_warp(clean),
+                              gt_text="", gt_image=clean))
+    return samples
+
+
+def _resize_max(image: Image.Image, max_side: int) -> Image.Image:
+    """Escala la imagen para que su lado mayor mida `max_side` (sin deformar)."""
+    scale = max_side / max(image.size)
+    if scale >= 1.0:
+        return image
+    return image.resize((max(1, int(image.width * scale)), max(1, int(image.height * scale))))
+
+
+def _perspective_warp(image: Image.Image) -> Image.Image:
+    """Aplica a la imagen una homografia fija (deformacion de perspectiva)."""
+    try:
+        import cv2
+        import numpy as np
+    except ImportError as exc:  # pragma: no cover - entorno sin opencv
+        raise DatasetUnavailable(
+            "pip install opencv-python-headless para el GT sintetico de rectificacion"
+        ) from exc
+    width, height = image.size
+    source = np.float32([[0, 0], [width, 0], [width, height], [0, height]])
+    destination = np.float32([[x * width, y * height] for x, y in PERSPECTIVE_OFFSETS])
+    matrix = cv2.getPerspectiveTransform(source, destination)
+    warped = cv2.warpPerspective(
+        np.asarray(image), matrix, (width, height), borderValue=(255, 255, 255)
+    )
+    return Image.fromarray(warped)
+
+
+# ---------------------------------------------------------------------------
 # Registro de datasets por nombre (cada feature declara el suyo)
 # ---------------------------------------------------------------------------
 
@@ -277,6 +606,14 @@ DATASETS = {
     "funsd": lambda limit, split, cache: load_funsd(split=split, limit=limit),
     "omnidocbench": lambda limit, split, cache: load_omnidocbench(limit=limit, cache_dir=cache),
     "omnidocbench_formula": lambda limit, split, cache: load_omnidocbench_formulas(limit=limit, cache_dir=cache),
+    # Adaptadores de GT por feature (OmniDocBench anota layout, tablas y bloques).
+    "omnidocbench_layout": lambda limit, split, cache: load_omnidocbench_layout(limit=limit, cache_dir=cache),
+    "omnidocbench_table": lambda limit, split, cache: load_omnidocbench_tables(limit=limit, cache_dir=cache),
+    "omnidocbench_full_page": lambda limit, split, cache: load_omnidocbench_full_page(limit=limit, cache_dir=cache),
+    # GT sintetico determinista, calculado desde las paginas ya cacheadas.
+    "synthetic_orientation": lambda limit, split, cache: load_synthetic_orientation(limit=limit, cache_dir=cache),
+    "synthetic_text_line": lambda limit, split, cache: load_synthetic_text_line(limit=limit, cache_dir=cache),
+    "synthetic_rectification": lambda limit, split, cache: load_synthetic_rectification(limit=limit, cache_dir=cache),
 }
 
 
@@ -306,7 +643,39 @@ def _self_check() -> None:
     assert _odb_page_formulas(page) == "$$E=mc^2$$"
     assert _odb_formula_pages([page], 1)[0][2][0]["latex"] == "$$E=mc^2$$"
     assert _crop_poly(Image.new("RGB", (20, 20)), [2, 3, 8, 3, 8, 9, 2, 9], pad=0).size == (6, 6)
-    assert "funsd" in DATASETS and "omnidocbench_formula" in DATASETS
+    # Adaptadores de GT por feature sobre una pagina anotada (layout/tabla/documento).
+    annotated = {
+        "layout_dets": [
+            {"category_type": "text_block", "ignore": False, "order": 1,
+             "poly": [0, 0, 10, 0, 10, 5, 0, 5], "text": "hola"},
+            {"category_type": "table", "ignore": False, "order": 2,
+             "poly": [0, 5, 10, 5, 10, 9, 0, 9], "html": "<table><tr><td>x</td></tr></table>"},
+            {"category_type": "equation_isolated", "ignore": False, "order": 3,
+             "poly": [0, 9, 10, 9, 10, 12, 0, 12], "latex": "$$x$$"},
+            {"category_type": "text_mask", "ignore": False, "order": 4, "text": "no"},
+            {"category_type": "header", "ignore": True, "order": 0, "text": "ignorado"},
+        ],
+        "page_info": {"image_path": "p.png"},
+    }
+    assert _odb_page_markdown(annotated) == "hola\n\n<table><tr><td>x</td></tr></table>\n\n$$x$$"
+    # `text_mask` (mascara) y el bloque `ignore` no son contenido ni bloques.
+    assert _odb_page_blocks(annotated) == ("text", "table", "formula")
+    # Solo las categorias con equivalencia en el vocabulario del modelo cuentan.
+    assert _odb_page_layout(annotated) == {
+        "text_block": ((0.0, 0.0, 10.0, 5.0),),
+        "table": ((0.0, 5.0, 10.0, 9.0),),
+        "equation_isolated": ((0.0, 9.0, 10.0, 12.0),),
+    }
+    assert set(LAYOUT_MODEL_TO_GT.values()) <= (
+        {"text_block", "title", "equation_isolated", "table", "figure", "figure_caption",
+         "header", "footer", "page_number", "page_footnote", "reference"}
+    )
+    expected_datasets = {
+        "funsd", "omnidocbench", "omnidocbench_formula", "omnidocbench_layout",
+        "omnidocbench_table", "omnidocbench_full_page", "synthetic_orientation",
+        "synthetic_text_line", "synthetic_rectification",
+    }
+    assert expected_datasets <= set(DATASETS), sorted(expected_datasets - set(DATASETS))
     print("common.datasets self-check OK")
 
 

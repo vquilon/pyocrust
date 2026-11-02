@@ -193,6 +193,140 @@ def box_metrics(
 
 
 # ---------------------------------------------------------------------------
+# Layout (detección): mAP@IoU por clase + recall macro
+# ---------------------------------------------------------------------------
+
+
+def _class_ap(
+    gt_boxes: Sequence[Sequence[float]],
+    preds: Sequence[tuple[float, Sequence[float]]],
+    thr: float,
+) -> tuple[float, float] | None:
+    """`(AP@thr, recall@thr)` de **una** clase; `None` si esa clase no tiene GT.
+
+    Emparejamiento voraz 1-a-1: se recorren las predicciones por `score`
+    descendente y cada una se lleva la caja GT libre de mayor IoU; el AP es el
+    área bajo la curva precisión-recall a un único umbral (VOC2007), con
+    `tp/(tp+fp)` acumulado en cada acierto.
+    """
+    if not gt_boxes:
+        return None
+    matched = [False] * len(gt_boxes)
+    tp = fp = 0
+    ap = 0.0
+    for _score, box in sorted(preds, key=lambda p: -float(p[0])):
+        best_i, best_iou = -1, 0.0
+        for i, gt_box in enumerate(gt_boxes):
+            if matched[i]:
+                continue
+            value = iou(gt_box, box)
+            if value > best_iou:
+                best_i, best_iou = i, value
+        if best_i >= 0 and best_iou >= thr:
+            matched[best_i] = True
+            tp += 1
+            ap += tp / (tp + fp)
+        else:
+            fp += 1
+    return ap / len(gt_boxes), sum(matched) / len(gt_boxes)
+
+
+def detection_map(
+    gt_by_class: dict[str, Sequence[Sequence[float]]],
+    pred_by_class: dict[str, Sequence[tuple[float, Sequence[float]]]],
+    thr: float = 0.5,
+) -> tuple[float | None, float | None]:
+    """`(mAP@thr, recall@thr)` macro sobre las clases **presentes en el GT**.
+
+    `gt_by_class` mapea clase -> cajas GT; `pred_by_class` mapea clase -> lista
+    `(score, caja)`. Solo se evalúan las clases con GT (sin positivos el recall
+    es indefinido, no cero). Si el GT no trae ninguna caja devuelve
+    `(None, None)`: la métrica queda **no evaluada**, nunca un `0.0` espurio.
+    """
+    aps, recalls = [], []
+    for cls, gt_boxes in gt_by_class.items():
+        result = _class_ap(list(gt_boxes), list(pred_by_class.get(cls, ())), thr)
+        if result is not None:
+            aps.append(result[0])
+            recalls.append(result[1])
+    if not aps:
+        return None, None
+    return sum(aps) / len(aps), sum(recalls) / len(recalls)
+
+
+# ---------------------------------------------------------------------------
+# Tablas: TEDS de estructura (secuencia de etiquetas, sin texto de celda)
+# ---------------------------------------------------------------------------
+
+# Envoltorios que no aportan estructura de tabla: el modelo emite la gramática
+# `<tr>/<td>` sin ellos, así que se ignoran en ambos lados.
+_HTML_WRAPPER_TAGS = frozenset({"html", "body", "table", "tbody", "thead", "tfoot"})
+
+
+def html_tags(html: str) -> list[str]:
+    """Secuencia de etiquetas HTML (sin texto y sin envoltorios de tabla)."""
+    from html.parser import HTMLParser
+
+    tags: list[str] = []
+
+    class _Collector(HTMLParser):
+        def handle_starttag(self, tag: str, attrs: object) -> None:
+            if tag.lower() not in _HTML_WRAPPER_TAGS:
+                tags.append(f"<{tag.lower()}>")
+
+        def handle_startendtag(self, tag: str, attrs: object) -> None:
+            self.handle_starttag(tag, attrs)
+            tags.append(f"</{tag.lower()}>")
+
+        def handle_endtag(self, tag: str) -> None:
+            if tag.lower() not in _HTML_WRAPPER_TAGS:
+                tags.append(f"</{tag.lower()}>")
+
+    _Collector(convert_charrefs=True).feed(html or "")
+    return tags
+
+
+def table_teds(gt_html: str, pred_html: str) -> float:
+    """**TEDS de estructura**: `1 - editDist(etiquetas) / max(longitudes)`.
+
+    El modelo de estructura de tabla emite solo la gramática
+    (`<tr>`, `<td>`, `</tr>`...) y **no** el texto de las celdas, así que la
+    comparación honesta es sobre la secuencia de etiquetas (filas, columnas y
+    fusiones) sin el contenido: la variante *TEDS-S* de la literatura. El TEDS de
+    árbol completo exigiría el texto de celda, que aquí no se predice.
+    """
+    a, b = html_tags(gt_html), html_tags(pred_html)
+    if not a and not b:
+        return 1.0
+    return 1.0 - levenshtein(a, b) / max(len(a), len(b))
+
+
+# ---------------------------------------------------------------------------
+# Rectificación: similitud estructural (SSIM) con la imagen limpia de referencia
+# ---------------------------------------------------------------------------
+
+
+def image_ssim(reference, prediction) -> float | None:
+    """SSIM en gris entre la imagen rectificada y su referencia limpia.
+
+    Reencuadra la predicción al tamaño de la referencia (el motor puede devolver
+    otra resolución) y recorta a `[0, 1]`. Devuelve `None` — métrica **no
+    evaluada**, nunca un `0.0` — si falta `scikit-image`.
+    """
+    try:  # pragma: no cover - dependencia opcional
+        import numpy as np
+        from skimage.metrics import structural_similarity
+    except ImportError:  # pragma: no cover - entorno sin scikit-image
+        return None
+    reference_gray = reference.convert("L")
+    grayscale = prediction.convert("L").resize(reference_gray.size)
+    value = structural_similarity(
+        np.asarray(reference_gray), np.asarray(grayscale), data_range=255
+    )
+    return max(0.0, float(value))
+
+
+# ---------------------------------------------------------------------------
 # LaTeX: reexport del módulo canónico (no se duplica la implementación).
 # ---------------------------------------------------------------------------
 
@@ -206,6 +340,7 @@ from latex_metrics import (  # noqa: E402  (import al final: único origen de la
 __all__ = [
     "normalize", "levenshtein", "cer", "wer", "word_f1", "cer_ord", "wer_ord",
     "markdown_f1", "block_f1", "iou", "box_metrics",
+    "detection_map", "html_tags", "table_teds", "image_ssim",
     "normalize_latex", "latex_exact", "latex_similarity", "latex_token_f1",
 ]
 
@@ -228,6 +363,21 @@ def _self_check() -> None:
     # latex (reexportado)
     assert latex_exact(r"\dfrac{1}{2}", r"\frac{1}{2}") == 1.0
     assert latex_token_f1("abc", "cab") == 1.0
+    # layout: mAP@0.5 y recall macro por clase (solo clases con GT)
+    #   texto: 2 GT, pred 1 acierto + 1 falso positivo -> AP = (1/2)/2 = 0.5, recall 0.5
+    #   tabla: 1 GT sin predicción -> AP = 0.0, recall 0.0
+    ap, recall = detection_map(
+        {"text": [(0, 0, 10, 10), (20, 20, 30, 30)], "table": [(0, 0, 5, 5)]},
+        {"text": [(0.9, (0, 0, 10, 10)), (0.5, (100, 100, 110, 110))], "table": []},
+    )
+    assert (ap, recall) == (0.25, 0.25)
+    # sin cajas GT no hay métrica (nunca un 0.0 inventado)
+    assert detection_map({}, {}) == (None, None)
+    # tablas: TEDS de estructura ignora el texto de celda y los envoltorios
+    html = "<table><tr><td>a</td><td>b</td></tr></table>"
+    assert table_teds(html, "<tr><td></td><td></td></tr>") == 1.0
+    assert table_teds("<tr><td></td></tr>", "<tr><td></td><td></td></tr>") < 1.0
+    assert html_tags("<table><tr><td>x</td></tr></table>") == ["<tr>", "<td>", "</td>", "</tr>"]
     print("common.metrics self-check OK")
 
 

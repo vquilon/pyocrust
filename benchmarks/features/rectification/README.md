@@ -1,6 +1,6 @@
-# Feature `rectification` — banco de benchmark (esqueleto)
+# Feature `rectification` — banco de benchmark (implementado)
 
-> Origen de los números: **sin valores numéricos (esqueleto)**.
+> Origen de los números: **`medido`** — ver `REPORT.md` (comando + dataset + n + device + fecha).
 
 ## Qué mide
 
@@ -8,17 +8,21 @@ Rectificación de documentos deformados (páginas curvadas/inclinadas) antes de 
 
 ## Tarea `pyocrust`
 
-`document_rectification` (`TaskPredictor`; devuelve un PNG rectificado).
+`document_rectification` (`TaskPredictor`; UVDoc, devuelve un PNG rectificado).
 
 ## Métrica
 
-**calidad de enderezado**: rectitud de las líneas de texto y/o similitud con la
-referencia enderezada (SSIM/PNSR contra el par de referencia).
+**SSIM** (similitud estructural, en gris) entre la imagen rectificada por el motor
+y la **imagen limpia de referencia**, acotado a `[0, 1]`. La predicción se
+reencuadra al tamaño de la referencia (el motor puede devolver otra resolución).
 
 ## Dataset / ground truth
 
-No hay GT público local de imagen rectificada de referencia. Hace falta un par
-(deformada, enderezada); sin él, la calidad queda **no evaluada**.
+`synthetic_rectification`: **GT sintético determinista**. Se toman las páginas de
+`OmniDocBench` ya presentes en `benchmarks/data_cache` (sin descargar nada), se
+reescalan a un tamaño fijo y se les aplica una **homografía conocida** (cuatro
+esquinas fijas); el GT es la imagen limpia original. El par (deformada, limpia) es
+reproducible entre ejecuciones.
 
 ## Alternativas Python reales (a comparar)
 
@@ -29,11 +33,12 @@ No hay GT público local de imagen rectificada de referencia. Hace falta un par
 
 ## Estado
 
-Esqueleto **documentado**: declara tarea, métrica y alternativas, pero **no**
-ejecuta motores ni publica cifras mientras no haya GT local.
+**Implementado**: ejecuta `pyocrust` (`pyocrust_rectify`) sobre las páginas
+deformadas y publica el SSIM contra la referencia limpia. Las alternativas están
+**documentadas** (se integran como backends cuando se instalen).
 
 ## Provenance
 
-Sin valores numéricos publicados. Cuando este banco se implemente, cada cifra irá
-etiquetada `medido` (comando + dataset + n + warmup + repeats + device + fecha) o
-`[ref: <url> (consultado YYYY-MM-DD)]`; nunca mezcladas sin etiquetar.
+Cada cifra de `REPORT.md` va etiquetada **`medido`**: comando reproducible,
+dataset, `n`, `warmup`, `repeats`, `device` y fecha, guardados en el
+`summary.json` de la run. No hay valores `referencia` en esta tabla.

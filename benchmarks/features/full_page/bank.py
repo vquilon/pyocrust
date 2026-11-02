@@ -1,19 +1,22 @@
 #!/usr/bin/env python
-"""Banco de la feature **full_page** — esqueleto documentado.
+"""Banco de la feature **full_page** (documento completo → Markdown y bloques).
 
-Pipeline completo de página → Markdown/bloques (texto + tablas + fórmulas juntos).
+Pipeline completo de página: layout + OCR + tablas + fórmulas en una sola salida
+Markdown. Mide **`markdown_f1`** (LCS de tokens sobre el Markdown, sensible al
+orden y conservando el LaTeX) y **`block_f1`** (multiconjunto de tipos de bloque),
+además del CER/WER de texto que ya calcula el runner.
 
-Estado: **esqueleto**. Ya se mide el pipeline (`task_type=full_page` con Indra /
-`pp_structurev3`) contra GT textual, pero la calidad Markdown/bloques queda **no
-evaluada**: la release de OmniDocBench NO publica un Markdown de página
-renderizado. Sin GT de esa modalidad no se inventa un `0.0`; el banco declara su
-métrica para cuando haya GT propio.
+Dataset por defecto: `omnidocbench_full_page` — el Markdown de referencia se
+**reconstruye** de la anotación de OmniDocBench: sus bloques (`text`/`latex`/
+`html`) concatenados en su `order` de lectura, y sus tipos de bloque traducidos al
+vocabulario que emite el pipeline (`kind`). No se inventa contenido: solo se
+serializa lo que el dataset ya anota.
 
-Provenance: este esqueleto **no publica valores numéricos** — no hay nada
-ejecutado que respalde una cifra.
+Provenance: todo número que salga de aquí es **`medido`**; el `summary.json` de la
+run guarda comando, dataset, `n`, `warmup`, `repeats`, dispositivo y fecha.
 
 Uso:
-    .venv/Scripts/python.exe benchmarks/features/full_page/bank.py
+    .venv/Scripts/python.exe benchmarks/features/full_page/bank.py --limit 6
 """
 
 from __future__ import annotations
@@ -26,29 +29,72 @@ from typing import Sequence
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from features._base import FeatureSpec, run_skeleton
+from datetime import datetime
+
+from common import load_dataset, run_backends
+from features._base import FeatureSpec, common_argparser, feature_out_dir
 
 SPEC = FeatureSpec(
     feature="full_page",
     summary="Pipeline completo de página → Markdown/bloques (texto + tablas + fórmulas juntos).",
-    pyocrust_task="pp_structurev3 / Indra (VeloceOCR, pipeline completo)",
-    metric="markdown_f1 / block_f1 (equivalencia de documento, no solo OCR de texto)",
-    dataset="OmniDocBench (texto + LaTeX por bloque). La release NO publica Markdown de página renderizado: `markdown_f1`/`block_f1` quedan **no evaluadas** sin GT de esa modalidad.",
+    pyocrust_task="pp_structurev3 (VeloceOCR) e Indra (pipeline completo de página)",
+    metric="markdown_f1 / block_f1 (equivalencia de documento, no solo OCR de texto) + CER/WER",
+    dataset="omnidocbench_full_page: Markdown GT reconstruido de los bloques anotados en orden de lectura",
     alternatives={
         "docling": ("docling", "docling"),
         "unstructured": ("unstructured", "unstructured"),
         "paddleocr PP-StructureV3": ("paddleocr", "paddleocr paddlepaddle"),
         "marker-pdf": ("marker", "marker-pdf"),
     },
-    status="skeleton",
-    note="Ya se mide el pipeline (task_type=full_page) contra GT textual; la calidad Markdown/bloques queda no evaluada sin GT propio.",
-    provenance="esqueleto: sin valores numéricos (no hay GT de página renderizada; nada ejecutado)",
+    status="implemented",
+    note="El GT de documento se serializa de la anotación (texto + LaTeX + HTML de tabla en orden de lectura); no se inventa contenido.",
+    provenance="valores MEDIDOS por este banco (markdown_f1/block_f1 contra la GT reconstruida de OmniDocBench)",
 )
+
+# `pyocrust_indra` se salta solo si sus 9 artefactos no están en disco (motivo en el informe).
+DEFAULT_BACKENDS = "pyocrust_structure,pyocrust_indra"
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    return run_skeleton(SPEC, argv)
+    args = common_argparser(SPEC.feature, SPEC.summary).parse_args(argv)
+    dataset = args.dataset or "omnidocbench_full_page"
+    samples = load_dataset(dataset, limit=args.limit, split=args.split)
+    print(f"[full_page] dataset={dataset} muestras={len(samples)}")
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    out_dir = feature_out_dir(args.output_dir, SPEC) / timestamp
+    run_backends(
+        samples,
+        [b.strip() for b in (args.backends or DEFAULT_BACKENDS).split(",") if b.strip()],
+        dataset, out_dir, timestamp,
+        warmup=args.warmup, repeats=args.repeats, device=args.device,
+        feature=SPEC.feature,
+    )
+    print(f"\n[full_page] resultados en {out_dir}")
+    return 0
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+def _self_check() -> None:
+    """La GT de documento sale de la anotación: bloques con contenido, en orden."""
+    from PIL import Image
+
+    from common.datasets import _odb_page_blocks, _odb_page_markdown
+
+    page = {
+        "layout_dets": [
+            {"category_type": "text_block", "ignore": False, "order": 1, "text": "hola"},
+            {"category_type": "equation_isolated", "ignore": False, "order": 2, "latex": "$$x$$"},
+            {"category_type": "text_mask", "ignore": False, "order": 3, "text": "no"},
+        ],
+        "page_info": {"image_path": "p.png"},
+    }
+    assert _odb_page_markdown(page) == "hola\n\n$$x$$"
+    assert _odb_page_blocks(page) == ("text", "formula")
+    assert Image.new("RGB", (2, 2)).size == (2, 2)  # PIL disponible (entrada del banco)
+    print("features.full_page self-check OK")
+
+
+if __name__ == "__main__":  # pragma: no cover - ejecución manual
+    if "--self-check" in sys.argv:
+        _self_check()
+    else:
+        raise SystemExit(main())
