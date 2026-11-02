@@ -258,8 +258,8 @@ def render_md(feature: str, report: dict[str, dict[str, Any]], summary: dict, ru
         "- Ningún motor ausente se registra como `ok`: queda `skipped` con su `pip install`.",
         "- Las columnas sin GT no se rellenan con ceros: aparecen como `N/A` (no evaluada).",
         f"- Honestidad de proveedor: el ranking sólo cuenta filas que de verdad corrieron en "
-        f"`device={summary.get('device_requested', 'cpu')}`. Mientras `pyocrust` no exponga la "
-        "selección de device (tarjeta `t_8a0f369f`), `--device gpu` queda `skipped` y un fallback "
+        f"`device={summary.get('device_requested', 'cpu')}`. `pyocrust` confirma el EP real en "
+        "`provider_effective`; si no hay acelerador, `--device gpu` queda `skipped` — un fallback "
         "CPU nunca se cuenta como GPU.",
         "",
     ]
