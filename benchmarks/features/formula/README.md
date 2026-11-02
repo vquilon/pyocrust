@@ -42,11 +42,11 @@ bloque `equation_isolated`.
 
 | Alternativa | `pip install` | URL (software, no cifras) | Estado aquí |
 | :--- | :--- | :--- | :--- |
-| pix2tex (LaTeX-OCR) | `pix2tex` | https://github.com/lukas-blecher/LaTeX-OCR | `skipped` si no está instalado |
+| pix2tex (LaTeX-OCR) | `pix2tex` | https://github.com/lukas-blecher/LaTeX-OCR | **`medido`** (CPU: `LatexOCR` con `no_cuda=True`) |
 | texify (surya_latex_ocr) | `texify` | https://github.com/VikParuchuri/texify | `skipped` (adaptador pendiente) |
 | nougat | `nougat-ocr` | https://github.com/facebookresearch/nougat | `skipped` (adaptador pendiente) |
 | UniMERNet | repo | https://github.com/opendatalab/UniMERNet | `skipped` (adaptador pendiente) |
-| Pix2Text | `pix2text` | https://github.com/breezedeus/Pix2Text | `skipped` (adaptador pendiente) |
+| Pix2Text | `pix2text` | https://github.com/breezedeus/Pix2Text | `skipped` (instalación **no forzada**: degrada `transformers`/`huggingface_hub` y cambia `opencv-python-headless`→`opencv-python`) |
 | TexTeller | `texteller` | https://github.com/OleehyO/TexTeller | `skipped` (adaptador pendiente) |
 | img2latex | `img2latex` | PyPI `img2latex` | `skipped` (adaptador pendiente) |
 

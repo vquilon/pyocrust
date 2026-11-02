@@ -64,7 +64,12 @@ SPEC = FeatureSpec(
 # --- adaptadores de las alternativas LaTeX -----------------------------------
 
 def _pix2tex_backend() -> Callable[[Image.Image], OcrOutput]:
-    """`pix2tex` (`LaTeX-OCR`): API pública `from pix2tex.cli import LatexOCR`."""
+    """`pix2tex` (`LaTeX-OCR`): API pública `from pix2tex.cli import LatexOCR`.
+
+    Proveedor **efectivo CPU**: `LatexOCR()` trae `no_cuda=True` por defecto, así
+    que resuelve `self.args.device='cpu'` aunque hubiera GPU. La fila se mide en
+    CPU (device_requested=cpu == provider real); nunca se etiqueta como GPU.
+    """
     try:
         from pix2tex.cli import LatexOCR
     except ImportError as exc:
@@ -77,7 +82,8 @@ def _pix2tex_backend() -> Callable[[Image.Image], OcrOutput]:
         start = time.perf_counter()
         text = model(data)
         elapsed_ms = (time.perf_counter() - start) * 1000.0
-        return OcrOutput(text=str(text or ""), elapsed_ms=elapsed_ms, extra={"engine": "pix2tex"})
+        return OcrOutput(text=str(text or ""), elapsed_ms=elapsed_ms,
+                         extra={"engine": "pix2tex", "provider_effective": "cpu"})
 
     return run
 
@@ -88,7 +94,15 @@ EXTRA_FACTORIES = {
     "texify": unavailable_factory("texify", "texify"),
     "nougat": unavailable_factory("nougat", "nougat-ocr"),
     "unimernet": unavailable_factory("unimernet", "unimernet (github.com/opendatalab/UniMERNet)"),
-    "pix2text": unavailable_factory("pix2text", "pix2text"),
+    # P2T no se fuerza a propósito: `pip install pix2text` degrada `transformers`
+    # y `huggingface_hub` y cambia `opencv-python-headless` por `opencv-python`
+    # en el venv donde ya corren easyocr/rapidocr/datasets. La fila queda
+    # `skipped` con el motivo, nunca medida a medias.
+    "pix2text": unavailable_factory(
+        "pix2text",
+        "pix2text (no forzado: degrada transformers/huggingface_hub y "
+        "cambia opencv-python-headless→opencv-python)",
+    ),
     "texteller": unavailable_factory("texteller", "texteller"),
     "img2latex": unavailable_factory("img2latex", "img2latex"),
 }
