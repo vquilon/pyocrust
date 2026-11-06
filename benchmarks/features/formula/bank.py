@@ -63,7 +63,7 @@ SPEC = FeatureSpec(
 
 # --- adaptadores de las alternativas LaTeX -----------------------------------
 
-def _pix2tex_backend() -> Callable[[Image.Image], OcrOutput]:
+def _pix2tex_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
     """`pix2tex` (`LaTeX-OCR`): API pública `from pix2tex.cli import LatexOCR`.
 
     Proveedor **efectivo CPU**: `LatexOCR()` trae `no_cuda=True` por defecto, así
@@ -113,7 +113,7 @@ EXTRA_MODELS = {name: (name, "default") for name in EXTRA_FACTORIES}
 # y al final los controles de OCR de texto (etiquetados como tales).
 DEFAULT_BACKENDS = (
     "pyocrust_formulanet,pyocrust_formula,pyocrust_indra,"
-    "pix2tex,texify,nougat,unimernet,pix2text,texteller,img2latex"
+    "paddle_latex_ocr,pix2tex,texify,nougat,unimernet,pix2text,texteller,img2latex"
 )
 
 

@@ -4,27 +4,26 @@
 
 | Feature | Motor (variante) | Calidad (titular) | ms CPU | ms GPU | provider GPU |
 | :--- | :--- | ---: | ---: | ---: | :--- |
-| `formula` | easyocr (default) | 0.152 | 743 | N/A | n/a (no corre en GPU) |
-| `formula` | pix2tex (default) | 0.486 | 2451 | N/A | n/a (no corre en GPU) |
-| `formula` | pyocrust_formula (pp-formulanet-s) | 0.419 | 2795 | 4983 | directml |
-| `formula` | pyocrust_formulanet (direct) | 0.550 | 1015 | 2600 | directml |
-| `formula` | rapidocr (default) | 0.104 | 3026 | N/A | n/a (no corre en GPU) |
-| `full_page` | pyocrust_indra (math) | 0.176 | 1954 | 12311 | directml |
-| `full_page` | pyocrust_structure (default) | 0.158 | 11253 | 21883 | directml |
-| `layout` | docling_heron_101 (default) | 0.792 | 816 | N/A | n/a (no corre en GPU) |
-| `layout` | pyocrust_layout (130M) | 0.811 | 1947 | 1925 | directml |
-| `layout` | yolo26m (21.8M) | 0.386 | 331 | N/A | n/a (no corre en GPU) |
-| `layout` | yolov10b (20.5M) | 0.290 | 455 | N/A | n/a (no corre en GPU) |
-| `layout` | yolov10x (31.7M) | 0.312 | 732 | N/A | n/a (no corre en GPU) |
-| `orientation` | lcnet_doc_ori (onnxruntime) | 1.000 | 4 | N/A | n/a (no corre en GPU) |
-| `orientation` | pyocrust_orientation (6.8M) | 1.000 | 702 | 720 | directml |
-| `rectification` | pyocrust_rectify (31.7M) | 0.704 | 254 | 262 | directml |
-| `rectification` | uvdoc (onnxruntime) | 0.701 | 138 | N/A | n/a (no corre en GPU) |
-| `seal` | pyocrust_seal (4.8M) | 0.750 | 591 | 585 | directml |
-| `table` | pyocrust_table (default) | 0.885 | 708 | 896 | directml |
-| `table` | tatr (default) | 0.737 | 164 | N/A | n/a (no corre en GPU) |
-| `text` | easyocr (default) | 0.384 | 3915 | N/A | n/a (no corre en GPU) |
-| `text` | pyocrust (tiny) | 0.734 | 786 | 1161 | directml |
-| `text` | rapidocr (default) | 0.659 | 6733 | N/A | n/a (no corre en GPU) |
+| `formula` | paddle_latex_ocr (default) | 0.694 | 12490 | 1187 | cuda |
+| `formula` | pix2tex (default) | 0.486 | 7484 | N/A | n/a (no corre en GPU) |
+| `formula` | pyocrust_formula (pp-formulanet-s) | 0.196 | 3464 | N/A | n/a (no corre en GPU) |
+| `formula` | pyocrust_formulanet (direct) | 0.497 | 979 | N/A | n/a (no corre en GPU) |
+| `full_page` | pyocrust_indra (math) | 0.231 | 1547 | N/A | n/a (no corre en GPU) |
+| `full_page` | pyocrust_structure (default) | 0.211 | 10033 | N/A | n/a (no corre en GPU) |
+| `layout` | docling_heron_101 (default) | 0.843 | 1071 | N/A | n/a (no corre en GPU) |
+| `layout` | pyocrust_layout (130M) | 0.827 | 1987 | N/A | n/a (no corre en GPU) |
+| `layout` | yolo26m (21.8M) | 0.467 | 294 | 44 | cuda |
+| `layout` | yolov10b (20.5M) | 0.344 | 383 | 33 | cuda |
+| `layout` | yolov10x (31.7M) | 0.381 | 658 | 44 | cuda |
+| `orientation` | lcnet_doc_ori (onnxruntime) | 0.950 | 2 | N/A | n/a (no corre en GPU) |
+| `orientation` | pyocrust_orientation (6.8M) | 0.950 | 1124 | N/A | n/a (no corre en GPU) |
+| `rectification` | pyocrust_rectify (31.7M) | 0.707 | 261 | N/A | n/a (no corre en GPU) |
+| `rectification` | uvdoc (onnxruntime) | 0.707 | 74 | N/A | n/a (no corre en GPU) |
+| `seal` | pyocrust_seal (4.8M) | 0.750 | 641 | N/A | n/a (no corre en GPU) |
+| `table` | pyocrust_table (default) | 0.854 | 749 | N/A | n/a (no corre en GPU) |
+| `table` | tatr (default) | 0.699 | 140 | N/A | n/a (no corre en GPU) |
+| `text` | easyocr (default) | 0.401 | 4600 | 1236 | cuda |
+| `text` | pyocrust (tiny) | 0.717 | 970 | N/A | n/a (no corre en GPU) |
+| `text` | rapidocr (default) | 0.585 | 6748 | 5696 | cuda |
 | `text_line` | lcnet_textline_ori (onnxruntime) | 1.000 | 5 | N/A | n/a (no corre en GPU) |
-| `text_line` | pyocrust_textline (6.8M) | 1.000 | 33 | 33 | directml |
+| `text_line` | pyocrust_textline (6.8M) | 1.000 | 26 | N/A | n/a (no corre en GPU) |

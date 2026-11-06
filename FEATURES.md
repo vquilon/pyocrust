@@ -59,7 +59,7 @@ Superficie Python (paquete `pyocrust/`): `__init__.py` (fachada), `hardware.py` 
 | Preset | Familia | Artefactos | Salida |
 | :--- | :--- | :--- | :--- |
 | `pp_ocrv6` / `_tiny` / `_small` / `_medium` | texto | 3 (det + rec + dict) | `OcrResult` |
-| `pp_structurev3` | estructura | 9 (layout, tablas, fórmulas, orientación…) | `StructureResult` |
+| `pp_structurev3` | estructura | 11 (layout, tablas, fórmulas, orientación…) | `StructureResult` |
 | `indra` | estructura + math | 9 (Hugging Face `datalab-to/indra-ocr`) | `StructureResult` |
 
 Catálogo y tamaños exactos en runtime: `model_catalog()` y `pipeline_profiles()` (`DESIGN.md` §3.1.3).

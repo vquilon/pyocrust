@@ -4,25 +4,28 @@
 
 ## Provenance
 
-- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/text/bank.py --limit 5 --backends pyocrust,rapidocr,easyocr --device cpu`
-- **dataset**: `funsd` · **n** (por motor): `5` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
+- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/text/bank.py --limit 20 --device cpu`
+- **dataset**: `funsd` · **n** (por motor): `20` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **seed**: no aplica (banco determinista, sin aleatoriedad)
-- **run**: `benchmarks/results/text/2026-11-02_17-46-20` · **fecha**: `2026-11-02_17-46-20`
-- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['directml']}
+- **run**: `benchmarks/results/text/2026-11-06_22-46-46` · **fecha**: `2026-11-06_22-46-46`
+- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': []}
 
 ## Comparativa (media por motor)
 
 | Motor (variante) | n | F1 palabra ↑ | WER ord. ↓ | CER ↓ | WER ↓ | box recall ↑ | IoU medio ↑ | ms/img ↓ |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| easyocr (default) | 5 | 0.384 | 0.709 | 0.467 | 0.789 | **0.056** | **0.155** | 3915 |
-| pyocrust (tiny) | 5 | **0.734** | **0.340** | 0.402 | **0.628** | 0.042 | 0.116 | **786** |
-| rapidocr (default) | 5 | 0.659 | 0.431 | **0.402** | 0.654 | 0.040 | 0.107 | 6733 |
+| easyocr (default) | 20 | 0.401 | 0.693 | 0.527 | 0.798 | **0.068** | **0.156** | 4600 |
+| pyocrust (tiny) | 20 | **0.717** | **0.360** | 0.483 | **0.675** | 0.047 | 0.120 | **970** |
+| rapidocr (default) | 20 | 0.585 | 0.512 | **0.476** | 0.701 | 0.037 | 0.108 | 6748 |
 
 > En negrita, el mejor de cada métrica entre los motores **medidos** de `text`. `N/A` = no evaluada (sin GT de esa columna), nunca un `0.0` inventado.
 
 ## Saltados (`skipped`) — no cuentan como ejecutados
 
-- (ninguno)
+- `doctrl` — pip install doctrl
+- `paddleocr` — NotImplementedError: adaptador paddleocr pendiente de integrar
+- `surya` — pip install surya-ocr (requiere torch)
+- `tesseract` — pip install pytesseract + binario Tesseract
 
 ## Nota de honestidad
 
@@ -36,9 +39,9 @@
 
 | Motor (variante) | F1 palabra ↑ (CPU) | F1 palabra ↑ (GPU) | ms CPU | ms GPU | provider GPU |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| easyocr (default) | 0.384 | N/A | 3915 | N/A | n/a (no corre en GPU) |
-| pyocrust (tiny) | 0.734 | 0.715 | 786 | 1161 | directml |
-| rapidocr (default) | 0.659 | N/A | 6733 | N/A | n/a (no corre en GPU) |
+| easyocr (default) | 0.401 | 0.399 | 4600 | 1236 | cuda |
+| pyocrust (tiny) | 0.717 | N/A | 970 | N/A | n/a (no corre en GPU) |
+| rapidocr (default) | 0.585 | 0.585 | 6748 | 5696 | cuda |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.
 

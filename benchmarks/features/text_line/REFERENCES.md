@@ -7,5 +7,5 @@
 
 | Modelo | Métrica | Valor | Fuente |
 | :--- | :--- | ---: | :--- |
-| PP-LCNet_x1_0_textline_ori | Top-1 Acc | 0.9942 | [ref: https://paddlepaddle.github.io/PaddleX/latest/en/pipeline_usage/tutorials/ocr_pipelines/OCR.html] |
-| PP-LCNet_x0_25_textline_ori | Top-1 Acc | 0.9885 | [ref: https://paddlepaddle.github.io/PaddleX/latest/en/pipeline_usage/tutorials/ocr_pipelines/OCR.html] |
+| PP-LCNet_x1_0_textline_ori | Top-1 Acc | — | [ref: https://paddlepaddle.github.io/PaddleX/latest/en/pipeline_usage/tutorials/ocr_pipelines/OCR.html] |
+| PP-LCNet_x0_25_textline_ori | Top-1 Acc | — | [ref: https://paddlepaddle.github.io/PaddleX/latest/en/pipeline_usage/tutorials/ocr_pipelines/OCR.html] |

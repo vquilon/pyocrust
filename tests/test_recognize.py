@@ -12,9 +12,9 @@ los tests se marcan `skip` con el motivo (la suite no descarga nada por su
 cuenta).
 
 El escenario de PP-StructureV3 (ADR-003: `StructureResult` con `to_markdown()`)
-se ejecuta cuando el host tiene sus 9 artefactos y se marca `skip` con el motivo
-cuando no. El detalle de tablas HTML y LaTeX dentro del Markdown lo cubre el
-test unitario de `src/engines/oar_structure.rs`, que no descarga modelos.
+se ejecuta cuando el host tiene sus artefactos y se marca `skip` con el motivo
+cuando no. El test de LaTeX usa `tests/data/sample_formula.png`, una página real
+de OmniDocBench con regiones de fórmula que PP-DocLayoutV3 detecta como fórmula.
 
 Ejecución: `python -m pytest tests/test_recognize.py -q`
 """
@@ -225,8 +225,12 @@ def test_el_latex_de_una_formula_es_accesible_desde_python():
         # Si _directorio_structurev3() ya saltó, no hay nada más que hacer
         pytest.skip("no hay artefactos de PP-StructureV3 en disco")
 
+    fixture = Path(__file__).parent / "data" / "sample_formula.png"
+    if not fixture.is_file():
+        pytest.skip("falta el fixture con fórmula (tests/data/sample_formula.png)")
+
     ocr = VeloceOCR("pp_structurev3", custom_path=str(modelos))
-    resultado = ocr.recognize(str(IMAGEN))
+    resultado = ocr.recognize(str(fixture))
 
     # Verificar que es un StructureResult
     assert isinstance(resultado, StructureResult)
@@ -244,7 +248,7 @@ def test_el_latex_de_una_formula_es_accesible_desde_python():
     # Verificar que cada fórmula es una cadena de LaTeX
     for formula in resultado.formulas:
         assert isinstance(formula, str), "cada fórmula debe ser una cadena de texto"
-        assert formula.trim(), "el texto de la fórmula no puede estar vacío"
+        assert formula.strip(), "el texto de la fórmula no puede estar vacío"
 
     # Verificar que el Markdown contiene al menos una fórmula en LaTeX
     # (puede que no sea exactamente la misma que en formulas, pero debería haber alguna)
@@ -284,7 +288,10 @@ def test_indra_devuelve_markdown_bloques_y_regiones():
             "\"import pyocrust; pyocrust.VeloceOCR('indra')\""
         )
 
-    ocr = VeloceOCR("indra", custom_path=str(modelos_root))
+    ocr = VeloceOCR(
+        "indra", custom_path=str(modelos_root),
+        license_commercial_use=False, license_acknowledge=True,
+    )
     resultado = ocr.recognize(IMAGEN)
 
     assert isinstance(resultado, StructureResult)

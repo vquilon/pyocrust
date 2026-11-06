@@ -8,6 +8,7 @@
 pub mod config;
 pub mod catalog;
 pub mod download;
+pub mod license;
 pub mod models;
 pub mod registry;
 

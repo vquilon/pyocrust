@@ -8,6 +8,7 @@
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use super::registry;
+use super::license::License;
 
 /// Documented metadata for a model or its required companion artifact.
 /// Sizes use find(name), never duplicated literals; params is unknown upstream.
@@ -18,6 +19,12 @@ pub struct ModelEntry {
     pub params: Option<u64>,
     pub size_bytes: Option<u64>,
     pub env_vars: &'static [&'static str],
+    pub license: &'static str,
+    pub license_commercial_use: bool,
+    pub license_acknowledge: bool,
+    pub license_restricted: bool,
+    pub license_notes: &'static str,
+    pub license_url: Option<&'static str>,
 }
 
 /// Exposed preset/task profile. RAM remains unknown without a measurement;
@@ -31,6 +38,12 @@ pub struct PipelineProfile {
     pub ram_bytes: Option<u64>,
     pub artifacts: Vec<&'static str>,
     pub description: &'static str,
+    pub license: &'static str,
+    pub license_commercial_use: bool,
+    pub license_acknowledge: bool,
+    pub license_restricted: bool,
+    pub license_notes: &'static str,
+    pub license_url: Option<&'static str>,
 }
 
 /// Storage priority and offline control apply to all native ONNX models.
@@ -58,13 +71,23 @@ fn feature(name: &str) -> (&'static str, &'static str) {
 pub fn models() -> Vec<ModelEntry> {
     let mut entries: Vec<_> = oar_ocr::download::REGISTRY.iter().map(|entry| {
         let (task, description) = feature(entry.name);
+        let license = License::for_artifact(entry.name);
         ModelEntry { name: entry.name, task, description, params: None,
-            size_bytes: oar_ocr::download::find(entry.name).map(|e| e.size), env_vars: ENV }
+            size_bytes: oar_ocr::download::find(entry.name).map(|e| e.size), env_vars: ENV,
+            license: license.spdx, license_commercial_use: license.commercial_use,
+            license_acknowledge: license.acknowledge,
+            license_restricted: license.restricted(), license_notes: license.notes,
+            license_url: license.url }
     }).collect();
     for artifact in registry::indra_artifacts() {
+        let license = License::for_artifact(artifact.name);
         entries.push(ModelEntry { name: artifact.name, task: "indra",
             description: "Indra ONNX document OCR companion; pinned HuggingFace artifact, absent from ModelScope registry",
-            params: None, size_bytes: None, env_vars: ENV });
+            params: None, size_bytes: None, env_vars: ENV,
+            license: license.spdx, license_commercial_use: license.commercial_use,
+            license_acknowledge: license.acknowledge,
+            license_restricted: license.restricted(), license_notes: license.notes,
+            license_url: license.url });
     }
     entries
 }
@@ -74,13 +97,25 @@ fn profile(id: &'static str, family: &'static str, quality: &'static str, format
     let disk_bytes = names.iter().try_fold(0_u64, |sum, name| {
         oar_ocr::download::find(name).and_then(|e| sum.checked_add(e.size))
     });
+    let license = if family == "indra" {
+        License::for_artifact("indra")
+    } else {
+        License::for_artifacts(names.iter().copied())
+    };
     PipelineProfile { id, family, quality, output_format: format, disk_bytes, ram_bytes: None,
         artifacts: names, description: match family {
             "pp_ocrv6" => "PP-OCRv6 detection plus recognition and matching dictionary",
             "pp_structurev3" => "Layout, OCR, table HTML and formula LaTeX document pipeline",
             "indra" => "Indra document OCR with inline mathematical Markdown",
             _ => "Standalone native task; predict and predict_batch return task-specific dictionaries",
-        } }
+        }, license: license.spdx, license_commercial_use: license.commercial_use,
+        license_acknowledge: license.acknowledge,
+        license_restricted: is_restricted(&license), license_notes: license.notes,
+        license_url: license.url }
+}
+
+fn is_restricted(license: &License) -> bool {
+    license.spdx == "Unknown" || !license.commercial_use || license.acknowledge
 }
 
 pub fn profiles() -> Vec<PipelineProfile> {
@@ -115,6 +150,12 @@ pub fn model_catalog(py: Python<'_>) -> PyResult<Py<PyAny>> {
         row.set_item("params", model.params)?;
         row.set_item("size_bytes", model.size_bytes)?;
         row.set_item("env_vars", model.env_vars.to_vec())?;
+        row.set_item("license", model.license)?;
+        row.set_item("license_commercial_use", model.license_commercial_use)?;
+        row.set_item("license_acknowledge", model.license_acknowledge)?;
+        row.set_item("license_restricted", model.license_restricted)?;
+        row.set_item("license_notes", model.license_notes)?;
+        row.set_item("license_url", model.license_url)?;
         result.set_item(model.name, row)?;
     }
     Ok(result.into_any().unbind())
@@ -134,7 +175,38 @@ pub fn pipeline_profiles(py: Python<'_>) -> PyResult<Py<PyAny>> {
         row.set_item("ram_bytes", profile.ram_bytes)?;
         row.set_item("artifacts", profile.artifacts)?;
         row.set_item("description", profile.description)?;
+        row.set_item("license", profile.license)?;
+        row.set_item("license_commercial_use", profile.license_commercial_use)?;
+        row.set_item("license_acknowledge", profile.license_acknowledge)?;
+        row.set_item("license_restricted", profile.license_restricted)?;
+        row.set_item("license_notes", profile.license_notes)?;
+        row.set_item("license_url", profile.license_url)?;
         result.set_item(profile.id, row)?;
     }
     Ok(result.into_any().unbind())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{models, profiles};
+
+    #[test]
+    fn catalog_exposes_expected_licenses_for_pp_and_indra() {
+        let models = models();
+        let indra = models.iter().find(|model| model.name == "det.onnx").unwrap();
+        assert_eq!(indra.license, "OpenRAIL-M-Mod");
+        assert!(!indra.license_commercial_use);
+
+        let pp = models.iter().find(|model| model.name == "pp-ocrv6_tiny_det.onnx").unwrap();
+        assert_eq!(pp.license, "Apache-2.0");
+        assert!(pp.license_commercial_use);
+    }
+
+    #[test]
+    fn indra_pipeline_exposes_restricted_license_metadata() {
+        let indra = profiles().into_iter().find(|profile| profile.id == "indra").unwrap();
+        assert_eq!(indra.license, "OpenRAIL-M-Mod");
+        assert!(!indra.license_commercial_use);
+        assert!(indra.license_restricted);
+    }
 }

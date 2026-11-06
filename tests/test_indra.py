@@ -17,7 +17,10 @@ def test_indra_offline(tmp_path, monkeypatch):
     assert estado["offline"] is True
 
     with pytest.raises(pyocrust.PyOcrRuntimeError) as error:
-        pyocrust.VeloceOCR("indra", custom_path=str(tmp_path))
+        pyocrust.VeloceOCR(
+            "indra", custom_path=str(tmp_path),
+            license_commercial_use=False, license_acknowledge=True,
+        )
     mensaje = str(error.value)
     assert "PYOCRUST_OFFLINE" in mensaje
     assert "VeloceOCR('indra')" in mensaje
@@ -35,7 +38,10 @@ def test_indra_offline(tmp_path, monkeypatch):
             f"pyocrust.VeloceOCR('indra', custom_path={estado['models_dir']!r})\""
         )
     datos = Path(__file__).parent / "data"
-    ocr = pyocrust.VeloceOCR("indra", custom_path=estado["models_dir"])
+    ocr = pyocrust.VeloceOCR(
+        "indra", custom_path=estado["models_dir"],
+        license_commercial_use=False, license_acknowledge=True,
+    )
 
     resultado = ocr.recognize(datos / "sample_text.png")
     assert isinstance(resultado, pyocrust.StructureResult)

@@ -7,4 +7,4 @@
 
 | Modelo | Métrica | Valor | Fuente |
 | :--- | :--- | ---: | :--- |
-| PP-LCNet_x1_0_doc_ori (4 clases: 0/90/180/270°) | Top-1 Acc | 0.9906 | [ref: https://paddlepaddle.github.io/PaddleX/latest/en/pipeline_usage/tutorials/ocr_pipelines/PP-StructureV3.html] |
+| PP-LCNet_x1_0_doc_ori (4 clases: 0/90/180/270°) | Top-1 Acc | — | [ref: https://paddlepaddle.github.io/PaddleX/latest/en/pipeline_usage/tutorials/ocr_pipelines/PP-StructureV3.html] |

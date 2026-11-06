@@ -167,6 +167,13 @@ def pyocrust_device_arg(device: str) -> str:
     return PYOCRUST_DEVICE.get(device, "cpu")
 
 
+# Backends cuya factoría acepta `device` y puede correr en GPU de verdad.
+GPU_CAPABLE_BACKENDS = frozenset({
+    "paddle_latex_ocr", "yolov10x", "yolov10b", "yolo26m",
+    "rapidocr", "easyocr",
+})
+
+
 def device_outcome(backend: str, device: str) -> tuple[str | None, str | None]:
     """Resuelve `(provider_effective, motivo_skip)` **antes** de construir el motor.
 
@@ -182,7 +189,7 @@ def device_outcome(backend: str, device: str) -> tuple[str | None, str | None]:
     """
     if device == "cpu":
         return "cpu", None
-    if backend.startswith("pyocrust"):
+    if backend.startswith("pyocrust") or backend in GPU_CAPABLE_BACKENDS:
         return None, None
     return "n/a", f"{backend} no expone ejecucion GPU en este banco (solo CPU; device={device})"
 
@@ -241,7 +248,12 @@ def _quad_to_bbox(points: Sequence[Sequence[float]]) -> list[float]:
 def _pyocrust_backend(preset: str, formula_only: bool = False, device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
     import pyocrust  # noqa: PLC0415 - import tardío para no penalizar el arranque
 
-    engine = pyocrust.VeloceOCR(preset=preset, device=device)
+    # El banco es un contexto **no comercial** y la atribución va documentada:
+    # Indra (OpenRAIL-M-Mod) exige declarar ambas cosas (son acumulativas).
+    kwargs: dict = {}
+    if preset == "indra":
+        kwargs = {"license_commercial_use": False, "license_acknowledge": True}
+    engine = pyocrust.VeloceOCR(preset=preset, device=device, **kwargs)
 
     def run(image: Image.Image) -> OcrOutput:
         # La preparación de la entrada va **fuera** del cronómetro: lo medido es
@@ -279,13 +291,13 @@ def _pyocrust_backend(preset: str, formula_only: bool = False, device: str = "cp
     return run
 
 
-def _rapidocr_backend() -> Callable[[Image.Image], OcrOutput]:
+def _rapidocr_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
     try:
         from rapidocr_onnxruntime import RapidOCR
     except ImportError as exc:
         raise ProviderUnavailable("pip install rapidocr-onnxruntime") from exc
 
-    engine = RapidOCR()
+    engine = RapidOCR(use_cuda=device != "cpu")
 
     def run(image: Image.Image) -> OcrOutput:
         # Fairness (B6): los MISMOS bytes PNG que el resto de adaptadores; rapidocr
@@ -308,16 +320,18 @@ def _rapidocr_backend() -> Callable[[Image.Image], OcrOutput]:
             extra={"engine": "rapidocr_onnxruntime", "boxes": boxes},
         )
 
+    run.provider_effective = "cpu" if device == "cpu" else "cuda"
     return run
 
 
-def _easyocr_backend(languages: Sequence[str] = ("en",)) -> Callable[[Image.Image], OcrOutput]:
+def _easyocr_backend(languages: Sequence[str] = ("en",),
+                     device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
     try:
         import easyocr
     except ImportError as exc:
         raise ProviderUnavailable("pip install easyocr (requiere torch)") from exc
 
-    reader = easyocr.Reader(list(languages), gpu=False, verbose=False)
+    reader = easyocr.Reader(list(languages), gpu=device != "cpu", verbose=False)
 
     def run(image: Image.Image) -> OcrOutput:
         # Fairness (B6): los MISMOS bytes PNG que el resto de adaptadores; easyocr
@@ -339,6 +353,7 @@ def _easyocr_backend(languages: Sequence[str] = ("en",)) -> Callable[[Image.Imag
             extra={"engine": "easyocr", "boxes": boxes},
         )
 
+    run.provider_effective = "cpu" if device == "cpu" else "cuda"
     return run
 
 
@@ -380,7 +395,7 @@ def _pyocrust_formula_variant_backend(model_file: str, device: str = "cpu") -> C
     return run
 
 
-def _tesseract_backend() -> Callable[[Image.Image], OcrOutput]:
+def _tesseract_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
     try:
         import pytesseract
     except ImportError as exc:
@@ -450,7 +465,7 @@ def _tatr_grid_html(n_rows: int, n_cols: int) -> str:
     ) + "</table>"
 
 
-def _tatr_backend() -> Callable[[Image.Image], OcrOutput]:
+def _tatr_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
     """TATR (`microsoft/table-transformer-structure-recognition`) vía `transformers`.
 
     Reconstruye la **estructura** de la tabla como una rejilla HTML: las cajas
@@ -631,19 +646,22 @@ YOLO_LAYOUT_MODELS = {
 }
 
 
-def _paddle_latex_ocr_backend(model_name: str = "PP-FormulaNet_plus-M") -> Callable[[Image.Image], OcrOutput]:
+def _paddle_latex_ocr_backend(model_name: str = "PP-FormulaNet_plus-M",
+                               device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
     try:
         from paddleocr import FormulaRecognition  # noqa: PLC0415
+        import numpy as np  # noqa: PLC0415
     except ImportError as exc:
         raise ProviderUnavailable("pip install paddleocr (requiere paddle)") from exc
 
-    model = FormulaRecognition(model_name=model_name)
+    model = FormulaRecognition(model_name=model_name, device=device)
 
     def run(image: Image.Image) -> OcrOutput:
         data = _image_bytes(image)
         img = Image.open(io.BytesIO(data))
+        arr = np.asarray(img.convert("RGB"))
         start = time.perf_counter()
-        res = model.predict(input=img)
+        res = model.predict(input=arr)
         elapsed_ms = (time.perf_counter() - start) * 1000.0
         if isinstance(res, (list, tuple)) and res:
             res = res[0]
@@ -653,6 +671,8 @@ def _paddle_latex_ocr_backend(model_name: str = "PP-FormulaNet_plus-M") -> Calla
             text = str(res or "")
         return OcrOutput(text=text, elapsed_ms=elapsed_ms, extra={"engine": "paddleocr", "model": model_name})
 
+    # Honestidad de proveedor: el runner confirma el EP leyendo este atributo.
+    run.provider_effective = "cpu" if device == "cpu" else "cuda"
     return run
 
 
@@ -682,8 +702,11 @@ def _yolo_layout_backend(name: str, imgsz: int = 1024, device: str = "cpu") -> C
     params_m = round(sum(p.numel() for p in model.model.parameters()) / 1e6, 1)
 
     def run(image: Image.Image) -> OcrOutput:
+        # Ultralytics quiere `device=0` (o `"cpu"`), no `"gpu"`.
+        ultralytics_device = "cpu" if device == "cpu" else "0"
         start = time.perf_counter()
-        results = model.predict(image, imgsz=imgsz, conf=LAYOUT_AP_SCORE_FLOOR, device=device, verbose=False)
+        results = model.predict(image, imgsz=imgsz, conf=LAYOUT_AP_SCORE_FLOOR,
+                                device=ultralytics_device, verbose=False)
         elapsed_ms = (time.perf_counter() - start) * 1000.0
         elements: list[dict] = []
         boxes: list[list[float]] = []
@@ -707,6 +730,7 @@ def _yolo_layout_backend(name: str, imgsz: int = 1024, device: str = "cpu") -> C
                    "imgsz": imgsz, "elements": elements, "boxes": boxes},
         )
 
+    run.provider_effective = "cpu" if device == "cpu" else "cuda"
     return run
 
 
@@ -833,7 +857,7 @@ def _lcnet_classify_backend(model_name: str, labels: Sequence[str],
     return run
 
 
-def _uvdoc_backend() -> Callable[[Image.Image], OcrOutput]:
+def _uvdoc_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
     """UVDoc (rectificado de perspectiva) via `onnxruntime`.
 
     Preprocesado: resize bilineal (`cv2.INTER_LINEAR`, el de PaddleOCR) a 512x512,
@@ -953,18 +977,18 @@ PROVIDERS: dict[str, Callable[..., Callable[[Image.Image], OcrOutput]]] = {
     "pyocrust_seal": lambda device="cpu": _task_predictor_backend("seal_text_detection", device=device),
     # Alternativas reales de orientation/text_line/rectification (`onnxruntime`
     # sobre los MISMO pesos de PaddleOCR que usa `pyocrust`; solo CPU).
-    "lcnet_doc_ori": lambda: _lcnet_classify_backend("lcnet_doc_ori", ["0", "90", "180", "270"], (224, 224), 256),
-    "lcnet_textline_ori": lambda: _lcnet_classify_backend("lcnet_textline_ori", ["0", "180"], (80, 160), None),
-    "uvdoc": lambda: _uvdoc_backend(),
+    "lcnet_doc_ori": lambda device="cpu": _lcnet_classify_backend("lcnet_doc_ori", ["0", "90", "180", "270"], (224, 224), 256),
+    "lcnet_textline_ori": lambda device="cpu": _lcnet_classify_backend("lcnet_textline_ori", ["0", "180"], (80, 160), None),
+    "uvdoc": lambda device="cpu": _uvdoc_backend(),
     # Alternativas reales de `layout` (`transformers`, offline desde la cache HF):
     # RT-DETR (docling heron-101) y Deformable-DETR (DocLayNet). Solo CPU.
-    "docling_heron_101": lambda: _hf_layout_backend(LAYOUT_HF_MODELS["docling_heron_101"]),
-    "deformable_detr": lambda: _hf_layout_backend(LAYOUT_HF_MODELS["deformable_detr"]),
-    # Alternativas YOLO documentales (`ultralytics`, pesos `.pt` en cache; solo CPU).
+    "docling_heron_101": lambda device="cpu": _hf_layout_backend(LAYOUT_HF_MODELS["docling_heron_101"]),
+    "deformable_detr": lambda device="cpu": _hf_layout_backend(LAYOUT_HF_MODELS["deformable_detr"]),
+    # Alternativas YOLO documentales (`ultralytics`, pesos `.pt` en cache; CPU y GPU).
     # El nombre lleva el tamano para que la tabla y la grafica digan QUE se midio.
-    "yolov10x": lambda: _yolo_layout_backend("yolov10x"),
-    "yolov10b": lambda: _yolo_layout_backend("yolov10b"),
-    "yolo26m": lambda: _yolo_layout_backend("yolo26m"),
+    "yolov10x": lambda device="cpu": _yolo_layout_backend("yolov10x", device=device),
+    "yolov10b": lambda device="cpu": _yolo_layout_backend("yolov10b", device=device),
+    "yolo26m": lambda device="cpu": _yolo_layout_backend("yolo26m", device=device),
     "paddle_latex_ocr": _paddle_latex_ocr_backend,
     "rapidocr": _rapidocr_backend,
     "easyocr": _easyocr_backend,
@@ -1097,11 +1121,15 @@ def run_benchmark(
     factory = backend_factory or PROVIDERS[backend]
     load_start = time.perf_counter()
     try:
-        # Los backends `pyocrust` reciben el `device` resuelto (`cpu`/`auto`); el
-        # resto —y las factorías inyectadas (p. ej. en tests)— no lo aceptan.
-        runner = (factory(pyocrust_device_arg(device))
-                  if backend_factory is None and backend.startswith("pyocrust")
-                  else factory())
+        # Todas las factorías reciben el `device` resuelto: las que no lo usan
+        # (rapidocr, easyocr, tesseract…) lo aceptan y lo ignoran. Va **por
+        # nombre** porque no todos lo declaran como primer parámetro; si la
+        # factoría no lo acepta (p. ej. las de los tests), se llama sin él.
+        dev = pyocrust_device_arg(device) if backend.startswith("pyocrust") else device
+        try:
+            runner = factory(device=dev)
+        except TypeError:
+            runner = factory()
     except ProviderUnavailable as exc:
         return [], {
             "backend": backend,

@@ -8,4 +8,4 @@
 
 | Modelo | Métrica | Valor | Fuente |
 | :--- | :--- | ---: | :--- |
-| UVDoc | CER ↓ (DocUNet) | 0.179 | [ref: https://paddlepaddle.github.io/PaddleX/latest/en/pipeline_usage/tutorials/ocr_pipelines/PP-StructureV3.html] |
+| UVDoc | CER ↓ (DocUNet) | — | [ref: https://paddlepaddle.github.io/PaddleX/latest/en/pipeline_usage/tutorials/ocr_pipelines/PP-StructureV3.html] |

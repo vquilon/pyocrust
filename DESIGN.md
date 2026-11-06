@@ -286,14 +286,23 @@ APIs ya exportadas, sin nueva API de ejecución: `model_catalog`,
 
 * `model_catalog() -> dict[str, dict]`, indexado por nombre de artefacto:
   `{name: str, task: str, description: str, params: int | None,
-  size_bytes: int | None, env_vars: list[str]}`. Incluye el registro upstream
+  size_bytes: int | None, env_vars: list[str], license: str,
+  license_commercial_use: bool, license_acknowledge: bool,
+  license_restricted: bool, license_notes: str, license_url: str | None}`.
+  Incluye el registro upstream
   y companions Indra; `params=None` siempre, tamaño desde `find(name)` para
   upstream y `None` para Indra (no sustituido por los tamaños HF de storage).
   `env_vars`: `OAR_HOME`, `OCR_MODELS_CACHE_DIR`, `PYOCRUST_OFFLINE`,
   `CUDA_LAUNCH_BLOCKING`, `RUST_LOG`; no promete controles `OAR_VL_*` para Indra ONNX.
+  Los seis campos `license*` clasifican el artefacto contra el texto primario
+  (ADR-017): `license` es el SPDX; `license_commercial_use`/`license_acknowledge`
+  son lo que el modelo **permite/exige**; `license_restricted` es
+  `not commercial_use or acknowledge`; `license_url` apunta a la revisión fijada.
 * `pipeline_profiles() -> dict[str, dict]`, indexado por ID:
   `{id: str, family: str, quality: str, output_format: str,
-  disk_bytes: int | None, ram_bytes: int | None, artifacts: list[str], description: str}`.
+  disk_bytes: int | None, ram_bytes: int | None, artifacts: list[str], description: str,
+  license: str, license_commercial_use: bool, license_acknowledge: bool,
+  license_restricted: bool, license_notes: str, license_url: str | None}`.
   Son los cinco presets reales del registro más las once tareas (§3.1.2).
   Tiny/Small/Medium: `pp_ocrv6`, `speed`/`balanced`/`accuracy`, `text`;
   PP-StructureV3: `pp_structurev3`, `balanced`, `markdown`; Indra:
@@ -366,7 +375,11 @@ result = engine.recognize("page.png")    # StructureResult con Markdown + bloque
 `Small`/`Medium` como símbolos públicos separados: se seleccionan con
 `PipelineChoice` + `resolve_pipeline`, o pasando `custom_path` al directorio del
 modelo. `recognize` acepta `str`, `PathLike` y `bytes`; libera el GIL durante la
-inferencia.
+inferencia. `VeloceOCR` y `TaskPredictor` aceptan además
+`license_commercial_use` (default `True`) y `license_acknowledge`
+(default `False`): declaran la intención del **usuario** sobre la licencia de
+los pesos y bloquean el constructor antes de `ensure_models`, la red y el disco
+(ADR-017).
 
 **Selección de execution provider (`device`, *opt-in*).** `VeloceOCR` y
 `TaskPredictor` aceptan un `device` **opcional** con default `"cpu"`:
@@ -470,7 +483,7 @@ Verificado en `src/storage/config.rs:103-133` y por los tests `test_nivel_1..3` 
 | GIL | `py.detach()` envuelve la inferencia de `recognize` (`src/lib.rs:93`) y la creación del motor (`src/lib.rs:62`); la resolución de rutas y el preflight retienen el GIL (`S1.6`) |
 | Sesiones | Envueltas en `Arc`; sin `Drop` manual (ADR-012) |
 | Hilos intra-op de ONNX | Por defecto los de ORT. Con `intra_threads = 1` se habilita paralelismo inter-página explícito |
-| `rayon` | Declarado en `Cargo.toml:26` pero **sin uso** en `src/`: aún no existe el bucle de preprocesamiento que paralelizar (ADR-008, parcial) |
+| `rayon` | En uso: `src/storage/models.rs:13,297` (pool de 4 hilos en `ensure_models`, ADR-008) |
 
 ### 3.4 Preprocesamiento: Tiling vs. Scaling
 
@@ -485,6 +498,35 @@ El componente `SmartImageProcessor` admite dos estrategias de segmentación visu
 > para descartarlas acto seguido y devolver solo `(x, y, ancho, alto)`. Con
 > parámetros válidos y un `overlap` alto, el número de mosaicos explota y agota la
 > memoria del proceso. Pendiente de corrección (`S1.1`, bloqueante).
+
+### 3.5 Contrato de la campaña de benchmarks (medición, no marketing)
+
+`benchmarks/` (fuera de `src/`) es el banco de evidencia del paquete, con un banco por
+feature. La campaña `t_347622f2`/`t_c2e5a1a9`/`t_7188f49a`/`t_9fe2c075` fija cuatro
+reglas que los informes (`SUMMARY.md`, `SCOREBOARD.md`, `CPU_VS_GPU.md`,
+`features/<feature>/REPORT.md`) deben cumplir; incumplirlas invalida la comparación:
+
+1. **`n` uniforme por feature.** Todas las filas salen del mismo barrido (`--limit 20`).
+   `SUMMARY` y `SCOREBOARD` se generan del mismo colector de CSV
+   (`benchmarks/features/summary.py::collect_rows`), de modo que no divergen; los
+   `REPORT.md` por feature los genera `report.py` (desde los CSV de cada run) y
+   `QUALITY_VS_TIME` deriva de esos `REPORT.md`. `SCOREBOARD.md` declara `n` por fila:
+   las pocas alternativas de control de `formula` con solo run `n=5` se muestran como
+   tales, nunca fusionadas con las de `n=20`.
+2. **CPU vs GPU reales.** Cada adaptador reporta `provider_effective` (el EP que de
+   verdad ejecutó). `--device gpu` sobre un motor sin acelerador queda `skipped` con
+   motivo; un *fallback* a CPU jamás se etiqueta como GPU (`benchmarks/CPU_VS_GPU.md`).
+3. **Licencia por motor (informativa).** La columna `license` de los informes señala las
+   licencias no permisivas de los motores de comparación (p. ej. AGPL-3.0 de los YOLOv10
+   de `omoured`); la **puerta** vinculante sigue siendo el catálogo + los flags de
+   política de ADR-017, no esta columna.
+4. **Solo DocLayNet en `layout`.** Únicamente los detectores *fine-tuned* sobre DocLayNet
+   son comparables: las filas YOLOv10 de referencia llevan mAP de DocLayNet y los YOLO
+   medidos exponen las **11 clases de DocLayNet**, nunca las 80 de COCO.
+
+Queda abierto `t_b304e350`: retirar las referencias externas que no están medidas sobre
+el mismo dataset/GT y re-ejecutarlas en CPU+GPU. El detalle por motor y la provenance
+(comando, dataset, `n`, runtime) viven en `benchmarks/`.
 
 ## 4. Registro de Decisiones de Arquitectura (ADR)
 
@@ -547,7 +589,7 @@ cumplimiento verificado; el cuadro completo está en §9.1.
 * **Decisión.** En `pyocrust`, `rayon` se usa **solo** para preprocesamiento intensivo de CPU (decodificación de imagen, conversión de espacio de color, transformaciones geométricas). El paralelismo inter-página solo se habilita cuando las sesiones están configuradas con `intra_threads = 1` o coordinadas con `OrtGlobalThreadPoolOptions`.
 * **Consecuencias.** Se evita la sobre-suscripción de CPU (*thread thrashing*) y el colapso de cachés L1/L2/L3 que produce lanzar lotes concurrentes contra sesiones ORT multihilo. El cuello real (>90-95% del tiempo) es la inferencia tensorial, no el bucle de lotes.
 * **Coste (respuesta a `DECISIONS.md` §2).** Sin `rayon` por defecto sobre lotes, el paralelismo inter-página no existe de fábrica. Se añade cuando una medición lo justifique, no antes.
-* **Estado (D1, 2026-10-25).** **Parcial.** `rayon` está declarado (`Cargo.toml:26`) pero **no se usa** en `src/`: aún no existe el bucle de preprocesamiento que debía acotarse. No es hoy un defecto funcional (la regla se respeta por ausencia de uso), pero la dependencia es peso muerto.
+* **Estado (`S2.0`, commit `113a490`).** **Cumplido.** `rayon` se usa en `src/storage/models.rs:13,297` para paralelizar la descarga de artefactos en `ensure_models` (pool de `DOWNLOAD_THREADS` hilos). Sigue sin haber paralelismo inter-página por defecto, que era el motivo del ADR.
 
 ### ADR-009: preprocesamiento — escalado nativo por defecto, tiling opt-in
 
@@ -648,6 +690,38 @@ cumplimiento verificado; el cuadro completo está en §9.1.
 * **Estado (S3.0-S3.1, commits `113a490`/`58385e6`).** Cumplido: las variables
   aparecen en `model_catalog().env_vars`, en `resolver.py` y en `DESIGN.md`.
 
+### ADR-017: clasificación de licencias de los pesos y flags de política (default-deny)
+
+* **Contexto.** La licencia del código (`Apache-2.0`) no cubre los pesos: cada
+  artefacto trae la suya. El usuario necesita saber si un modelo es apto para
+  uso comercial antes de descargarlo o ejecutarlo, y poder declarar su
+  intención de uso y su aceptación de atribución.
+* **Decisión.**
+  1. `src/storage/license.rs` clasifica cada artefacto contra el texto
+     primario (nunca contra un resumen): Paddle/PP = `Apache-2.0`; `indra` =
+     `OpenRAIL-M-Mod` (comercial no libre, atribución §7); lo no reconocido =
+     `Unknown`, **restringido por defecto**.
+  2. La clasificación es **datos** en el catálogo: `model_catalog()` y
+     `pipeline_profiles()` exponen `license`, `license_commercial_use`,
+     `license_acknowledge`, `license_restricted`, `license_notes`,
+     `license_url` (URL fijada a la revisión, nunca `main`).
+  3. La agregación por pipeline es la **más restrictiva**: `commercial_use`
+     es AND, `acknowledge` es OR, y en empate gana la más restrictiva.
+  4. Flags de usuario en `VeloceOCR`, `TaskPredictor` y `TaskSpec`:
+     `license_commercial_use` (intención comercial) y `license_acknowledge`
+     (aceptación de atribución). **Polaridad declarativa**: son lo que declara
+     el usuario, no lo que permite el modelo.
+  5. El bloqueo ocurre en el constructor, **antes** de `ensure_models`, la red
+     y el disco. Las condiciones son **acumulativas** (`AND`), no alternativas.
+  6. Con `models`/`custom_path` explícitos la procedencia no es verificable: el
+     getter expone `Unknown`, no la licencia del catálogo.
+* **Consecuencias.** Un usuario comercial no puede cargar `indra` por defecto;
+  para uso no comercial debe además aceptar la atribución. Un artefacto
+  desconocido nunca se trata como permitido.
+* **Estado (`L1`-`L5`, 2026-11-06).** Cumplido: `cargo test` 64/0,
+  `pytest tests/` 157 passed/1 skipped; sign-off `L5` **APROBADO**
+  (`DICTAMEN_LICENSES.md`).
+
 ## 5. Riesgos Conocidos
 
 | Id | Riesgo | Impacto | Mitigación | Estado (D1) |
@@ -662,22 +736,23 @@ cumplimiento verificado; el cuadro completo está en §9.1.
 
 ## 6. Estado Actual
 
-Actualizado en `D1` (2026-10-25) leyendo el árbol real y el board `pyocrust`.
+Actualizado en `D1` (2026-10-25) y reconciliado en `D3` (2026-11-06) leyendo el árbol real y el board `pyocrust`.
 
 | Elemento | Estado | Evidencia |
 | :--- | :--- | :--- |
 | `DESIGN.md` | Reconciliado en `D1` | Este documento |
 | `PLANNING.md` | Reconciliado en `D1` | Mapea cada tarea a su tarjeta con estado real |
-| Crate `pyocrust_core` | Existe y compila | `Cargo.toml`, `src/**`; `cargo test` = **36/36 OK** (recuento de `S1`) |
+| Crate `pyocrust_core` | Existe y compila | `Cargo.toml`, `src/**`; `cargo test` = **64/0** (2026-11-06) |
 | Paquete `pyocrust` | Existe e importa | `pyocrust/__init__.py`; `maturin develop` ejecutado (`pyocrust/_pyocrust_core.pyd`) |
-| Suite de integración (Python) | **31 pasados, 2 `skip`, 1 `xfail`** | `pytest tests/ -q` — recuento de `S1` |
-| Sign-off `S1` | **RECHAZADO**, 7 condiciones (`S1.2`/`S1.3`/`S1.5` cerradas) | §9.2 |
-| ADR cumplidos | **10 de 12** (uno con defecto), 2 parciales | §9.1 |
+| Suite de integración (Python) | **157 passed, 1 skipped** | `pytest tests/ -q` (2026-11-06) |
+| Sign-off `S1` | **RECHAZADO**, 7 condiciones (`S1.1`/`S1.2`/`S1.3`/`S1.5` cerradas) | §9.2 |
+| ADR cumplidos | **17 de 17** | §9.1 |
+| Benchmarks (9 features, `n=20`) | **Campaña medida** (2026-11-07) | `benchmarks/{SUMMARY,SCOREBOARD,CPU_VS_GPU}.md`; contrato §3.5 |
 
 Lo que este documento **no** sabe:
 
 * el contenido del árbol de `oar-ocr` `0.10.1` no está descargado en el host: las citas internas de §3 y §4 atribuidas a `A1` siguen siendo de segunda mano;
-* **no** se ha medido rendimiento real de ningún pipeline (no hay benchmark);
+* el **benchmark** existe (9 features, `n=20`, CPU/GPU; §3.5): el rendimiento medido no cubre aún todas las variantes de pipeline;
 * la verificación de los defectos abiertos de §9.2 es la de `S1`/`C1`, no una re-ejecución propia de `D1`.
 
 ## 7. Resolución de Rutas, Almacenamiento y Descargador Hugging Face
@@ -744,31 +819,33 @@ Verificado leyendo el árbol real de `src/` (no las intenciones).
 | ADR-004 | `panic = "unwind"` | Cumplido | `Cargo.toml:45` |
 | ADR-005 | Sin `Drop` manual | Cumplido | `Arc` en los motores; sin `impl Drop`; doc de VRAM corregida (`S1.7`) |
 | ADR-006 | Módulos sin placeholders | Cumplido | `src/{core,storage,engines}/`; sin `scipix_engine`; un trait, dos implementaciones |
-| ADR-007 | Descargador HF resiliente | **Parcial** | `src/storage/download.rs:99-196` cumple el contrato, pero `fetch` no se llama en runtime |
-| ADR-008 | `rayon` solo en preprocesamiento CPU | **Parcial** | `rayon` en `Cargo.toml:26`, sin uso en `src/` |
-| ADR-009 | Tiling opt-in | Cumplido con defecto | `src/core/image_processor.rs:147-185`; adaptador con defecto de memoria (`S1.1`) |
+| ADR-007 | Descargador HF resiliente | **Cumplido** | `src/storage/download.rs:99-196`; conectado en `ensure_models` (`src/storage/models.rs:224-242`, `S2.0`) |
+| ADR-008 | `rayon` solo en preprocesamiento CPU | **Cumplido** | `src/storage/models.rs:13,297` (pool de 4 hilos en `ensure_models`, `S2.0`) |
+| ADR-009 | Tiling opt-in | **Cumplido** | `src/core/image_processor.rs:150-185`; `S1.1` cerrada en `4502d1e` |
 | ADR-010 | Dependencias y features | Cumplido | `Cargo.toml:13-36,45` |
 | ADR-011 | Nomenclatura | Cumplido | `pyproject.toml:23`; `src/lib.rs:106` |
 | ADR-012 | Sesiones con `Arc`, sin `Drop` | Cumplido | `src/engines/oar_text.rs:50`; `src/engines/oar_structure.rs:32` ||
+| ADR-013 | `dict` en tareas sueltas, no 11 `#[pyclass]` | Cumplido | `src/tasks/mod.rs` (devolución como `dict`); §3.1.4 |
 | ADR-014 | Catálogo en Rust lee tamaños de `find()` | Cumplido | `src/storage/catalog.rs:58-70`; 98/98 `size_bytes` exactos; Indra `None` ||
 | ADR-015 | Resolvedor como módulo Python puro | Cumplido | `pyocrust/resolver.py:1-87`; `TaskSpec`/`PipelineChoice`/`resolve_pipeline` ||
 | ADR-016 | Variables de entorno documentadas | Cumplido | `catalog.rs:37` (`ENV`), `resolver.py:83` (`PYOCRUST_OFFLINE`), `README.md` Variables de entorno ||
+| ADR-017 | Licencias de los pesos + flags de política | **Cumplido** | `src/storage/license.rs`; `cargo test` 64/0; `pytest tests/` 157 passed/1 skipped; sign-off `L5` **APROBADO** |
 
 ### 9.2 Condiciones abiertas del sign-off `S1` (tarjeta `t_d005409b`, RECHAZADO)
 
-`S1` cerró como **RECHAZADO** con 7 condiciones (comentario del 2026-10-25). Estado a día de `D2`:
+`S1` cerró como **RECHAZADO** con 7 condiciones (comentario del 2026-10-25). Estado a día de `D3` (2026-11-06):
 
 | Id | Condición | Gravedad | Estado | Evidencia |
 | :--- | :--- | :--- | :--- | :--- |
-| S1.1 | `pyapi::full_page_tiling` materializa los mosaicos y los descarta (OOM con `overlap` alto) | Bloqueante | **Pendiente** | `src/core/image_processor.rs:229-249` |
+| S1.1 | `pyapi::full_page_tiling` materializa los mosaicos y los descarta (OOM con `overlap` alto) | Bloqueante | **Cerrada (`4502d1e`)** | `src/core/image_processor.rs:150-185` (cajas sin materializar) |
 | S1.2 | `StructureResult` (ADR-003) no existía ni cruzaba a Python | Bloqueante | **Cerrada (`D2`, `b128566`)** | `src/core/types.rs:400-409`; `src/engines/oar_structure.rs:148-171` |
 | S1.3 | `PyOcrValueError`/`PyOcrRuntimeError` no heredan de `PyOcrError` | Mayor | **Cerrada (`c30a3a9`)** | `src/core/error.rs:147-149` (base `PyOcrError`) |
-| S1.4 | `VeloceOCR::new` no ejecuta el preflight (ni el descargador) | Mayor | **Parcial (`D2`)** | `src/lib.rs:58-62` (preflight sí, descargador no) |
+| S1.4 | `VeloceOCR::new` no ejecuta el preflight (ni el descargador) | Mayor | **Cerrada (`S2.0`)** | `src/storage/models.rs:224-242` (`ensure_models` conecta el descargador) |
 | S1.5 | `OAR_HOME` relativa rompe la autodescarga de `oar-ocr` | Mayor | **Cerrada (`c30a3a9`)** | `src/storage/config.rs:115-126,144-155` |
 | S1.6 | `VeloceOCR::new` retiene el GIL durante la carga | Menor | **Parcial (`D2`)** | `src/lib.rs:35-65` (el motor se crea con `py.detach`, `:62`) |
 | S1.7 | Retirar de `DESIGN.md` las capacidades de VRAM inexistentes | Menor | **Hecho en `D1`** | §3.3 y ADR-005 corregidos |
 
-`S1.2` la cerró el código de `t_ab6ff8d0` (`b128566`) y `S1.3`/`S1.5`, el de `c30a3a9`. Las restantes (`S1.1`, `S1.4`, `S1.6`) son trabajo de código y **no** se abordan en esta tarjeta (`D2` no escribe código). Requieren tarjeta propia con el perfil que decida `arquitecto`.
+`S1.2` la cerró el código de `t_ab6ff8d0` (`b128566`) y `S1.3`/`S1.5`, el de `c30a3a9`. `S1.1` la cerró `4502d1e` y `S1.4`, `S2.0` (`t_54cab62c`). Solo queda `S1.6` (parcial, menor): la resolución de rutas y el preflight retienen el GIL.
 
 > **Nota de `D2` sobre las demás condiciones.** Mientras `D2` corría aterrizó el commit `c30a3a9`
 > (`S1.3`-`S1.6`), que cierra la jerarquía de excepciones (`src/core/error.rs:147-149`) y la

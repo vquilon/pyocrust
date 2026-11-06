@@ -26,8 +26,9 @@ su `bank.py`. El reporte **por feature** se genera con
 
 ## Resultados medidos (resumen)
 
-> **`medido`** = ejecutado en este repo (CPU, `warmup=1`, `repeats=1`, pyocrust 0.1.0,
-> 2026-11-02); detalle por motor y provenance completa en `features/<feature>/REPORT.md`.
+> **`medido`** = ejecutado en este repo (`--limit 20`, CPU, `warmup=1`, `repeats=1`,
+> pyocrust 0.1.0; campaña 2026-11-06/07); detalle por motor, provenance completa y la
+> columna `license` por motor en `features/<feature>/REPORT.md`.
 > **`referencia`** = valor de paper (con URL, panel aparte, **no comparable 1:1**).
 > **`pendiente`** = sin datos aún (nunca ceros).
 >
@@ -39,40 +40,39 @@ Tabla consolidada generada por `features/summary.py`: [`SUMMARY.md`](SUMMARY.md)
 
 | Feature | Métrica titular ↑ | pyocrust (medido) | Mejor alternativa medida | Run | Estado |
 | :--- | :--- | ---: | :--- | :--- | :--- |
-| `text` | F1 palabra | [**0.734**](benchmarks/results/text/2026-11-02_17-46-20) | rapidocr [0.659](benchmarks/results/text/2026-11-02_17-46-20) | [text/2026-11-02_17-46-20](benchmarks/results/text/2026-11-02_17-46-20) | medido |
-| `formula` | Similitud LaTeX | [**0.550**](benchmarks/results/formula/2026-11-02_17-47-46) | pix2tex [0.486](benchmarks/results/formula/2026-11-02_17-47-46) | [formula/2026-11-02_17-47-46](benchmarks/results/formula/2026-11-02_17-47-46) | medido |
-| `layout` | mAP@IoU 0.5 | [**0.764**](benchmarks/results/layout/2026-11-02_17-49-16) | docling_heron_101 [0.658](benchmarks/results/layout/2026-11-02_17-49-16) | [layout/2026-11-02_17-49-16](benchmarks/results/layout/2026-11-02_17-49-16) | medido |
-| `orientation` | accuracy | [**1.000**](benchmarks/results/orientation/2026-11-02_17-50-19) | lcnet_doc_ori [1.000](benchmarks/results/orientation/2026-11-02_17-50-19) | [orientation/2026-11-02_17-50-19](benchmarks/results/orientation/2026-11-02_17-50-19) | medido |
-| `rectification` | SSIM | [**0.704**](benchmarks/results/rectification/2026-11-02_17-50-29) | uvdoc [0.701](benchmarks/results/rectification/2026-11-02_17-50-29) | [rectification/2026-11-02_17-50-29](benchmarks/results/rectification/2026-11-02_17-50-29) | medido |
-| `text_line` | accuracy | [**1.000**](benchmarks/results/text_line/2026-11-02_17-50-38) | lcnet_textline_ori [1.000](benchmarks/results/text_line/2026-11-02_17-50-38) | [text_line/2026-11-02_17-50-38](benchmarks/results/text_line/2026-11-02_17-50-38) | medido |
-| `seal` | recall@IoU 0.5 | [**0.750**](benchmarks/results/seal/2026-11-02_17-50-40) | — | [seal/2026-11-02_17-50-40](benchmarks/results/seal/2026-11-02_17-50-40) | medido |
-| `table` | TEDS | [**0.885**](benchmarks/results/table/2026-11-02_17-50-50) | tatr [0.737](benchmarks/results/table/2026-11-02_17-50-50) | [table/2026-11-02_17-50-50](benchmarks/results/table/2026-11-02_17-50-50) | medido |
-| `full_page` | Markdown F1 | [**0.176**](benchmarks/results/full_page/2026-11-02_18-01-37) | — | [full_page/2026-11-02_18-01-37](benchmarks/results/full_page/2026-11-02_18-01-37) | medido |
+| `text` | F1 palabra | 0.717 | rapidocr 0.585 | [text/2026-11-06_22-46-46](benchmarks/results/text/2026-11-06_22-46-46) | medido |
+| `formula` | Similitud LaTeX | 0.497 | paddle_latex_ocr 0.694 | [formula/2026-11-06_22-42-36](benchmarks/results/formula/2026-11-06_22-42-36) | medido |
+| `layout` | mAP@IoU 0.5 | 0.827 | docling_heron_101 0.843 | [layout/2026-11-06_22-53-15](benchmarks/results/layout/2026-11-06_22-53-15) | medido |
+| `orientation` | accuracy | 0.950 | lcnet_doc_ori 0.950 | [orientation/2026-11-06_23-05-36](benchmarks/results/orientation/2026-11-06_23-05-36) | medido |
+| `rectification` | SSIM | 0.707 | uvdoc 0.707 | [rectification/2026-11-06_23-06-42](benchmarks/results/rectification/2026-11-06_23-06-42) | medido |
+| `text_line` | accuracy | 1.000 | lcnet_textline_ori 1.000 | [text_line/2026-11-06_23-07-36](benchmarks/results/text_line/2026-11-06_23-07-36) | medido |
+| `seal` | recall@IoU 0.5 | 0.750 | — | [seal/2026-11-06_23-08-24](benchmarks/results/seal/2026-11-06_23-08-24) | medido |
+| `table` | TEDS | 0.854 | tatr 0.699 | [table/2026-11-06_23-09-19](benchmarks/results/table/2026-11-06_23-09-19) | medido |
+| `full_page` | Markdown F1 | 0.231 | — | [full_page/2026-11-06_23-31-43](benchmarks/results/full_page/2026-11-06_23-31-43) | medido |
 
 
-### `text` — FUNSD, n=5 (detección + reconocimiento)
+### `text` — FUNSD, n=20 (detección + reconocimiento)
 
 | Motor | F1 palabra ↑ | WER ord. ↓ | CER ↓ | ms/img ↓ |
 | :--- | ---: | ---: | ---: | ---: |
-| **pyocrust** (PP-OCRv6 tiny) | **0.734** | **0.340** | 0.402 | **786** |
-| rapidocr | 0.659 | 0.431 | **0.402** | 6 733 |
-| easyocr | 0.384 | 0.709 | 0.467 | 3 915 |
+| **pyocrust** (PP-OCRv6 tiny) | **0.717** | **0.360** | 0.483 | **970** |
+| rapidocr | 0.585 | 0.512 | **0.476** | 6 748 |
+| easyocr | 0.401 | 0.693 | 0.527 | 4 600 |
 
-> Run: `benchmarks/results/text/2026-11-02_17-46-20` (CPU, n=5, warmup=1, repeats=1)
+> Run: `benchmarks/results/text/2026-11-06_22-46-46` (CPU, n=20, warmup=1, repeats=1)
 
 ![Reporte text](features/text/REPORT.png)
 
-### `formula` — OmniDocBench, n=5 (fórmula → LaTeX)
+### `formula` — OmniDocBench, n=20 (fórmula → LaTeX)
 
 | Motor | Similitud ↑ | F1 tokens ↑ | Salidas con LaTeX ↑ | ms/fórmula ↓ |
 | :--- | ---: | ---: | ---: | ---: |
-| **pyocrust_formulanet** (directo) | **0.550** | 0.627 | N/A | 1 015 |
-| pix2tex (LaTeX-OCR) | 0.486 | **0.670** | N/A | 2 451 |
-| pyocrust_formula (pipeline) | 0.419 | 0.526 | N/A | 2 795 |
-| easyocr (control) | 0.152 | 0.427 | N/A | 743 |
-| rapidocr (control) | 0.104 | 0.298 | N/A | 3 026 |
+| **paddle_latex_ocr** (PP-FormulaNet_plus-M) | **0.694** | **0.839** | N/A | 12 490 |
+| pyocrust_formulanet (directo) | 0.497 | 0.622 | N/A | **979** |
+| pix2tex (LaTeX-OCR) | 0.486 | 0.682 | N/A | 7 484 |
+| pyocrust_formula (pipeline) | 0.196 | 0.295 | N/A | 3 464 |
 
-> Run: `benchmarks/results/formula/2026-11-02_17-47-46` (CPU, n=5, warmup=1, repeats=1)
+> Run: `benchmarks/results/formula/2026-11-06_22-42-36` (CPU, n=20, warmup=1, repeats=1)
 
 ![Reporte formula](features/formula/REPORT.png)
 
@@ -85,9 +85,9 @@ de modelos: [`FEATURES_OVERVIEW.md`](FEATURES_OVERVIEW.md).
 
 ### Resto de features (gráfica por feature)
 
-`layout` (mAP 0.764), `orientation` (acc 1.00), `rectification` (SSIM 0.704),
-`text_line` (acc 1.00), `seal` (recall@IoU 0.5 0.750), `table` (TEDS 0.885) y
-`full_page` (Markdown F1 0.176) tienen su propio `REPORT.md` + gráfica:
+`layout` (mAP@IoU 0.5 0.827), `orientation` (acc 0.950), `rectification` (SSIM 0.707),
+`text_line` (acc 1.000), `seal` (recall@IoU 0.5 0.750), `table` (TEDS 0.854) y
+`full_page` (Markdown F1 0.231) tienen su propio `REPORT.md` + gráfica:
 
 | Feature | Gráfica |
 | :--- | :--- |

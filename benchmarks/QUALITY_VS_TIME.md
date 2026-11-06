@@ -23,69 +23,68 @@
 
 ## text — FUNSD — device `cpu` · SOLO motores medidos
 
-| Motor | ms/img ↓ | calidad ↑ |
-| :--- | ---: | ---: |
-| **pyocrust (tiny)** | 786 | 0.734 |
-| easyocr (default) | 3915 | 0.384 |
-| rapidocr (default) | 6733 | 0.659 |
+| Motor | ms/img ↓ | calidad ↑ | license |
+| :--- | ---: | ---: | :--- |
+| **pyocrust (tiny)** | 970 | 0.717 | Apache-2.0 |
+| easyocr (default) | 4600 | 0.401 | Apache-2.0 |
+| rapidocr (default) | 6748 | 0.585 | Apache-2.0 |
 
 ## formula — OmniDocBench — device `cpu` · SOLO motores medidos
 
-| Motor | ms/fórmula ↓ | calidad ↑ |
-| :--- | ---: | ---: |
-| easyocr (default) | 743 | 0.152 |
-| **pyocrust_formulanet** | 1015 | 0.550 |
-| pix2tex (default) | 2451 | 0.486 |
-| **pyocrust_formula** | 2795 | 0.419 |
-| rapidocr (default) | 3026 | 0.104 |
+| Motor | ms/fórmula ↓ | calidad ↑ | license |
+| :--- | ---: | ---: | :--- |
+| **pyocrust_formulanet** | 979 | 0.497 | Apache-2.0 |
+| **pyocrust_formula** | 3464 | 0.196 | Apache-2.0 |
+| pix2tex (default) | 7484 | 0.486 | MIT |
+| paddle_latex_ocr (default) | 12490 | 0.694 | Apache-2.0 |
 
 ## layout — OmniDocBench — device `cpu` · SOLO motores medidos
 
-| Motor | ms/imagen ↓ | calidad ↑ |
-| :--- | ---: | ---: |
-| yolo26m (21.8M) | 331 | 0.386 |
-| yolov10b (20.5M) | 455 | 0.290 |
-| yolov10x (31.7M) | 732 | 0.312 |
-| docling_heron_101 (default) | 816 | 0.792 |
-| **pyocrust_layout (130M)** | 1947 | 0.811 |
+| Motor | ms/imagen ↓ | calidad ↑ | license |
+| :--- | ---: | ---: | :--- |
+| yolo26m (21.8M) | 294 | 0.467 | MIT |
+| yolov10b (20.5M) | 383 | 0.344 | AGPL-3.0 |
+| yolov10x (31.7M) | 658 | 0.381 | AGPL-3.0 |
+| docling_heron_101 (default) | 1071 | 0.843 | Apache-2.0 |
+| **pyocrust_layout (130M)** | 1987 | 0.827 | Apache-2.0 |
 
 ## orientation — sintético — device `cpu` · SOLO motores medidos
 
-| Motor | ms/página ↓ | calidad ↑ |
-| :--- | ---: | ---: |
-| lcnet_doc_ori (onnxruntime) | 4 | 1.000 |
-| **pyocrust_orientation (6.8M)** | 702 | 1.000 |
+| Motor | ms/página ↓ | calidad ↑ | license |
+| :--- | ---: | ---: | :--- |
+| lcnet_doc_ori (onnxruntime) | 2 | 0.950 | Apache-2.0 |
+| **pyocrust_orientation (6.8M)** | 1124 | 0.950 | Apache-2.0 |
 
 ## rectification — sintético — device `cpu` · SOLO motores medidos
 
-| Motor | ms/página ↓ | calidad ↑ |
-| :--- | ---: | ---: |
-| uvdoc (onnxruntime) | 138 | 0.701 |
-| **pyocrust_rectify (31.7M)** | 254 | 0.704 |
+| Motor | ms/página ↓ | calidad ↑ | license |
+| :--- | ---: | ---: | :--- |
+| uvdoc (onnxruntime) | 74 | 0.707 | Apache-2.0 |
+| **pyocrust_rectify (31.7M)** | 261 | 0.707 | Apache-2.0 |
 
 ## text_line — sintético — device `cpu` · SOLO motores medidos
 
-| Motor | ms/línea ↓ | calidad ↑ |
-| :--- | ---: | ---: |
-| lcnet_textline_ori (onnxruntime) | 5 | 1.000 |
-| **pyocrust_textline (6.8M)** | 33 | 1.000 |
+| Motor | ms/línea ↓ | calidad ↑ | license |
+| :--- | ---: | ---: | :--- |
+| lcnet_textline_ori (onnxruntime) | 5 | 1.000 | Apache-2.0 |
+| **pyocrust_textline (6.8M)** | 26 | 1.000 | Apache-2.0 |
 
 ## seal — sintético — device `cpu` · SOLO motores medidos
 
-| Motor | ms/imagen ↓ | calidad ↑ |
-| :--- | ---: | ---: |
-| **pyocrust_seal (4.8M)** | 591 | 0.750 |
+| Motor | ms/imagen ↓ | calidad ↑ | license |
+| :--- | ---: | ---: | :--- |
+| **pyocrust_seal (4.8M)** | 641 | 0.750 | Apache-2.0 |
 
 ## table — OmniDocBench — device `cpu` · SOLO motores medidos
 
-| Motor | ms/tabla ↓ | calidad ↑ |
-| :--- | ---: | ---: |
-| tatr (default) | 164 | 0.737 |
-| **pyocrust_table** | 708 | 0.885 |
+| Motor | ms/tabla ↓ | calidad ↑ | license |
+| :--- | ---: | ---: | :--- |
+| tatr (default) | 140 | 0.699 | MIT |
+| **pyocrust_table** | 749 | 0.854 | Apache-2.0 |
 
 ## full_page — OmniDocBench — device `cpu` · SOLO motores medidos
 
-| Motor | ms/página ↓ | calidad ↑ |
-| :--- | ---: | ---: |
-| **pyocrust_indra (math)** | 1954 | 0.176 |
-| **pyocrust_structure** | 11253 | 0.158 |
+| Motor | ms/página ↓ | calidad ↑ | license |
+| :--- | ---: | ---: | :--- |
+| **pyocrust_indra (math)** | 1547 | 0.231 | OpenRAIL-M-Mod |
+| **pyocrust_structure** | 10033 | 0.211 | Apache-2.0 |
