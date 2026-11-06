@@ -32,6 +32,11 @@ if __package__ in (None, ""):
 
 from common import BENCHMARKS_ROOT, module_available, select_device_rows
 
+try:
+    from .summary import EXCLUDED_MOTORS
+except ImportError:  # ejecutado directamente como script
+    from summary import EXCLUDED_MOTORS
+
 RESULTS_DIR = BENCHMARKS_ROOT / "results"
 # Runs GPU en su propia jerarquía (`--output-dir benchmarks/results/_gpu`), para
 # que `latest_run` CPU (glob `results/<feature>/*/`) no se confunda con ellas.
@@ -115,10 +120,34 @@ TITULAR_METRIC: dict[str, tuple[str, str, bool]] = {
 }
 
 
-def latest_run(feature: str, root: Path = RESULTS_DIR) -> Path | None:
+def latest_run(feature: str, root: Path = RESULTS_DIR, device: str = "cpu") -> Path | None:
+    """Run de referencia para `device`: más muestras por motor, luego más motores.
+
+    El filtro de device evita que una corrida GPU más reciente oculte la
+    comparativa CPU de referencia. Los empates se resuelven por nombre de run.
+    """
     base = root / feature
     runs = sorted((p for p in base.glob("*/") if any(p.glob("*.csv"))), reverse=True) if base.is_dir() else []
-    return runs[0] if runs else None
+    if not runs:
+        return None
+
+    def stats_of(run: Path) -> tuple[int, int]:
+        summary_path = run / "summary.json"
+        try:
+            summary = json.loads(summary_path.read_text(encoding="utf-8")) if summary_path.exists() else {}
+        except (OSError, json.JSONDecodeError):
+            summary = {}
+        run_device = summary.get("device_requested")
+        per_backend: dict[str, int] = defaultdict(int)
+        for csv_path in run.glob("*.csv"):
+            for row in csv.DictReader(csv_path.read_text(encoding="utf-8").splitlines()):
+                row_device = row.get("device_requested") or run_device
+                if row.get("status") == "ok" and row_device == device:
+                    per_backend[row["backend"]] += 1
+        return (max(per_backend.values(), default=0), len(per_backend))
+
+    eligible = [run for run in runs if stats_of(run) != (0, 0)]
+    return max(eligible, key=lambda p: (*stats_of(p), p.name)) if eligible else None
 
 
 def _provider_of(summary: dict, backend: str) -> str:
@@ -127,15 +156,22 @@ def _provider_of(summary: dict, backend: str) -> str:
     return meta.get("provider_effective") or "n/a"
 
 
-def render_cpu_gpu(feature: str, cpu_rep: dict, gpu_rep: dict | None,
+def render_cpu_gpu(feature: str, cpu_rep: dict, cpu_sum: dict, gpu_rep: dict | None,
                    gpu_sum: dict | None) -> list[str]:
     """Sección `## CPU vs GPU`: misma calidad (mismo GT), distinto tiempo por device.
 
-    Honestidad dura: la columna GPU solo lleva filas que de verdad corrieron en un
-    acelerador. Un motor que no corre en GPU queda `N/A` con su motivo, nunca un
-    valor de CPU disfrazado de GPU. `N/A` = no ejecutado (jamás un `0.0`).
+    Solo muestra motores no excluidos y GPU reales; si el dataset difiere, no
+    presenta las cifras como una comparación equiparable.
     """
     key, label, _higher = TITULAR_METRIC[feature]
+    same_dataset = not gpu_sum or cpu_sum.get("dataset") == gpu_sum.get("dataset")
+    if not same_dataset:
+        gpu_rep = {}
+    else:
+        gpu_rep = {name: values for name, values in (gpu_rep or {}).items()
+                   if name.split(" (")[0] not in EXCLUDED_MOTORS}
+    cpu_rep = {name: values for name, values in cpu_rep.items()
+               if name.split(" (")[0] not in EXCLUDED_MOTORS}
     lines = [
         "## CPU vs GPU (`device_requested` vs `provider_effective`)",
         "",
@@ -148,7 +184,9 @@ def render_cpu_gpu(feature: str, cpu_rep: dict, gpu_rep: dict | None,
         f"| Motor (variante) | {label} (CPU) | {label} (GPU) | ms CPU | ms GPU | provider GPU |",
         "| :--- | ---: | ---: | ---: | ---: | :--- |",
     ]
-    if not gpu_rep:
+    if not same_dataset:
+        lines.append("| _(dataset GPU distinto; comparación no equiparable)_ | | | | | |")
+    elif not gpu_rep:
         lines.append("| _(sin run GPU)_ | | | | | |")
     else:
         for name in sorted(set(cpu_rep) | set(gpu_rep)):
@@ -189,7 +227,8 @@ def load_run(run: Path) -> tuple[list[dict], dict]:
                             "layout_map", "layout_recall", "table_teds", "ori_acc", "rect_sim"):
                     try:
                         row[key] = float(row[key])
-                    except (TypeError, ValueError):
+                    except (KeyError, TypeError, ValueError):
+                        # CSV antiguo sin esa columna, o celda vacia: N/A (nunca 0).
                         row[key] = None
                 rows.append(row)
     summary_path = run / "summary.json"
@@ -245,6 +284,8 @@ def analyze(feature: str, run: Path) -> tuple[dict[str, dict[str, Any]], dict]:
             "(provider_effective honesto: un fallback CPU no cuenta como GPU)"
         )
     report = summarize(device_rows)
+    report = {name: values for name, values in report.items()
+              if name.split(" (")[0] not in EXCLUDED_MOTORS}
     if feature == "formula":
         for name, value in latex_coverage(run).items():
             for key in report:
@@ -330,7 +371,7 @@ def render_md(feature: str, report: dict[str, dict[str, Any]], summary: dict, ru
     ]
     if gpu is not None:
         gpu_rep, gpu_sum = gpu
-        lines += render_cpu_gpu(feature, report, gpu_rep, gpu_sum)
+        lines += render_cpu_gpu(feature, report, summary, gpu_rep, gpu_sum)
     return "\n".join(lines)
 
 
@@ -459,19 +500,52 @@ def plot_feature(feature: str, report: dict, summary: dict, out: Path,
     plt.close(fig)
 
 
-def load_gpu(feature: str) -> tuple[dict, dict] | None:
-    """Reporte y summary de la run GPU (`results/_gpu/<feature>/`) más reciente.
+GPU_PROVIDERS = frozenset({"cuda", "directml", "tensorrt", "coreml", "openvino", "webgpu", "rocm", "mps"})
 
-    Devuelve `None` si no hay run GPU o si ninguna fila corrió de verdad en un
-    acelerador (honestidad: un fallback CPU no produce columna GPU).
-    """
-    run = latest_run(feature, GPU_RESULTS_DIR)
-    if run is None:
+
+def load_gpu(feature: str) -> tuple[dict, dict] | None:
+    """Agrega la última run GPU real de cada motor, no una sola run global."""
+    base = RESULTS_DIR / feature
+    if not base.is_dir():
         return None
-    try:
-        return analyze(feature, run)
-    except SystemExit:
+    runs = sorted((p for p in base.iterdir() if p.is_dir() and any(p.glob("*.csv"))),
+                  reverse=True)
+    selected: dict[str, list[dict]] = {}
+    gpu_summary: dict[str, Any] = {"device_requested": "gpu", "backends": {}}
+    for run in runs:
+        summary_path = run / "summary.json"
+        if not summary_path.exists():
+            continue
+        try:
+            summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if summary.get("device_requested") != "gpu":
+            continue
+        rows, _ = load_run(run)
+        grouped: dict[str, list[dict]] = defaultdict(list)
+        for row in rows:
+            backend = row.get("backend", "")
+            provider = str(row.get("provider_effective", "")).lower()
+            if backend in EXCLUDED_MOTORS or provider not in GPU_PROVIDERS:
+                continue
+            variant = row.get("model_variant") or "default"
+            name = f"{backend} ({variant})"
+            grouped[name].append(row)
+        for name, backend_rows in grouped.items():
+            if name in selected:
+                continue
+            selected[name] = backend_rows
+            backend = name.split(" (")[0]
+            meta = dict((summary.get("backends") or {}).get(backend) or {})
+            meta["provider_effective"] = backend_rows[0].get("provider_effective") or "n/a"
+            gpu_summary["backends"][backend] = meta
+        if selected and "dataset" not in gpu_summary:
+            gpu_summary["dataset"] = summary.get("dataset")
+    if not selected:
         return None
+    gpu_report = summarize([row for rows in selected.values() for row in rows])
+    return gpu_report, gpu_summary
 
 
 def consolidated_table(features: Sequence[str]) -> str:
@@ -493,9 +567,11 @@ def consolidated_table(features: Sequence[str]) -> str:
         run = latest_run(feature)
         if run is None:
             continue
-        cpu_rep, _ = analyze(feature, run)
+        cpu_rep, cpu_sum = analyze(feature, run)
         gpu = load_gpu(feature)
         gpu_rep, gpu_sum = gpu if gpu else ({}, {})
+        if gpu and cpu_sum.get("dataset") != gpu_sum.get("dataset"):
+            gpu_rep = {}
         key = TITULAR_METRIC[feature][0]
         for name in sorted(set(cpu_rep) | set(gpu_rep)):
             c, g = cpu_rep.get(name) or {}, gpu_rep.get(name) or {}

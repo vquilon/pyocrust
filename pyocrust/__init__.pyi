@@ -13,9 +13,15 @@ detect_hardware() returns physical inventory, not wheel CUDA capability;
 unknown RAM/VRAM remain None. CUDA_VISIBLE_DEVICES filters NVIDIA inventory.
 
 TaskSpec(document_kind='digital', ocr_only=True, formulas='none', tables=False,
-quality='speed', output_format='text'). Allowed enums: scanned/digital/mixed;
+quality='speed', output_format='text', license_commercial_use=True,
+license_acknowledge=False). Allowed enums: scanned/digital/mixed;
 none/with_text/only; speed/balanced/accuracy; text/markdown/html/json.
-Invalid enums raise ValueError; ocr_only/tables must be bool (TypeError).
+Invalid enums raise ValueError; ocr_only/tables and both license flags must be
+bool (TypeError). `license_commercial_use` and `license_acknowledge` are USER
+declarations (commercial intent / acceptance of attribution), not the model's
+terms: `license_commercial_use=True` keeps restricted models (Indra,
+OpenRAIL-M-Mod) out of the recommendation, and a restricted model also
+requires `license_acknowledge=True` (Indra §7).
 PipelineChoice has preset: str, size: str | None, tasks: tuple[str, ...],
 models_dir: str, offline: bool; id is pp_ocrv6_{size} or the structure preset.
 resolve_pipeline(task: TaskSpec, hardware: HardwareProfile | None=None):
@@ -41,8 +47,11 @@ def model_catalog() -> dict[str, dict]:
     """Metadata by artifact name, without filesystem scan, network or inference.
 
     Rows: name/task/description: str, params: int | None, size_bytes: int | None,
-    env_vars: list[str]. params is always None; upstream sizes use find(name),
-    Indra sizes remain None. Includes dictionaries/tokenizers, not only models.
+    env_vars: list[str], license: str, license_commercial_use: bool,
+    license_acknowledge: bool, license_restricted: bool, license_notes: str,
+    license_url: str | None. params is always None; upstream sizes use
+    find(name), Indra sizes remain None. Includes dictionaries/tokenizers.
+    license_commercial_use is False for Indra (OpenRAIL-M-Mod) and Unknown.
     env_vars: OAR_HOME, OCR_MODELS_CACHE_DIR, PYOCRUST_OFFLINE,
     CUDA_LAUNCH_BLOCKING, RUST_LOG; no OAR_VL_* controls for Indra ONNX.
     """
@@ -51,7 +60,10 @@ def pipeline_profiles() -> dict[str, dict]:
     """Registered presets/tasks by ID, without disk scan, network or inference.
 
     Rows: id/family/quality/output_format/description: str, artifacts: list[str],
-    disk_bytes: int | None, ram_bytes: int | None. Five presets plus eleven tasks;
+    disk_bytes: int | None, ram_bytes: int | None, license: str,
+    license_commercial_use: bool, license_acknowledge: bool,
+    license_restricted: bool, license_notes: str, license_url: str | None.
+    Five presets plus eleven tasks;
     exact artifacts come from registry. disk_bytes sums upstream sizes, None if
     any entry is missing or sum overflows (Indra: None); ram_bytes always None.
     File size is not parameters, measured RAM or proof of local availability.
@@ -177,9 +189,14 @@ class TaskPredictor:
     runs. ``available_providers()`` lists the accelerators that actually register.
     Approval covers code/contracts, not eleven real inferences or GPU validation.
     """
-    def __init__(self, task: str, models: str | dict[str, str] | None = None, device: str = "cpu", **options: object) -> None: ...
+    def __init__(self, task: str, models: str | dict[str, str] | None = None, device: str = "cpu", license_commercial_use: bool = True, license_acknowledge: bool = False, **options: object) -> None: ...
     @property
     def provider_effective(self) -> str: ...
+    @property
+    def license(self) -> dict[str, object]:
+        """Resolved license for this task's registered artifacts; ``Unknown``
+        when explicit ``models`` paths are used (provenance cannot be verified)."""
+        ...
     def predict(self, image: str | bytes | PathLike[str]) -> dict[str, object]: ...
     def predict_batch(self, images: Sequence[str | bytes | PathLike[str]]) -> list[dict[str, object]]: ...
 
@@ -203,9 +220,13 @@ def models_status(
     """
 
 class VeloceOCR:
-    def __init__(self, preset: str = "pp_ocrv6", custom_path: str | None = None, device: str = "cpu") -> None: ...
+    def __init__(self, preset: str = "pp_ocrv6", custom_path: str | None = None, device: str = "cpu", license_commercial_use: bool = True, license_acknowledge: bool = False) -> None: ...
     @property
     def models_dir(self) -> str: ...
+    @property
+    def license(self) -> dict[str, object]:
+        """Resolved license for this preset's artifacts (six fields)."""
+        ...
     @property
     def provider_effective(self) -> str:
         """EP that really ran (``cpu``/``cuda``/``directml``/...); never faked.

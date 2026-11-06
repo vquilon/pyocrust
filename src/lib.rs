@@ -38,6 +38,7 @@ fn available_providers() -> Vec<String> {
 struct VeloceOCR {
     engine: Box<dyn OcrEngineBackend>,
     config: storage::config::OcrConfig,
+    license: storage::license::License,
     /// EP que realmente corre (`cpu`, `cuda`, ...), nunca inventado.
     provider_effective: String,
 }
@@ -45,12 +46,14 @@ struct VeloceOCR {
 #[pymethods]
 impl VeloceOCR {
     #[new]
-    #[pyo3(signature = (preset = "pp_ocrv6", custom_path = None, device = "cpu"))]
+    #[pyo3(signature = (preset = "pp_ocrv6", custom_path = None, device = "cpu", license_commercial_use = true, license_acknowledge = false))]
     fn new(
         py: Python<'_>,
         preset: &str,
         custom_path: Option<&str>,
         device: &str,
+        license_commercial_use: bool,
+        license_acknowledge: bool,
     ) -> PyResult<Self> {
         let spec = match preset {
             "pp_ocrv6" | "pp_ocrv6_tiny" => crate::core::ModelSpec::PpOcrV6(crate::core::OcrSize::Tiny),
@@ -66,6 +69,17 @@ impl VeloceOCR {
                 }.into());
             }
         };
+
+        let license = storage::license::License::for_artifacts(
+            storage::registry::artifacts_for(&spec).iter().map(|artifact| artifact.name),
+        );
+        if !license.allows(license_commercial_use, license_acknowledge) {
+            return Err(crate::core::error::PyOcrValueError::new_err(format!(
+                "{}. Notes: {}",
+                license.block_message(&format!("El preset '{preset}'")),
+                license.notes,
+            )));
+        }
 
         let config = storage::config::OcrConfig::new(custom_path.map(std::path::Path::new));
         if let Ok(oar_home) = std::env::var(storage::config::OAR_HOME_ENV) {
@@ -90,6 +104,7 @@ impl VeloceOCR {
         Ok(Self {
             engine,
             config,
+            license,
             provider_effective: selection.provider_effective,
         })
     }
@@ -108,6 +123,12 @@ impl VeloceOCR {
     #[getter]
     fn models_dir(&self) -> String {
         self.config.models_dir.to_string_lossy().to_string()
+    }
+
+    /// Resolved SPDX license and use restrictions for this preset.
+    #[getter]
+    fn license(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        crate::license_dict(py, self.license)
     }
 
     /// Reconoce una imagen liberando el GIL.
@@ -139,6 +160,13 @@ impl VeloceOCR {
             crate::core::OcrOutput::Structure(result) => Ok(Py::new(py, result)?.into_any()),
         }
     }
+}
+
+pub(crate) fn license_dict(
+    py: Python<'_>,
+    license: storage::license::License,
+) -> PyResult<Py<PyAny>> {
+    Ok(license.to_dict(py)?.into_any().unbind())
 }
 
 /// Registro del módulo nativo `pyocrust._pyocrust_core` (ADR-011).

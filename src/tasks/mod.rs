@@ -28,6 +28,9 @@ enum Predictor {
 #[pyclass]
 pub struct TaskPredictor {
     predictor: Predictor,
+    /// Licencia agregada de los artefactos de la tarea (la más restrictiva).
+    /// `None` con `models` explícito: el origen de los pesos no se puede verificar.
+    license: Option<crate::storage::license::License>,
     /// EP que realmente corre (`cpu`, `cuda`, ...), nunca inventado.
     provider_effective: String,
 }
@@ -35,18 +38,38 @@ pub struct TaskPredictor {
 #[pymethods]
 impl TaskPredictor {
     #[new]
-    #[pyo3(signature = (task, models=None, device = "cpu", **options))]
+    /// With explicit `models` paths, catalog provenance cannot be checked and license compliance is the caller's responsibility.
+    #[pyo3(signature = (task, models=None, device = "cpu", license_commercial_use = true, license_acknowledge = false, **options))]
     fn new(
         py: Python<'_>,
         task: &str,
         models: Option<&Bound<'_, PyAny>>,
         device: &str,
+        license_commercial_use: bool,
+        license_acknowledge: bool,
         options: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Self> {
         let artifacts = match registry::task_artifacts(task) {
             Some(artifacts) => artifacts,
             None => return Err(crate::core::error::PyOcrValueError::new_err(format!("unknown task '{task}'"))),
         };
+        let license = crate::storage::license::License::for_artifacts(
+            artifacts.iter().map(|artifact| artifact.name),
+        );
+        let explicit_models = models.is_some_and(|value| {
+            !value.is_none()
+                && (value.extract::<String>().is_ok() || value.cast::<PyDict>().is_ok())
+        });
+        if !explicit_models && !license.allows(license_commercial_use, license_acknowledge) {
+            return Err(crate::core::error::PyOcrValueError::new_err(format!(
+                "{}. Notes: {}",
+                license.block_message(&format!("La tarea '{task}'")),
+                license.notes,
+            )));
+        }
+        // Con `models` explícito el origen de los pesos es del usuario: no
+        // exponemos la licencia del catálogo como si fueran esos pesos.
+        let license = if explicit_models { None } else { Some(license) };
         if let Some(options) = options {
             for key in options.keys() {
                 let name: String = key.extract()?;
@@ -164,6 +187,7 @@ impl TaskPredictor {
         };
         Ok(Self {
             predictor,
+            license,
             provider_effective: selection.provider_effective,
         })
     }
@@ -176,6 +200,14 @@ impl TaskPredictor {
     #[getter]
     fn provider_effective(&self) -> String {
         self.provider_effective.clone()
+    }
+
+    /// Licencia de los artefactos registrados de la tarea; `Unknown` con
+    /// `models` explícito (la procedencia de los pesos no se puede verificar).
+    #[getter]
+    fn license(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let license = self.license.unwrap_or_else(crate::storage::license::License::unknown);
+        Ok(license.to_dict(py)?.into_any().unbind())
     }
 
     /// Run one image and return the task's documented Python dictionary.

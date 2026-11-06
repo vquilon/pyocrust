@@ -229,13 +229,22 @@ def test_hardware_none_usa_detect_hardware(monkeypatch):
 # --------------------------------------------------------------------------
 
 
-def test_accuracy_con_gpu_de_8_gib_recomienda_indra(gpu_8gib):
-    eleccion = elegir(spec(ocr_only=True, quality="accuracy"), hardware(ram_gib=32, gpu=gpu_8gib))
-    candidatos = [eleccion.preset, *etapas(eleccion)]
-    assert "indra" in candidatos or "indra" in str(eleccion), (
-        f"con GPU de 8 GiB y accuracy no se menciona indra: preset={eleccion.preset!r}, "
-        f"etapas={etapas(eleccion)}"
+def test_accuracy_con_gpu_de_8_gib_filtra_indra_segun_politica(gpu_8gib):
+    hw = hardware(ram_gib=32, gpu=gpu_8gib)
+    comercial = elegir(spec(ocr_only=True, quality="accuracy"), hw)
+    no_comercial = elegir(
+        spec(ocr_only=True, quality="accuracy", license_commercial_use=False), hw
     )
+    con_atribucion = elegir(
+        spec(ocr_only=True, quality="accuracy", license_commercial_use=False,
+             license_acknowledge=True), hw
+    )
+
+    assert "indra" not in etapas(comercial)
+    assert "indra" not in etapas(no_comercial), (
+        "sin aceptar la atribución (§7) Indra no debe recomendarse"
+    )
+    assert "indra" in etapas(con_atribucion)
 
 
 # --------------------------------------------------------------------------

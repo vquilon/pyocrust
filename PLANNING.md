@@ -7,7 +7,7 @@ Este documento detalla la hoja de ruta secuencial para la implementación del pa
 > Cada entrada lleva identificador, tarjeta del board (`pyocrust`), estado y criterio de aceptación.
 > Estados: `Pendiente` / `En curso` / `Hecho` / `Bloqueado` / `Descartado`. Todo cambio de estado va fechado.
 >
-> **Estado global (D1, 2026-10-25; actualizado en `D2` y `S2.0`):** las fases 0-5 están **Hechas**; `S1.2` (`b128566`), `S1.3`, `S1.4` (cerrada por `S2.0`) y `S1.5` (`c30a3a9`) quedaron **cerradas**, pero el sign-off `S1` sigue **RECHAZADO**, con `S1.1` pendiente y `S1.6` parcial (§7). El proyecto **no** está aprobado: `D1`/`D2` reconcilian la documentación, no la implementación.
+> **Estado global (D1, 2026-10-25; actualizado en `D2` y `S2.0`):** las fases 0-5 están **Hechas**; `S1.2` (`b128566`), `S1.3`, `S1.4` (cerrada por `S2.0`) y `S1.5` (`c30a3a9`) quedaron **cerradas**, pero el sign-off `S1` sigue **RECHAZADO**, con `S1.6` parcial (§7). El proyecto **no** está aprobado: `D1`/`D2` reconcilian la documentación, no la implementación.
 
 ### Actualización `S2.2` — Indra (parcial)
 
@@ -277,7 +277,7 @@ Medir la **calidad** y la **velocidad** de `pyocrust` frente a otros OCR sobre u
 | `B6` | 7 | Reescribir el banco de benchmarks: eje `task_type`, 5 backends y 22 columnas | `t_c319bbab` | `escriba` | Hecho | 2026-11-01 |
 | `B7` | 7 | Verificar el banco multi-tarea: repetibilidad, metadatos y reportero | `t_12453baf` | `probador` | Hecho | 2026-11-01 |
 | `B8` | 7 | Atacar la metodología del banco multi-tarea | `t_12453baf` | `critico` | Hecho | 2026-11-01 |
-| `B9` | 7 | Actualizar la documentación y el post con el banco multi-tarea | `t_93c3c339` | `escriba` | En curso | 2026-11-01 |
+| `B9` | 7 | Actualizar la documentación y el post con el banco multi-tarea | `t_93c3c339` | `escriba` | Hecho | 2026-11-01 |
 
 Dependencias: el código del banco (`benchmarks/*.py`, sin tarjeta) precede a `B3`,
 `B4` y `B5`; `S2.1` y `S2.2` (backends de fórmula e indra) son prerequisitos para
@@ -295,14 +295,14 @@ auditan; `B9` reescribe `B3` con el alcance nuevo.
 
 ### `B4` — Atacar la metodología del benchmark
 
-* **Tarjeta:** `t_55e3c268`. **Responsable:** `critico`. **Estado:** En curso (2026-10-25).
+* **Tarjeta:** `t_55e3c268`. **Responsable:** `critico`. **Estado:** Hecho (2026-10-25).
 * **Contenido:** revisión adversarial de la *fairness* entre backends (mismo preprocesado, mismo *warmup*), de las métricas (orden del ground truth, papel del `word_f1`, falta de significancia con `n` pequeño), de la representatividad (Tiny vs. modelo por defecto; FUNSD en inglés), de los tiempos y de la reproducibilidad.
 * **Criterio de aceptación:** un comentario con la lista numerada de defectos, cada uno con `fichero:línea` y la corrección concreta; por cada categoría sin defectos, qué se verificó y cómo.
 * **Límite:** no toca código ni `src/`; si un defecto invalida resultados ya publicados, `kanban_block` con `needs_input`.
 
 ### `B5` — Verificar reproducibilidad del benchmark
 
-* **Tarjeta:** `t_7f916baa`. **Responsable:** `probador`. **Estado:** En curso (2026-10-25).
+* **Tarjeta:** `t_7f916baa`. **Responsable:** `probador`. **Estado:** Hecho (2026-10-25).
 * **Contenido:** `benchmarks/tests/test_functional.py` (pruebas funcionales de la API pública de `pyocrust` sobre FUNSD y del contrato del CSV) y `benchmarks/tests/conftest.py`; dos runs de `--limit 10` para comparar estabilidad de `cer`/`word_f1`, y recálculo manual del agregado frente a `benchmark_summary.json`.
 * **Criterio de aceptación:** un comentario con la salida real de `pytest benchmarks/tests -q`, las medias de `pyocrust` de las dos runs y su diferencia, el recálculo del CER/F1 agregado frente a `benchmark_summary.json`, y evidencia de que ningún backend ausente apareció como ejecutado.
 * **Límite:** no modifica `src/` ni el runner/reportero salvo un bug de una línea, que reporta aparte.
@@ -364,7 +364,7 @@ auditan; `B9` reescribe `B3` con el alcance nuevo.
 
 ### `B9` — Actualizar la documentación y el post con el banco multi-tarea
 
-* **Tarjeta:** `t_93c3c339`. **Responsable:** `escriba`. **Estado:** En curso (2026-11-01).
+* **Tarjeta:** `t_93c3c339`. **Responsable:** `escriba`. **Estado:** Hecho (2026-11-01).
 * **Contenido:** `benchmarks/README.md` (documentar eje `task_type`, 5 backends,
   22 columnas, `markdown_f1`/`block_f1` y la regla de titular), `PLANNING.md`
   (tabla de Fase 7 y mapa de dependencias actualizados), `README.md` (sección
@@ -394,7 +394,7 @@ indra (S2.2), fórmulas (S2.1) y verificación de exposición (S2.5).
 | `S2.3` | 8 | TaskPredictor: las 5 capacidades que faltan (orientación, rectificación, línea, sello, fórmula) | `t_f6168e7b` | `coder` | Hecho | 2026-10-31 |
 | `S2.4` | 8 | TaskPredictor: las 6 tareas restantes + `predict_batch` (cobertura 11/11) | `t_ce72cb5b` | `coder` | Hecho | 2026-11-01 |
 | `S2.5` | 8 | Verificar la cobertura completa de `oar-ocr` (11 predictores + 3 pipelines) | `t_6c79980d` | `probador` | Hecho | 2026-11-01 |
-| `S2.6` | 8 | Documentar la API de cobertura completa (DESIGN, PLANNING, README) | `t_524c734e` | `escriba` | En curso | 2026-11-01 |
+| `S2.6` | 8 | Documentar la API de cobertura completa (DESIGN, PLANNING, README) | `t_524c734e` | `escriba` | Hecho | 2026-11-01 |
 
 Dependencias: `S2.0` (modelos) → `S2.1` (fórmulas en structure) → `S2.2` (indra) → `S2.3` (5 tareas) → `S2.4` (6 tareas restantes + batch) → `S2.5` (verificación) → `S2.6` (documentación). `S2.1` y `S2.2` comparten `S2.0` como prerequisito de artefactos.
 
@@ -468,7 +468,7 @@ Dependencias: `S2.0` (modelos) → `S2.1` (fórmulas en structure) → `S2.2` (i
 
 ### `S2.6` — Documentar la API de cobertura completa
 
-* **Tarjeta:** `t_524c734e`. **Responsable:** `escriba`. **Estado:** En curso (2026-11-01).
+* **Tarjeta:** `t_524c734e`. **Responsable:** `escriba`. **Estado:** Hecho (2026-11-01).
 * **Contenido:** `DESIGN.md` (API pública §3.1.4, ADR-013, ADR-007 actualizado,
   §2 ampliado), `PLANNING.md` (Fase 8, S1.4 cerrada por S2.0), `README.md`
   (ejemplos TaskPredictor, tabla de cobertura 14 filas, apartado Modelos),
@@ -492,7 +492,7 @@ Dependencias: `S2.0` (modelos) → `S2.1` (fórmulas en structure) → `S2.2` (i
 || `S3.2` | 9 | Tests del catálogo, hardware y resolvedor | `t_223cb785` | `probador` | Hecho | 2026-11-01 ||
 || `S3.3` | 9 | Atacar el catálogo y el resolvedor | `t_9c0acbbd` | `critico` | Hecho | 2026-11-01 ||
 || `S3.4` | 9 | Sign-off del catálogo y el resolvedor | `t_f2064743` | `arquitecto` | Hecho | 2026-11-01 ||
-|| `S3.5` | 9 | Documentar el catálogo y el resolvedor | `t_f6ad65e6` | `escriba` | En curso | 2026-11-01 ||
+|| `S3.5` | 9 | Documentar el catálogo y el resolvedor | `t_f6ad65e6` | `escriba` | Hecho | 2026-11-01 ||
 
 Dependencias: `S3.0` → `S3.1` → `S3.2` → `S3.3` → `S3.4` → `S3.5`.
 Además `S3.5` depende directamente de `S3.0` y `S3.1` (criterios de aceptación que requieren el catálogo y el resolvedor).
@@ -534,10 +534,89 @@ Además `S3.5` depende directamente de `S3.0` y `S3.1` (criterios de aceptación
 
 ### `S3.5` — Documentar el catálogo y el resolvedor
 
-* **Tarjeta:** `t_f6ad65e6`. **Responsable:** `escriba`. **Estado:** En curso (2026-11-01).
+* **Tarjeta:** `t_f6ad65e6`. **Responsable:** `escriba`. **Estado:** Hecho (2026-11-01).
 * **Contenido:** `DESIGN.md` (API pública §3.1.4, ADR-014/015/016, §2 y §9), `PLANNING.md` (Fase 9), `README.md` (Modelos y resolvedor, tabla de `pipeline_profiles()`, Variables de entorno).
 * **Criterio de aceptación:** los tres documentos describen el código real; cada ruta/símbolo verificable con `read_file`; `disk_bytes`/`ram_bytes` de README coinciden con `pyocrust.pipeline_profiles()` en este host; estado del board coincide con `hermes kanban list`.
 * **Evidencia:** this card.
+
+## Fase 10: Licencias de los pesos
+
+> **Contrato:** `L1` genera la clasificación en Rust (`src/storage/license.rs`);
+> `L2` añade los flags de política (`VeloceOCR`, `TaskPredictor`, `TaskSpec`);
+> `L3` verifica; `L4` ataca; `L5` sign-off; `L6` documenta.
+> Fuente: `licenses-report.pdf` (13 págs., extraído por OCR) y las licencias
+> canónicas (HF `datalab-to/indra-ocr`, Apache-2.0).
+
+| Id | Fase | Título | Tarjeta | Responsable | Estado | Fecha de cambio |
+|:---|:---|:---|:---|:---|:---|:---|
+| `L1` | 10 | Clasificación de licencias por artefacto en el catálogo Rust | `t_9ed3220e` | `hefesto` | Hecho | 2026-11-06 |
+| `L2` | 10 | Flags `license_commercial_use` / `license_acknowledge` en `VeloceOCR`, `TaskPredictor` y `resolve_pipeline` | `t_30237e75` | `hefesto` | Hecho | 2026-11-06 |
+| `L3` | 10 | Tests de la clasificación y del bloqueo por defecto | `t_c9334ec7` | `probador` | Hecho | 2026-11-06 |
+| `L4` | 10 | Atacar la clasificación y el bloqueo por defecto | `t_ed04f759` | `critico` | Hecho | 2026-11-06 |
+| `L5` | 10 | Sign-off del contrato de licencias contra `DESIGN.md` | `t_2c9a9a57` | `arquitecto` | Hecho (**APROBADO**) | 2026-11-06 |
+| `L6` | 10 | Documentar el contrato de licencias (DESIGN, PLANNING, README) | `t_8a18b04f` | `escriba` | Hecho | 2026-11-06 |
+
+Dependencias: `L1` → `L2` → `L3` → `L4` → `L5` → `L6`.
+
+### `L1` — Clasificación de licencias por artefacto
+
+* **Tarjeta:** `t_9ed3220e`. **Responsable:** `hefesto`. **Estado:** Hecho (2026-11-06).
+* **Contenido:** `src/storage/license.rs` (`License`, `for_artifact`, `for_artifacts`, `allows`, `restricted`, `block_message`, `to_dict`); campos de licencia en `ModelEntry`/`PipelineProfile` y en `model_catalog()`/`pipeline_profiles()`.
+* **Evidencia:** `cargo test -j 2` → **62 passed, 0 failed**.
+
+### `L2` — Flags de política de licencia
+
+* **Tarjeta:** `t_30237e75`. **Responsable:** `hefesto`. **Estado:** Hecho (2026-11-06).
+* **Contenido:** `VeloceOCR(..., license_commercial_use=True, license_acknowledge=False)` y `TaskPredictor(...)` con getter `license`; `TaskSpec` con los dos flags y validación estricta; `resolve_pipeline` excluye `indra` con la política comercial por defecto.
+* **Evidencia:** `tests/test_license.py` **5 passed, 1 skipped**; `test_resolver.py` **29 passed**; `test_tasks.py` **33 passed, 11 skipped**.
+* **Verificación propia:** la construcción no comercial de `indra` devuelve `StructureResult` con Markdown en CPU, y la política comercial por defecto lanza `PyOcrValueError` con `OpenRAIL-M-Mod`. El `skip` del worker era un falso negativo: los nueve artefactos están en `~/.oar/indra`.
+
+### `L3` — Tests de la clasificación y del bloqueo por defecto
+
+* **Tarjeta:** `t_c9334ec7`. **Responsable:** `probador`. **Estado:** Hecho (2026-11-06).
+* **Criterio de aceptación:** salida real de `pytest tests/test_license.py -q`, distinguiendo pasados/skipped/fallados, y cobertura de catálogo/perfiles sin sobrescribir las pruebas de `L2`.
+* **Resultado:** `tests/test_license.py` amplió de 6 a 9 tests → **9 passed**; detectó el daño colateral en `test_indra.py`/`test_recognize.py` (tarjeta hija `t_94b65e54`, Hecha) y el fallo de entorno de `OAR_HOME` con comillas literales.
+
+### `L4` — Ataque adversarial
+
+* **Tarjeta:** `t_ed04f759`. **Responsable:** `critico`. **Estado:** Hecho (2026-11-06).
+* **Resultado:** 13 defectos rankeados (1 crítico, 2 altos, 4 medios, 6 bajos) con `fichero:línea` y corrección. El crítico (suite Rust roja por el cambio de idioma de `block_message`) se corrigió; los altos: el getter de `TaskPredictor(models=…)` ya no miente (expone `Unknown`) y `acknowledge=true` para Indra según el LICENSE §7 primario. También se corrigieron la URL fijada a la revisión, las notas fieles, el mensaje acumulativo y el desempate restrictivo de `for_artifacts`.
+* **Fuera de alcance declarado:** la verificación SHA-256 de los artefactos ModelScope en el preflight (`src/storage/models.rs`), defecto de integridad preexistente ajeno a las licencias.
+
+### `L5` — Sign-off del contrato de licencias
+
+* **Tarjeta:** `t_2c9a9a57`. **Responsable:** `arquitecto`. **Estado:** Hecho (2026-11-06), veredicto **APROBADO**.
+* **Evidencia:** `cargo test` 64/0; `pytest tests/test_license.py` 11/0. Dictamen completo en `DICTAMEN_LICENSES.md`.
+* **Nota:** el sign-off identificó los tests obsoletos que faltaban por `license_acknowledge=True`; se actualizaron y la suite completa queda **157 passed, 1 skipped, 0 failed**. El test de fórmulas pasó a usar un fixture real (`tests/data/sample_formula.png`, página de OmniDocBench con 8 fórmulas detectadas) y corría `str.trim()` (inexistente en Python), que se cambió a `str.strip()`.
+
+### `L6` — Documentación del contrato de licencias
+
+* **Tarjeta:** `t_8a18b04f`. **Responsable:** `escriba` (reclamada y redactada por `hefesto`). **Estado:** Hecho (2026-11-06).
+* **Motivo del relevo:** dos reintentos del worker cayeron en el muro de cuota del proveedor (429) sin entregar; el claim se liberó tras 18 min sin salida y `hefesto` redactó el contrato.
+* **Contenido:** `DESIGN.md` ADR-017 + esquema de catálogo/perfiles §3.1.3 + flags §3.1.4; `README.md`/`README.es.md` con la sección «Licencias de los pesos» (ejemplos ejecutables); `PLANNING.md` Fase 10.
+
+### `D3` — Reconciliar `DESIGN`/`PLANNING`/`FEATURES` con el board y el árbol real
+
+* **Tarjeta:** `t_6e4e7dad`. **Responsable:** `escriba` (reclamada y ejecutada por `hefesto`). **Estado:** Hecho (2026-11-06).
+* **Motivo del relevo:** tres reintentos del worker cayeron en el muro de cuota (429); se liberó el claim y `hefesto` ejecutó la reconciliación.
+* **Divergencias resueltas con evidencia:**
+  1. `B9`/`S2.6`/`S3.5` constaban «En curso» y sus tarjetas (`t_93c3c339`, `t_524c734e`, `t_f6ad65e6`) están `done` → **Hecho**.
+  2. `S1.1` constaba «Pendiente» y la cerró `4502d1e` (`src/core/image_processor.rs:150-185`) → **Cerrada**.
+  3. ADR-008 y la tabla de dependencias decían que `rayon` no se usa; `src/storage/models.rs:13,297` lo usa en `ensure_models` → **Cumplido**.
+  4. Los recuentos de `§6` (36/36 y 31/2/1) no correspondían al árbol: `cargo test` 64/0 y `pytest tests/` 157 passed/1 skipped (2026-11-06).
+  5. `FEATURES.md` decía 9 artefactos para `pp_structurev3`; el registro tiene **11** (verificados en runtime).
+  6. §9.1 no listaba ADR-013 ni ADR-017 y arrastraba ADR-007/008/009 como parciales → **17 de 17 cumplidos**.
+* **Fuera de alcance (histórico):** los recuentos por fase (36/36 en `S1`, 31/2/1 en `S1`, 53/53 y 138 en `S2.6`/`S3.5`) son el estado **medido en su momento** y no se reescriben; solo se corrigen las afirmaciones de estado actual.
+
+### `Fase 11` — Campaña de métricas CPU/GPU y coherencia de informes
+
+* **Tarjetas:** `t_347622f2` (medición, `coder`→`hefesto`), `t_c2e5a1a9` (probador), `t_7188f49a` (crítico), `t_9fe2c075` (escriba→`hefesto`). **Estado:** Hecho (2026-11-07).
+* **`n` uniforme:** los 9 bancos re-ejecutados con `--limit 20`. `SUMMARY` y `SCOREBOARD` salen del **mismo** colector de CSV (`benchmarks/features/summary.py::collect_rows`), de modo que no pueden divergir; los `REPORT.md` por feature los genera `report.py` (desde los CSV de cada run) y `QUALITY_VS_TIME.md` deriva de esos `REPORT.md`. `SCOREBOARD.md` declara `n` por fila: las alternativas de control de `formula` con solo run `n=5` (rapidocr, easyocr, `pyocrust_indra`) se muestran con su `n`, nunca fusionadas con las de `n=20` (queda re-medirlas).
+* **GPU real:** `device_outcome` habilita GPU solo donde la factoría la soporta (`paddle_latex_ocr`, `rapidocr`, `easyocr`, los YOLO); cada adaptador declara `provider_effective` y el runner **rechaza** etiquetar CPU como GPU.
+* **Licencias informativas:** `EXTERNAL_LICENSE` (verificada en HF `cardData.license`) señala las no permisivas (AGPL-3.0) en los informes de comparación. La **puerta** (`license_commercial_use` / `license_acknowledge`) sigue solo en los modelos que usa `pyocrust` (ADR-017).
+* **Motores excluidos de las métricas:** `yolov10x`, `yolov10b`, `yolo26m` (`EXCLUDED_MOTORS`) por no ser DocLayNet-finetuned verificables; se conservan en los CSV.
+* **Solo DocLayNet en `layout`:** las filas YOLOv10 de referencia llevan mAP de DocLayNet y los YOLO medidos exponen las **11 clases de DocLayNet** (validado sobre `model.names`), nunca las 80 de COCO.
+* **Pendiente (`t_b304e350`):** retirar las referencias externas que no están medidas sobre el mismo dataset/GT y re-ejecutarlas en CPU+GPU. No se publica calidad entre datasets distintos.
 
 ## 6. Qué quedó fuera de alcance y por qué
 
@@ -546,7 +625,7 @@ Además `S3.5` depende directamente de `S3.0` y `S3.1` (criterios de aceptación
 | `StructureResult` / `to_markdown()` (ADR-003) | **Implementado (`D2`, `b128566`)** | `I4` lo aplanó y `S1` lo marcó bloqueante; lo implementó `t_ab6ff8d0` | `DESIGN.md` ADR-003 y §9.1; `S1.2` cerrada en §7 |
 | Preflight conectado al constructor | **Implementado (`b128566`)** | `VeloceOCR::new` invoca `preflight_paths(...).ensure_ready()` (`src/lib.rs:60`) | `DESIGN.md` §7.2; mitad preflight de `S1.4` resuelta en §7 |
 | Descargador HF conectado al pipeline | **Implementado (`S2.0`)** | `ensure_models` conecta el descargador nativo al pipeline (`src/storage/models.rs:224-242`) | `DESIGN.md` ADR-007 y §7.3 |
-| `rayon` en uso real | No implementado | no hay bucle de preprocesamiento que paralelizar | `DESIGN.md` ADR-008 y §9.1 |
+| `rayon` en uso real | **Implementado (`S2.0`)** | `src/storage/models.rs:13,297` (pool de 4 hilos en `ensure_models`) | `DESIGN.md` ADR-008 y §9.1 |
 | Tarea `Formula` / LaTeX accesible desde Python | No implementado | `OcrTask` no tiene la variante y `recognize` devuelve `OcrResult` | `tests/test_recognize.py:144-155` (`skip` con motivo) |
 
 ## 7. Trabajo pendiente tras `S1` (RECHAZADO)
@@ -555,7 +634,7 @@ Condiciones abiertas del dictamen `S1` (comentario de `t_d005409b`, 2026-10-25).
 
 | Id | Condición | Gravedad | Estado (D2) | Evidencia |
 | :--- | :--- | :--- | :--- | :--- |
-| S1.1 | `pyapi::full_page_tiling` materializa los mosaicos y los descarta (OOM con `overlap` alto) | Bloqueante | Pendiente | `src/core/image_processor.rs:229-249` |
+| S1.1 | `pyapi::full_page_tiling` materializa los mosaicos y los descarta (OOM con `overlap` alto) | Bloqueante | **Cerrada (`4502d1e`)** | `src/core/image_processor.rs:150-185` |
 | S1.2 | `StructureResult` (ADR-003) no existía ni cruzaba a Python | Bloqueante | **Cerrada (`D2`, `b128566`)** | `src/core/types.rs:400-409`; `src/engines/oar_structure.rs:148-171` |
 | S1.3 | `PyOcrValueError`/`PyOcrRuntimeError` no heredan de `PyOcrError` | Mayor | **Cerrada (`c30a3a9`)** | `src/core/error.rs:147-149` |
 | S1.4 | `VeloceOCR::new` no ejecuta el preflight (ni el descargador) | Mayor | **Cerrada (`S2.0`, `t_54cab62c`)** | `src/storage/models.rs:224-242` (`ensure_models` conectado); `DESIGN.md` ADR-007 |
@@ -565,7 +644,7 @@ Condiciones abiertas del dictamen `S1` (comentario de `t_d005409b`, 2026-10-25).
 
 `S1.2` la resolvió `arquitecto` por la opción A (implementar `StructureResult`) y la cerró `t_ab6ff8d0` (`b128566`, `D2`); `S1.3` y `S1.5` las cerró `c30a3a9`, que aterrizó mientras `D2` corría.
 
-> **Nota (`D2`).** Quedan `S1.1` (pendiente) y `S1.6` (parcial): las rutas/preflight aún retienen el GIL (`src/lib.rs:35-60`). `S1.4` la cerró `S2.0` (`t_54cab62c`): `ensure_models` conecta el descargador nativo con paralelismo de 4 hilos y sidecar SHA-256. Debe re-verificar `S1.6` quien la posea.
+> **Nota (`D2`, actualizada en `D3`).** Queda `S1.6` (parcial): las rutas/preflight aún retienen el GIL (`src/lib.rs:35-60`). `S1.1` la cerró `4502d1e` y `S1.4`, `S2.0` (`t_54cab62c`): `ensure_models` conecta el descargador nativo con paralelismo de 4 hilos y sidecar SHA-256. Debe re-verificar `S1.6` quien la posea.
 
 ## 8. Disciplina de commits (verificada en `D1`)
 

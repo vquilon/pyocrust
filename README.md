@@ -475,6 +475,31 @@ not yet declared: there is nothing to compile behind it.
 Models are resolved in this priority order (see `DESIGN.md` §3.2):
 `custom_path` parameter → `OAR_HOME` / `OCR_MODELS_CACHE_DIR` → `~/.oar`.
 
+## Weight licenses
+
+The code license (`Apache-2.0`) does not cover the weights: each artifact ships
+its own. The catalog exposes it per artifact (`license`, `license_commercial_use`,
+`license_acknowledge`, `license_restricted`, `license_notes`, `license_url`), and
+`VeloceOCR`/`TaskPredictor` enforce it in the constructor — **before** any
+download or disk read:
+
+```python
+from pyocrust import VeloceOCR, model_catalog
+
+model_catalog()["det.onnx"]["license"]               # 'OpenRAIL-M-Mod' (Indra)
+model_catalog()["det.onnx"]["license_acknowledge"]   # True (§7)
+
+VeloceOCR("pp_ocrv6")                                # Apache-2.0: allowed
+VeloceOCR("indra")                                   # PyOcrValueError: not commercial-free
+VeloceOCR("indra", license_commercial_use=False)     # PyOcrValueError: §7 requires attribution
+VeloceOCR("indra", license_commercial_use=False,
+           license_acknowledge=True)                 # allowed (non-commercial + attribution)
+```
+
+The flags are **user declarations** (commercial intent and acceptance of
+attribution), not what the model permits. Unrecognized artifacts are treated as
+restricted by default. See `DESIGN.md` ADR-017.
+
 ## Benchmarking
 
 Outside `src/`, `benchmarks/` is organised **by feature/component** (like `oar-ocr`'s
@@ -488,25 +513,47 @@ It measures **all 9 features**; every number is `medido` (run here) or `referenc
 
 | Feature | Head metric ↑ | pyocrust (measured) | Best measured alternative | Status |
 | :--- | :--- | ---: | :--- | :--- |
-| `text` | word F1 | **0.734** | rapidocr 0.659 | measured |
-| `formula` | LaTeX similarity | **0.550** | pix2tex 0.486 | measured |
-| `layout` | mAP@IoU 0.5 | **0.764** | docling_heron_101 0.658 | measured |
-| `orientation` | accuracy | **1.000** | lcnet_doc_ori 1.000 | measured |
-| `rectification` | SSIM | **0.704** | uvdoc 0.701 | measured |
-| `text_line` | accuracy | **1.000** | lcnet_textline_ori 1.000 | measured |
-| `table` | TEDS (struct.) | **0.885** | tatr 0.737 | measured |
-| `full_page` | Markdown F1 | **0.176** | — | measured |
-| `seal` | recall@IoU 0.5 | **0.750** | — | measured |
+| `text` | word F1 | 0.717 | rapidocr 0.585 | measured |
+| `formula` | LaTeX similarity | 0.497 | paddle_latex_ocr 0.694 | measured |
+| `layout` | mAP@IoU 0.5 | 0.827 | docling_heron_101 0.843 | measured |
+| `orientation` | accuracy | 0.950 | lcnet_doc_ori 0.950 | measured |
+| `rectification` | SSIM | 0.707 | uvdoc 0.707 | measured |
+| `text_line` | accuracy | 1.000 | lcnet_textline_ori 1.000 | measured |
+| `seal` | recall@IoU 0.5 | 0.750 | — | measured |
+| `table` | TEDS (struct.) | 0.854 | tatr 0.699 | measured |
+| `full_page` | Markdown F1 | 0.231 | — | measured |
 
-CPU, `warmup=1`, `repeats=1`, pyocrust 0.1.0. Full per-engine tables, provenance
+All 9 banks ran with `--limit 20` (`n=20`, CPU, `warmup=1`, `repeats=1`, pyocrust 0.1.0).
+`pyocrust`'s best engine per feature is shown, and where another **measured** engine wins
+(`formula`, `layout`) the table says so. Full per-engine tables, provenance
 (command, dataset, `n`, runtime) and external references with URLs live in
 [`benchmarks/README.md`](https://github.com/vquilon/pyocrust/blob/main/benchmarks/README.md) and
 [`benchmarks/SUMMARY.md`](https://github.com/vquilon/pyocrust/blob/main/benchmarks/SUMMARY.md).
 
+**How the campaign is measured.**
+
+- **Uniform `n`** — every bank runs with the same `--limit`. `SUMMARY.md` and
+  `SCOREBOARD.md` are generated from a single CSV collector
+  (`benchmarks/features/summary.py::collect_rows`), so they cannot diverge; the
+  per-feature `REPORT.md` comes from `report.py` (run CSVs) and `QUALITY_VS_TIME.md`
+  derives from the `REPORT.md` panels. `SCOREBOARD.md` carries an explicit `n` column: a
+  few `formula` control engines only have an older `n=5` run and are shown as such,
+  never merged into `n=20`.
+- **Real CPU vs GPU** — each adapter records `provider_effective` (the execution
+  provider that actually ran). `--device gpu` on an engine without an accelerator stays
+  `skipped` with a reason; a CPU fallback is never reported as GPU
+  (see `benchmarks/CPU_VS_GPU.md`).
+- **Per-engine license** — the `license` column is **informative** (it flags
+  non-permissive weights, e.g. AGPL-3.0 for the YOLOv10 references); the binding gate is
+  the artifact catalog + policy flags (ADR-017), not this column.
+- **DocLayNet-only for `layout`** — only DocLayNet fine-tunes are comparable: the
+  reference YOLOv10 rows carry DocLayNet mAP and the measured YOLO fine-tunes expose the
+  **11 DocLayNet classes**, never the 80 COCO classes.
+
 ```bash
 # one bank per feature (example: text detection + recognition)
-./.venv/Scripts/python.exe benchmarks/features/text/bank.py --limit 5
-# regenerate per-feature reports + the consolidated summary
+./.venv/Scripts/python.exe benchmarks/features/text/bank.py --limit 20
+# regenerate per-feature reports + the global summaries
 ./.venv/Scripts/python.exe benchmarks/features/report.py --all
 ./.venv/Scripts/python.exe benchmarks/features/summary.py
 ```

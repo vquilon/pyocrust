@@ -56,7 +56,7 @@ def unavailable_factory(module: str, install_hint: str, note: str = "") -> Calla
     ejecutado): con `ProviderUnavailable` si falta el módulo, con
     `NotImplementedError` si está pero el adaptador no está escrito todavía.
     """
-    def factory():
+    def factory(device: str = "cpu"):
         if not module_available(module):
             raise ProviderUnavailable(f"pip install {install_hint}")
         raise NotImplementedError(note or f"adaptador {module} pendiente de integrar")
