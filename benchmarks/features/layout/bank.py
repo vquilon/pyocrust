@@ -87,6 +87,12 @@ def score_layout(sample: Sample, output: OcrOutput) -> dict:
 
     El mapa de equivalencias, con su fuente por par, vive en
     `features/layout/class_map.md` (código: `common.datasets`).
+
+    ponytail: el AP se promedia **por pagina y clase** (macro), no agrupando las
+    cajas de todo el dataset. Con `n=8` paginas una clase con 1 caja GT pesa lo
+    mismo que una con 30, asi que el numero es mas ruidoso y algo mas bajo que un
+    mAP agrupado; el ranking entre motores no cambia. Agrupar exige acumular las
+    cajas de todas las paginas en `run_backends` antes de puntuar.
     """
     predicted: dict[str, list[tuple[float, tuple[float, float, float, float]]]] = {}
     for element in output.extra.get("elements") or []:

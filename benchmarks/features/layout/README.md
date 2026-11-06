@@ -56,15 +56,20 @@ ni como fallo, porque el dataset no las anota de forma separable.
 | unstructured | `unstructured` | no integrada |
 | paddleocr | `paddleocr paddlepaddle` | no integrada |
 
-Los tres YOLO documentales comparten el vocabulario DocLayNet; `pyocrust_layout`
-usa `pp-doclayoutv3`. Pesos `.pt` en `D:\Environments\cache\models\layout\`, todo
-en CPU.
+Los tres YOLO documentales comparten el vocabulario DocLayNet (11 clases) — verificado cargando los pesos .pt con ultralytics.YOLO y leyendo model.names; todos son fine-tuneados sobre DocLayNet, no modelos base. Criterio del banco: solo modelos documentales (DocLayNet-fine-tuned); los YOLO base quedan excluidos. pyocrust_layout usa pp-doclayoutv3. Pesos .pt en D:/Environments/cache/models/layout/, todo en CPU.
 
 > **Nota de equidad del tiempo.** Los adaptadores de `transformers` cronometran
 > solo forward + post-proceso (preprocesado fuera, igual que `pyocrust`).
 > `ultralytics` cronometra su `model.predict(...)` entero, que **incluye** su
 > preprocesado interno; su columna `ms/imagen` es por tanto algo conservadora y no
 > mide exactamente el mismo tramo. Separarlo exigiría reimplementar el letterbox.
+
+> **Nota de equidad del AP.** El mAP se calcula sobre la curva precision-recall
+> completa, así que los adaptadores emiten las detecciones crudas (suelo
+> `LAYOUT_AP_SCORE_FLOOR = 0.05` en `common/runner.py`) y el barrido lo hace
+> `_class_ap`. Emitir solo `score>=0.5` medía un único punto de operación y hundía
+> el número: en este host 0.236→0.303 (yolo26m) y 0.658→0.821 (heron-101) al
+> bajarlo. `pyocrust_layout` recibe el mismo suelo vía `score_threshold`.
 
 ## Estado
 
