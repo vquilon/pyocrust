@@ -128,13 +128,15 @@ def _panel(ax, points, title, device) -> None:
         return
     xs = [p[1] for p in points]
     ys = [p[2] for p in points]
-    for name, ms, q in points:
+    for i, (name, ms, q) in enumerate(points):
         py = "pyocrust" in name
         ax.scatter(ms, q, s=70, zorder=3,
                    color="#2e7d32" if py else "#3b6fb0",
                    marker="o" if device != "gpu" else "*",
                    edgecolor="white", linewidth=0.8)
-        ax.annotate(name, (ms, q), textcoords="offset points", xytext=(7, 5),
+        # Offset alterno: puntos vecinos (p. ej. dos YOLO) no solapan la etiqueta.
+        ax.annotate(name, (ms, q), textcoords="offset points",
+                    xytext=(7, 5) if i % 2 == 0 else (7, -10),
                     fontsize=6.5, color="#333333")
     # Escala: log sólo cuando el rango abarca >1 década (ahí el log aporta y deja
     # ticks de década repartidos); si no, lineal, que con `MaxNLocator` da ticks

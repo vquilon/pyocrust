@@ -43,11 +43,11 @@
 
 | Motor | ms/imagen ↓ | calidad ↑ |
 | :--- | ---: | ---: |
-| yolo26m (21.8M) | 402 | 0.297 |
-| yolov10b (20.5M) | 503 | 0.145 |
-| yolov10x (31.7M) | 859 | 0.226 |
-| docling_heron_101 (default) | 1093 | 0.658 |
-| **pyocrust_layout (130M)** | 1956 | 0.764 |
+| yolo26m (21.8M) | 331 | 0.386 |
+| yolov10b (20.5M) | 455 | 0.290 |
+| yolov10x (31.7M) | 732 | 0.312 |
+| docling_heron_101 (default) | 816 | 0.792 |
+| **pyocrust_layout (130M)** | 1947 | 0.811 |
 
 ## orientation — sintético — device `cpu` · SOLO motores medidos
 

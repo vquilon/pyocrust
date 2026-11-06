@@ -544,7 +544,19 @@ LAYOUT_HF_MODELS = {
 }
 
 
-def _hf_layout_backend(model_id: str, threshold: float = 0.5) -> Callable[[Image.Image], OcrOutput]:
+# Umbral de **recolección** de cajas para el banco de `layout`, no de reporte.
+#
+# Un AP se calcula sobre la curva precision-recall completa: si los adaptadores
+# emiten solo las cajas con `score>=0.5`, el AP se mide sobre un unico punto de
+# operacion y sale artificialmente bajo (una caja GT cuyo mejor acierto puntua
+# 0.4 es un fallo permanente). Medido en este host, bajar el umbral de 0.5 a 0.05
+# sube el mAP de 0.236->0.303 (yolo26m) y 0.658->0.821 (docling heron-101).
+# Se emiten por tanto las detecciones crudas y el barrido lo hace `_class_ap`.
+# Efecto colateral asumido: `n_regions` cuenta cajas sobre el suelo, no a 0.5.
+LAYOUT_AP_SCORE_FLOOR = 0.05
+
+
+def _hf_layout_backend(model_id: str, threshold: float = LAYOUT_AP_SCORE_FLOOR) -> Callable[[Image.Image], OcrOutput]:
     """Detector de layout de `transformers` (RT-DETR / Deformable-DETR) -> `elements`.
 
     Carga **offline** (`local_files_only=True`): si los pesos no estan en la cache
@@ -619,7 +631,32 @@ YOLO_LAYOUT_MODELS = {
 }
 
 
-def _yolo_layout_backend(name: str, imgsz: int = 1024) -> Callable[[Image.Image], OcrOutput]:
+def _paddle_latex_ocr_backend(model_name: str = "PP-FormulaNet_plus-M") -> Callable[[Image.Image], OcrOutput]:
+    try:
+        from paddleocr import FormulaRecognition  # noqa: PLC0415
+    except ImportError as exc:
+        raise ProviderUnavailable("pip install paddleocr (requiere paddle)") from exc
+
+    model = FormulaRecognition(model_name=model_name)
+
+    def run(image: Image.Image) -> OcrOutput:
+        data = _image_bytes(image)
+        img = Image.open(io.BytesIO(data))
+        start = time.perf_counter()
+        res = model.predict(input=img)
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+        if isinstance(res, (list, tuple)) and res:
+            res = res[0]
+        if isinstance(res, dict):
+            text = str(res.get("rec_formula", "") or "")
+        else:
+            text = str(res or "")
+        return OcrOutput(text=text, elapsed_ms=elapsed_ms, extra={"engine": "paddleocr", "model": model_name})
+
+    return run
+
+
+def _yolo_layout_backend(name: str, imgsz: int = 1024, device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
     """Detector YOLO documental (`ultralytics`) -> `extra["elements"]`.
 
     Mismo contrato que `_hf_layout_backend`: emite `element_type`, `score` y
@@ -646,7 +683,7 @@ def _yolo_layout_backend(name: str, imgsz: int = 1024) -> Callable[[Image.Image]
 
     def run(image: Image.Image) -> OcrOutput:
         start = time.perf_counter()
-        results = model.predict(image, imgsz=imgsz, conf=0.5, device="cpu", verbose=False)
+        results = model.predict(image, imgsz=imgsz, conf=LAYOUT_AP_SCORE_FLOOR, device=device, verbose=False)
         elapsed_ms = (time.perf_counter() - start) * 1000.0
         elements: list[dict] = []
         boxes: list[list[float]] = []
@@ -908,7 +945,7 @@ PROVIDERS: dict[str, Callable[..., Callable[[Image.Image], OcrOutput]]] = {
     "pyocrust_formulanet_plusl": lambda device="cpu": _pyocrust_formula_variant_backend("pp-formulanet_plus-l.onnx", device=device),
     "pyocrust_indra": lambda device="cpu": _pyocrust_backend("indra", device=device),
     # Tareas sueltas de `TaskPredictor`: cada banco de feature aporta su GT.
-    "pyocrust_layout": lambda device="cpu": _task_predictor_backend("layout_detection", device=device),
+    "pyocrust_layout": lambda device="cpu": _task_predictor_backend("layout_detection", device=device, score_threshold=LAYOUT_AP_SCORE_FLOOR),
     "pyocrust_table": lambda device="cpu": _task_predictor_backend("table_structure_recognition", device=device),
     "pyocrust_orientation": lambda device="cpu": _task_predictor_backend("document_orientation", device=device),
     "pyocrust_textline": lambda device="cpu": _task_predictor_backend("text_line_orientation", device=device),
@@ -928,6 +965,7 @@ PROVIDERS: dict[str, Callable[..., Callable[[Image.Image], OcrOutput]]] = {
     "yolov10x": lambda: _yolo_layout_backend("yolov10x"),
     "yolov10b": lambda: _yolo_layout_backend("yolov10b"),
     "yolo26m": lambda: _yolo_layout_backend("yolo26m"),
+    "paddle_latex_ocr": _paddle_latex_ocr_backend,
     "rapidocr": _rapidocr_backend,
     "easyocr": _easyocr_backend,
     "tesseract": _tesseract_backend,

@@ -39,7 +39,7 @@ from datetime import datetime
 from PIL import Image
 
 from common import OcrOutput, ProviderUnavailable, load_dataset, run_backends
-from common.runner import _image_bytes
+from common.runner import _image_bytes, _paddle_latex_ocr_backend
 from features._base import FeatureSpec, common_argparser, feature_out_dir, unavailable_factory
 
 SPEC = FeatureSpec(
@@ -91,6 +91,7 @@ def _pix2tex_backend() -> Callable[[Image.Image], OcrOutput]:
 # Motores LaTeX aún no integrados: `skipped` con motivo honesto (nunca `ok`).
 EXTRA_FACTORIES = {
     "pix2tex": _pix2tex_backend,
+    "paddle_latex_ocr": _paddle_latex_ocr_backend,
     "texify": unavailable_factory("texify", "texify"),
     "nougat": unavailable_factory("nougat", "nougat-ocr"),
     "unimernet": unavailable_factory("unimernet", "unimernet (github.com/opendatalab/UniMERNet)"),
@@ -112,8 +113,7 @@ EXTRA_MODELS = {name: (name, "default") for name in EXTRA_FACTORIES}
 # y al final los controles de OCR de texto (etiquetados como tales).
 DEFAULT_BACKENDS = (
     "pyocrust_formulanet,pyocrust_formula,pyocrust_indra,"
-    "pix2tex,texify,nougat,unimernet,pix2text,texteller,img2latex,"
-    "easyocr,rapidocr"
+    "pix2tex,texify,nougat,unimernet,pix2text,texteller,img2latex"
 )
 
 

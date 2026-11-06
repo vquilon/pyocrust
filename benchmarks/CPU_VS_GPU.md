@@ -11,11 +11,11 @@
 | `formula` | rapidocr (default) | 0.104 | 3026 | N/A | n/a (no corre en GPU) |
 | `full_page` | pyocrust_indra (math) | 0.176 | 1954 | 12311 | directml |
 | `full_page` | pyocrust_structure (default) | 0.158 | 11253 | 21883 | directml |
-| `layout` | docling_heron_101 (default) | 0.658 | 1093 | N/A | n/a (no corre en GPU) |
-| `layout` | pyocrust_layout (130M) | 0.764 | 1956 | 1863 | directml |
-| `layout` | yolo26m (21.8M) | 0.297 | 402 | N/A | n/a (no corre en GPU) |
-| `layout` | yolov10b (20.5M) | 0.145 | 503 | N/A | n/a (no corre en GPU) |
-| `layout` | yolov10x (31.7M) | 0.226 | 859 | N/A | n/a (no corre en GPU) |
+| `layout` | docling_heron_101 (default) | 0.792 | 816 | N/A | n/a (no corre en GPU) |
+| `layout` | pyocrust_layout (130M) | 0.811 | 1947 | 1925 | directml |
+| `layout` | yolo26m (21.8M) | 0.386 | 331 | N/A | n/a (no corre en GPU) |
+| `layout` | yolov10b (20.5M) | 0.290 | 455 | N/A | n/a (no corre en GPU) |
+| `layout` | yolov10x (31.7M) | 0.312 | 732 | N/A | n/a (no corre en GPU) |
 | `orientation` | lcnet_doc_ori (onnxruntime) | 1.000 | 4 | N/A | n/a (no corre en GPU) |
 | `orientation` | pyocrust_orientation (6.8M) | 1.000 | 702 | 720 | directml |
 | `rectification` | pyocrust_rectify (31.7M) | 0.704 | 254 | 262 | directml |
