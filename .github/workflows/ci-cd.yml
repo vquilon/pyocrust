@@ -61,7 +61,7 @@ jobs:
       with:
         target: ${{ matrix.job.target }}
         args: --release --out dist --interpreter "python3.10"
-        manylinux: auto
+        manylinux: "2_28"
         # oar-ocr (feature por defecto `download-binaries`) activa ort/tls-native ->
         # ort-sys/tls-native -> ureq?/native-tls -> native-tls -> openssl-sys. En Linux
         # openssl-sys sólo hace falta para el *build script* de ort-sys (es
@@ -69,14 +69,27 @@ jobs:
         # vacío), así que no acaba en el wheel, pero necesita openssl.pc.
         # Los dos contenedores de Linux no traen lo mismo, y el script corre bajo
         # `set -euo pipefail` (una rama inexistente aborta el job, no lo salta):
-        #   x86_64  -> quay.io/pypa/manylinux2014_x86_64 (CentOS 7): manylinux sólo
+        #   x86_64  -> quay.io/pypa/manylinux_2_28_x86_64 (AlmaLinux 8): manylinux sólo
         #              instala la lib `openssl` de runtime, no `openssl-devel`
         #              (MANYLINUX_DEPS en pypa/manylinux) -> yum.
-        #   aarch64 -> ghcr.io/rust-cross/manylinux2014-cross:aarch64 (Ubuntu 22.04):
-        #              sin yum ni pkg-config -> apt instala pkg-config + libssl-dev.
+        #   aarch64 -> ghcr.io/rust-cross/manylinux_2_28-cross:aarch64 -> el gestor
+        #              que traiga la imagen (yum en AlmaLinux, apt en las Debian).
+        # Se usa 2_28 y no `auto` (= manylinux2014, CentOS 7 EOL) porque openssl-sys
+        # 0.9.117 aborta con OpenSSL < 1.1.0 y el openssl-devel de CentOS 7 es 1.0.2k
+        # ("This crate is only compatible with OpenSSL 1.1.0, 1.1.1, 3.x, or 4.x").
+        # Coste asumido: el wheel pasa de manylinux2014 a manylinux_2_28 (glibc 2.17
+        # -> 2.28).
         before-script-linux: |
           if command -v yum &>/dev/null; then yum install -y openssl-devel
           else apt-get update && apt-get install -y pkg-config libssl-dev; fi
+          # ring 0.17.14 no compila su asm ARM pregenerado con el cross-gcc del
+          # contenedor: pregenerated/chacha-armv8-linux64.S -> asm_base.h
+          # "ARM assembler must define __ARM_ARCH" (macro ACLE, GCC 4.8+; el
+          # preprocesado de un .S no lo recibe). cc-rs lee CFLAGS_<target> y el
+          # prefijo CFLAGS_ está en ALLOWED_ENV_PREFIXES de maturin-action, así que
+          # el `export` del before-script llega a maturin. Nulo en los builds nativos
+          # (x86_64 lee CFLAGS_x86_64-unknown-linux-gnu / HOST_CFLAGS).
+          export CFLAGS_aarch64_unknown_linux_gnu="-D__ARM_ARCH=8"
 
     - name: Build wheel with Maturin (non-Ubuntu path)
       if: ${{ !startsWith(matrix.job.os, 'ubuntu') }}
