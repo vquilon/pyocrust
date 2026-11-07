@@ -72,12 +72,20 @@ jobs:
         target: ${{ matrix.job.target }}
         # `cuda` liga el execution provider CUDA de ONNX Runtime (oar-ocr/cuda).
         args: --release --features cuda --out dist --interpreter "python3.10"
-        manylinux: auto
+        manylinux: "2_28"
         # Ver ci-cd.yml: hace falta openssl.pc para el build script de ort-sys, y
         # no es el mismo paquete en los dos contenedores Linux.
         before-script-linux: |
           if command -v yum &>/dev/null; then yum install -y openssl-devel
           else apt-get update && apt-get install -y pkg-config libssl-dev; fi
+          # ring 0.17.14 no compila su asm ARM pregenerado con el cross-gcc del
+          # contenedor: pregenerated/chacha-armv8-linux64.S -> asm_base.h
+          # "ARM assembler must define __ARM_ARCH" (macro ACLE, GCC 4.8+; el
+          # preprocesado de un .S no lo recibe). cc-rs lee CFLAGS_<target> y el
+          # prefijo CFLAGS_ está en ALLOWED_ENV_PREFIXES de maturin-action, así que
+          # el `export` del before-script llega a maturin. Nulo en los builds nativos
+          # (x86_64 lee CFLAGS_x86_64-unknown-linux-gnu / HOST_CFLAGS).
+          export CFLAGS_aarch64_unknown_linux_gnu="-D__ARM_ARCH=8"
 
     - name: Build wheel with Maturin (non-Ubuntu path)
       if: ${{ !startsWith(matrix.job.os, 'ubuntu') }}
