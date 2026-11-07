@@ -169,7 +169,16 @@ def pyocrust_device_arg(device: str) -> str:
 
 # Backends cuya factoría acepta `device` y puede correr en GPU de verdad.
 GPU_CAPABLE_BACKENDS = frozenset({
-    "paddle_latex_ocr", "yolov10x", "yolov10b", "yolo26m",
+    "paddle_latex_ocr",
+    "hantian_v8n", "hantian_v8s", "hantian_v8m", "hantian_v8l", "hantian_v8x",
+    "hantian_v10n", "hantian_v10s", "hantian_v10m", "hantian_v10l", "hantian_v10b",
+    "hantian_v11n", "hantian_v11s", "hantian_v11m", "hantian_v11l",
+    "hantian_v12n", "hantian_v12s", "hantian_v12m", "hantian_v12l",
+    "hantian_y26n", "hantian_y26s", "hantian_y26m", "hantian_y26l",
+    "omoured_v10n", "omoured_v10s", "omoured_v10m", "omoured_v10l", "omoured_v10b", "omoured_v10x",
+    "omoured_v11n", "omoured_v11s", "omoured_v11m", "omoured_v11l", "omoured_v11x",
+    "armaggheddon_y11n", "armaggheddon_y11s", "armaggheddon_y11m",
+    "armaggheddon_y26n", "armaggheddon_y26s", "armaggheddon_y26m",
     "rapidocr", "easyocr",
 })
 
@@ -551,6 +560,10 @@ LAYOUT_DOCLAYNET_LABEL_TO_MODEL = {
     "page-footer": "footer",
     "footnote": "footnote",
 }
+DOCLAYNET_CLASSES = frozenset({
+    "caption", "footnote", "formula", "list-item", "page-footer", "page-header",
+    "picture", "section-header", "table", "text", "title",
+})
 
 # Backend -> `model_id` de HF (pesos en la cache HF local; ruta **offline**).
 LAYOUT_HF_MODELS = {
@@ -640,9 +653,52 @@ def _hf_layout_backend(model_id: str, threshold: float = LAYOUT_AP_SCORE_FLOOR) 
 # usa su propio vocabulario y lleva su mapa aparte. El tamano del modelo va en
 # el nombre visible (`MODEL_NAMES`) para que la tabla diga que se comparo.
 YOLO_LAYOUT_MODELS = {
-    "yolov10x": "D:/Environments/cache/models/layout/yolo10/yolov10x_best.pt",
-    "yolov10b": "D:/Environments/cache/models/layout/yolo10/yolov10b_best.pt",
-    "yolo26m": "D:/Environments/cache/models/layout/yolo26/yolo26m_doc_layout.pt",
+    "hantian_v8n": "D:/Environments/cache/models/layout/hantian/yolo8/yolov8n-doclaynet.pt",
+    "hantian_v8s": "D:/Environments/cache/models/layout/hantian/yolo8/yolov8s-doclaynet.pt",
+    "hantian_v8m": "D:/Environments/cache/models/layout/hantian/yolo8/yolov8m-doclaynet.pt",
+    "hantian_v8l": "D:/Environments/cache/models/layout/hantian/yolo8/yolov8l-doclaynet.pt",
+    "hantian_v8x": "D:/Environments/cache/models/layout/hantian/yolo8/yolov8x-doclaynet.pt",
+    "hantian_v10b": "D:/Environments/cache/models/layout/hantian/yolo10/yolov10b-doclaynet.pt",
+    "hantian_v10l": "D:/Environments/cache/models/layout/hantian/yolo10/yolov10l-doclaynet.pt",
+    "hantian_v10m": "D:/Environments/cache/models/layout/hantian/yolo10/yolov10m-doclaynet.pt",
+    "hantian_v10n": "D:/Environments/cache/models/layout/hantian/yolo10/yolov10n-doclaynet.pt",
+    "hantian_v10s": "D:/Environments/cache/models/layout/hantian/yolo10/yolov10s-doclaynet.pt",
+    "hantian_v11l": "D:/Environments/cache/models/layout/hantian/yolo11/yolov11l-doclaynet.pt",
+    "hantian_v11m": "D:/Environments/cache/models/layout/hantian/yolo11/yolov11m-doclaynet.pt",
+    "hantian_v11n": "D:/Environments/cache/models/layout/hantian/yolo11/yolov11n-doclaynet.pt",
+    "hantian_v11s": "D:/Environments/cache/models/layout/hantian/yolo11/yolov11s-doclaynet.pt",
+    "hantian_v12l": "D:/Environments/cache/models/layout/hantian/yolo12/yolov12l-doclaynet.pt",
+    "hantian_v12m": "D:/Environments/cache/models/layout/hantian/yolo12/yolov12m-doclaynet.pt",
+    "hantian_v12n": "D:/Environments/cache/models/layout/hantian/yolo12/yolov12n-doclaynet.pt",
+    "hantian_v12s": "D:/Environments/cache/models/layout/hantian/yolo12/yolov12s-doclaynet.pt",
+    "hantian_y26l": "D:/Environments/cache/models/layout/hantian/yolo26/yolo26l-doclaynet.pt",
+    "hantian_y26m": "D:/Environments/cache/models/layout/hantian/yolo26/yolo26m-doclaynet.pt",
+    "hantian_y26n": "D:/Environments/cache/models/layout/hantian/yolo26/yolo26n-doclaynet.pt",
+    "hantian_y26s": "D:/Environments/cache/models/layout/hantian/yolo26/yolo26s-doclaynet.pt",
+    "omoured_v10b": "D:/Environments/cache/models/layout/omoured/yolo10/yolov10b_best.pt",
+    "omoured_v10l": "D:/Environments/cache/models/layout/omoured/yolo10/yolov10l_best.pt",
+    "omoured_v10m": "D:/Environments/cache/models/layout/omoured/yolo10/yolov10m_best.pt",
+    "omoured_v10n": "D:/Environments/cache/models/layout/omoured/yolo10/yolov10n_best.pt",
+    "omoured_v10s": "D:/Environments/cache/models/layout/omoured/yolo10/yolov10s_best.pt",
+    "omoured_v10x": "D:/Environments/cache/models/layout/omoured/yolo10/yolov10x_best.pt",
+    "omoured_v11l": "D:/Environments/cache/models/layout/omoured/yolo11/yolov11l_best.pt",
+    "omoured_v11m": "D:/Environments/cache/models/layout/omoured/yolo11/yolov11m_best.pt",
+    "omoured_v11n": "D:/Environments/cache/models/layout/omoured/yolo11/yolov11n_best.pt",
+    "omoured_v11s": "D:/Environments/cache/models/layout/omoured/yolo11/yolov11s_best.pt",
+    "omoured_v11x": "D:/Environments/cache/models/layout/omoured/yolo11/yolov11x_best.pt",
+    "armaggheddon_y11n": "D:/Environments/cache/models/layout/Armaggheddon/yolo11/yolo11n_doc_layout.pt",
+    "armaggheddon_y11s": "D:/Environments/cache/models/layout/Armaggheddon/yolo11/yolo11s_doc_layout.pt",
+    "armaggheddon_y11m": "D:/Environments/cache/models/layout/Armaggheddon/yolo11/yolo11m_doc_layout.pt",
+    "armaggheddon_y26n": "D:/Environments/cache/models/layout/Armaggheddon/yolo26/yolo26n_doc_layout.pt",
+    "armaggheddon_y26s": "D:/Environments/cache/models/layout/Armaggheddon/yolo26/yolo26s_doc_layout.pt",
+    "armaggheddon_y26m": "D:/Environments/cache/models/layout/Armaggheddon/yolo26/yolo26m_doc_layout.pt",
+}
+
+# Licencias verificadas en las tarjetas de los tres autores; todos sus checkpoints
+# quedan cubiertos individualmente para que la tabla pueda resolver por backend.
+LICENSES = {
+    **{name: "AGPL-3.0" for name in YOLO_LAYOUT_MODELS if name.startswith(("hantian_", "omoured_"))},
+    **{name: "MIT" for name in YOLO_LAYOUT_MODELS if name.startswith("armaggheddon_")},
 }
 
 
@@ -676,6 +732,28 @@ def _paddle_latex_ocr_backend(model_name: str = "PP-FormulaNet_plus-M",
     return run
 
 
+def _patch_pathlib_local_for_doclaynet() -> None:
+    """Compatibilidad de checkpoints DocLayNet guardados en Python 3.14.
+
+    Un peso de hantian referencia `pathlib._local.PosixPath`; en Windows/Python
+    anterior a 3.14 esa ruta no existe y `PosixPath` tampoco se puede instanciar.
+    El alias a `PurePosixPath` conserva la lectura del checkpoint sin tocar disco.
+    """
+    if sys.platform != "win32" or sys.version_info >= (3, 14) or "pathlib._local" in sys.modules:
+        return
+    import pathlib  # noqa: PLC0415
+    import types  # noqa: PLC0415
+
+    compat = types.ModuleType("pathlib._local")
+    compat.Path = compat.PurePath = pathlib.PurePath
+    compat.PurePosixPath = pathlib.PurePosixPath
+    compat.PureWindowsPath = pathlib.PureWindowsPath
+    compat.PosixPath = pathlib.PurePosixPath
+    compat.WindowsPath = pathlib.PureWindowsPath
+    sys.modules["pathlib._local"] = compat
+    pathlib._local = compat
+
+
 def _yolo_layout_backend(name: str, imgsz: int = 1024, device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
     """Detector YOLO documental (`ultralytics`) -> `extra["elements"]`.
 
@@ -688,6 +766,7 @@ def _yolo_layout_backend(name: str, imgsz: int = 1024, device: str = "cpu") -> C
     cronometran solo forward+post-proceso. La nota va en el README para no
     comparar peras con manzanas. Separarlo exige reimplementar el letterbox.
     """
+    _patch_pathlib_local_for_doclaynet()
     try:
         from ultralytics import YOLO  # noqa: PLC0415 - import tardio (carga pesada)
     except ImportError as exc:
@@ -699,6 +778,12 @@ def _yolo_layout_backend(name: str, imgsz: int = 1024, device: str = "cpu") -> C
     except Exception as exc:  # noqa: BLE001 - pesos ausentes: es un `skipped`
         raise ProviderUnavailable(f"pesos YOLO no disponibles ({weights}): {exc}") from exc
     label_map = LAYOUT_DOCLAYNET_LABEL_TO_MODEL
+    model_names = model.names
+    class_names = tuple(str(model_names[key]) for key in sorted(model_names))
+    if {name.strip().casefold() for name in class_names} != DOCLAYNET_CLASSES:
+        raise ProviderUnavailable(
+            f"{name}: clases {class_names!r} no coinciden con las 11 clases DocLayNet"
+        )
     params_m = round(sum(p.numel() for p in model.model.parameters()) / 1e6, 1)
 
     def run(image: Image.Image) -> OcrOutput:
@@ -727,6 +812,7 @@ def _yolo_layout_backend(name: str, imgsz: int = 1024, device: str = "cpu") -> C
         return OcrOutput(
             text="", n_regions=len(elements), elapsed_ms=elapsed_ms,
             extra={"engine": "ultralytics", "model": weights, "params_m": params_m,
+                   "classes": class_names,
                    "imgsz": imgsz, "elements": elements, "boxes": boxes},
         )
 
@@ -984,11 +1070,6 @@ PROVIDERS: dict[str, Callable[..., Callable[[Image.Image], OcrOutput]]] = {
     # RT-DETR (docling heron-101) y Deformable-DETR (DocLayNet). Solo CPU.
     "docling_heron_101": lambda device="cpu": _hf_layout_backend(LAYOUT_HF_MODELS["docling_heron_101"]),
     "deformable_detr": lambda device="cpu": _hf_layout_backend(LAYOUT_HF_MODELS["deformable_detr"]),
-    # Alternativas YOLO documentales (`ultralytics`, pesos `.pt` en cache; CPU y GPU).
-    # El nombre lleva el tamano para que la tabla y la grafica digan QUE se midio.
-    "yolov10x": lambda device="cpu": _yolo_layout_backend("yolov10x", device=device),
-    "yolov10b": lambda device="cpu": _yolo_layout_backend("yolov10b", device=device),
-    "yolo26m": lambda device="cpu": _yolo_layout_backend("yolo26m", device=device),
     "paddle_latex_ocr": _paddle_latex_ocr_backend,
     "rapidocr": _rapidocr_backend,
     "easyocr": _easyocr_backend,
@@ -997,6 +1078,14 @@ PROVIDERS: dict[str, Callable[..., Callable[[Image.Image], OcrOutput]]] = {
     # de `table`: TATR vía `transformers` (solo CPU; `--device gpu` -> `skipped`).
     "tatr": _tatr_backend,
 }
+
+# Una factoría por checkpoint; captura cada nombre para no cerrar sobre el último.
+PROVIDERS.update({
+    name: (lambda name=name, device="cpu": _yolo_layout_backend(name, device=device))
+    for name in YOLO_LAYOUT_MODELS
+})
+# Alias de nomenclatura: los bancos históricos usan PROVIDERS.
+BACKENDS = PROVIDERS
 
 
 # ---------------------------------------------------------------------------
@@ -1024,7 +1113,6 @@ TASK_TYPES = {"pyocrust_structure": "structure", "pyocrust_formula": "formula", 
               "pyocrust_layout": "layout", "pyocrust_table": "table",
               # Alternativas reales de `layout` (transformers): mismo task_type.
               "docling_heron_101": "layout", "deformable_detr": "layout",
-              "yolov10x": "layout", "yolov10b": "layout", "yolo26m": "layout",
               "pyocrust_orientation": "orientation", "pyocrust_textline": "text_line",
               "pyocrust_rectify": "rectification", "pyocrust_seal": "seal",
               # Alternativas reales de esas tareas (`onnxruntime`): mismo task_type.
@@ -1043,11 +1131,6 @@ MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"), "pyocrust_structure": ("pp_stru
                # Alternativas reales de `layout` (transformers, DocLayNet/RT-DETR).
                "docling_heron_101": ("docling-layout-heron-101", "default"),
                "deformable_detr": ("deformable-detr-DocLayNet", "default"),
-               # Alternativas YOLO documentales (`ultralytics`). El nombre es el
-               # tamano del modelo: x/b/m y el DocStructBench de 1024 px.
-               "yolov10x": ("yolov10x (DocLayNet)", "31.7M"),
-               "yolov10b": ("yolov10b (DocLayNet)", "20.5M"),
-               "yolo26m": ("yolo26m (doc-layout)", "21.8M"),
                "pyocrust_table": ("slanet_plus", "default"),
                "pyocrust_orientation": ("pp-lcnet_x1_0_doc_ori", "6.8M"),
                "pyocrust_textline": ("pp-lcnet_x1_0_textline_ori", "6.8M"),
@@ -1059,6 +1142,27 @@ MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"), "pyocrust_structure": ("pp_stru
                "uvdoc": ("uvdoc", "onnxruntime"),
                # Alternativa real de `table` (TATR, `transformers`).
                "tatr": ("table-transformer-structure-recognition", "default")}
+
+# `params_m` conocido por mediciones previas, el smoke limitado y los ejemplos
+# explícitos del criterio; para los demás se deja desconocido hasta medir el
+# checkpoint, en vez de asumir el tamaño nominal de un YOLO base.
+_YOLO_PARAMS_M = {
+    "omoured_v10x": 31.7,
+    "omoured_v10b": 20.5,
+    "hantian_v11m": 21.8,
+    "hantian_v11n": 2.6,
+    "armaggheddon_y26n": 2.6,
+    "armaggheddon_y26m": 21.8,
+}
+MODEL_NAMES.update({
+    backend: (
+        f"{backend.rsplit('_', 1)[0]}/{backend.rsplit('_', 1)[1][:-1]}-"
+        f"{backend.rsplit('_', 1)[1][-1]}",
+        f"{_YOLO_PARAMS_M[backend]:.1f}M" if backend in _YOLO_PARAMS_M else None,
+    )
+    for backend in YOLO_LAYOUT_MODELS
+})
+TASK_TYPES.update({backend: "layout" for backend in YOLO_LAYOUT_MODELS})
 # Banco de feature al que pertenece cada backend conocido (columna `feature`).
 FEATURE_TYPES = {"pyocrust_structure": "full_page", "pyocrust_indra": "full_page",
                  "pyocrust_formula": "formula", "pyocrust_formulanet": "formula",
@@ -1067,14 +1171,28 @@ FEATURE_TYPES = {"pyocrust_structure": "full_page", "pyocrust_indra": "full_page
                  "pyocrust_layout": "layout", "pyocrust_table": "table",
                  # Alternativas reales de `layout` (transformers): mismo banco.
                  "docling_heron_101": "layout", "deformable_detr": "layout",
-              "yolov10x": "layout", "yolov10b": "layout", "yolo26m": "layout",
-                 "pyocrust_orientation": "orientation", "pyocrust_textline": "text_line",
+              "pyocrust_orientation": "orientation", "pyocrust_textline": "text_line",
                  "pyocrust_rectify": "rectification", "pyocrust_seal": "seal",
                  # Alternativas reales de esas tareas (`onnxruntime`): mismo banco.
                  "lcnet_doc_ori": "orientation", "lcnet_textline_ori": "text_line",
                  "uvdoc": "rectification",
                  # Alternativa real del banco `table` (TATR, `transformers`).
                  "tatr": "table"}
+FEATURE_TYPES.update({backend: "layout" for backend in YOLO_LAYOUT_MODELS})
+
+# `formula` compara motores que **emiten LaTeX**. Los OCR de texto no tienen
+# módulo de fórmulas y no son equiparables (su `latex_sim` mide texto plano
+# contra GT LaTeX), así que no entran en los informes de esa feature. Ver el
+# docstring de `features/formula/bank.py`.
+FORMULA_BACKENDS_EXCLUDED = frozenset({"rapidocr", "easyocr", "tesseract"})
+
+
+def applicable_rows(feature: str, rows: Iterable[dict]) -> list[dict]:
+    """Filas de una feature sin los backends que no son equiparables en ella."""
+    rows = list(rows)
+    if feature != "formula":
+        return rows
+    return [row for row in rows if row.get("backend") not in FORMULA_BACKENDS_EXCLUDED]
 
 
 def run_benchmark(

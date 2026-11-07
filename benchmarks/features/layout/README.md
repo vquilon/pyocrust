@@ -58,6 +58,8 @@ ni como fallo, porque el dataset no las anota de forma separable.
 
 Los tres YOLO documentales comparten el vocabulario DocLayNet (11 clases) — verificado cargando los pesos .pt con ultralytics.YOLO y leyendo model.names; todos son fine-tuneados sobre DocLayNet, no modelos base. Criterio del banco: solo modelos documentales (DocLayNet-fine-tuned); los YOLO base quedan excluidos. pyocrust_layout usa pp-doclayoutv3. Pesos .pt en D:/Environments/cache/models/layout/, todo en CPU.
 
+**Compatibilidad de pesos**: el primer intento de abrir los checkpoints DocLayNet de hantian en Python 3.12 falló en `yolo26n-doclaynet.pt` por la referencia pickle a `pathlib._local`, disponible en Python 3.14. La apertura completa de los 39 pesos con `ultralytics.YOLO(...)` se verificó en el entorno Python 3.14.9 (`.venv314`); los 39 exponen las mismas 11 clases DocLayNet.
+
 > **Nota de equidad del tiempo.** Los adaptadores de `transformers` cronometran
 > solo forward + post-proceso (preprocesado fuera, igual que `pyocrust`).
 > `ultralytics` cronometra su `model.predict(...)` entero, que **incluye** su
@@ -76,6 +78,24 @@ Los tres YOLO documentales comparten el vocabulario DocLayNet (11 clases) — ve
 **Implementado**: ejecuta `pyocrust` (`pyocrust_layout`) con warmup/repeats sobre
 el GT de layout de OmniDocBench y publica mAP/recall por clase, más las
 alternativas reales ya integradas (RT-DETR heron-101 y tres YOLO documentales).
+
+## Quién sale en el resumen y quién en el informe por feature
+
+Los **39 YOLO** de `YOLO_LAYOUT_MODELS` (hantian, omoured y Armaggheddon; de
+~5 MB a ~130 MB) se miden y se publican **todos** en `REPORT.md`,
+`benchmark_table.*` y la figura `LAYOUT_ALL_MODELS`.
+
+Los paneles **resumen** (`SUMMARY`, `SCOREBOARD`, `QUALITY_VS_TIME`) aplican un
+filtro para que la comparativa se lea (`summary.summary_yolo_layout_backends`):
+
+1. **Un solo proveedor**: gana el autor con el mejor mAP@0.5, del tamaño que sea.
+2. **Uno por versión**: el mejor modelo de cada versión (v8, v10, v11, v12, y26)
+   de ese proveedor.
+3. **El de tamaño similar a `pyocrust`**: se añade aunque repita versión, porque
+   es la única comparación de tamaño equiparable (~130 MB).
+
+El filtro vive **solo** en los generadores de resumen; un cambio en los
+informes por feature no debe tocarlo.
 
 ## Provenance
 

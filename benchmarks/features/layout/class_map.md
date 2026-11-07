@@ -173,9 +173,9 @@ brecha hasta el ~0.92 publicado. Con datos, la brecha restante es por:
 
 Existe una incoherencia de **etiqueta de dataset**, no de números:
 
-- `benchmarks/SUMMARY.md` titula el bloque `layout — OmniDocBench` y avisa que la
+- `benchmarks/reports/SUMMARY.md` titula el bloque `layout — OmniDocBench` y avisa que la
   `referencia` es DocLayNet.
-- `benchmarks/QUALITY_VS_TIME.md` titula el mismo bloque `layout — DocLayNet`.
+- `benchmarks/reports/QUALITY_VS_TIME.md` titula el mismo bloque `layout — DocLayNet`.
 
 Ambas tablas miden **nuestras** alternativas sobre `omnidocbench_layout` (el
 `dataset` del `summary.json` de la run es `omnidocbench_layout`); la única
@@ -195,7 +195,7 @@ etiquetan el panel). Esos ficheros los está tocando la tarjeta en curso
 `t_b469fff0` [VENV], así que **este card no los modifica**: se deja constancia
 aquí y se señala el desalineo para que la tarjeta que regenera `SUMMARY.md` /
 `QUALITY_VS_TIME.md` lo aplique. Ambos generadores **derivan** las cifras de
-`features/<feature>/REPORT.md` (sección `## Comparativa`), que ya lleva el
+`reports/<feature>/REPORT.md` (sección `## Comparativa`), que ya lleva el
 *después*: al regenerarlos, las filas de `layout` de los dos documentos salen ya
 corregidas y con la misma etiqueta de dataset.
 
