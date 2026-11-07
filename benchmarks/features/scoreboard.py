@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Resumen global de RESULTADOS: features × modelo × licencia × device × tiempo × calidad.
 
-Genera `benchmarks/SCOREBOARD.md` + `SCOREBOARD.png` + `SCOREBOARD.svg`.
+Genera `benchmarks/reports/SCOREBOARD.md` + `benchmarks/figures/SCOREBOARD.png` + `SCOREBOARD.svg`.
 
 Una fila por (feature, motor, device) con la **última** corrida medida. La licencia
 sale de `summary._license_for` (catálogo de `pyocrust` para `pyocrust*`, tabla de
@@ -22,17 +22,20 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 BENCH = HERE.parent
+REPORTS = BENCH / "reports"
+FIGURES = BENCH / "figures"
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
-from summary import EXTERNAL_LICENSE, FEATURES, _license_for, _num, collect_rows  # noqa: E402
+from summary import EXTERNAL_LICENSE, FEATURES, _license_for, _motor_label, _num, collect_rows  # noqa: E402
+from features._localization import english_markdown  # noqa: E402
 
 RESULTS = BENCH / "results"
 
 # Columna de calidad por feature (el resto quedan vacías en el CSV).
 QUALITY_COL = {
-    "text": ("word_f1", "F1 palabra"),
-    "formula": ("latex_sim", "Similitud"),
+    "text": ("word_f1", "Word F1"),
+    "formula": ("latex_sim", "Similarity"),
     "layout": ("layout_map", "mAP@0.5"),
     "orientation": ("ori_acc", "accuracy"),
     "rectification": ("rect_sim", "SSIM"),
@@ -102,13 +105,15 @@ def aggregate(rows: list[dict], quality: str) -> dict:
         "provider": rows[0].get("provider_effective", "?"),
         "dataset": rows[0].get("dataset", "?"),
         "task": rows[0].get("task_type", "?"),
+        "model_name": rows[0].get("model_name", ""),
+        "variant": rows[0].get("model_variant", ""),
     }
 
 
 def _panel(ax, entries, title) -> None:
     if not entries:
         ax.axis("off")
-        ax.set_title(f"{title}\n(pendiente: sin datos)", fontsize=9, color="#888")
+        ax.set_title(f"{title}\n(pending: no data)", fontsize=9, color="#888")
         return
     entries.sort(key=lambda e: e["quality"] if e["quality"] is not None else -1)
     vals = [e["quality"] if e["quality"] is not None else 0.0 for e in entries]
@@ -117,7 +122,7 @@ def _panel(ax, entries, title) -> None:
     top = max(vals) or 1
     for bar, e in zip(bars, entries):
         ms = f"{e['ms']:.0f} ms" if e["ms"] is not None else "?"
-        lic = e["license"] or "sin verificar"
+        lic = e["license"] or "unverified"
         ax.text(bar.get_width() + top * 0.01, bar.get_y() + bar.get_height() / 2,
                 f"{e['quality']:.3f} · {ms} · {lic}", va="center", fontsize=6.5)
     ax.set_yticks(range(len(vals)))
@@ -159,8 +164,10 @@ def main() -> int:
             if f != feature:
                 continue
             agg = aggregate(rws, quality_col)
+            label = _motor_label(motor, agg["variant"], agg["model_name"])
             entries.append({
-                "motor": motor, "device": device, "license": _license_for(motor),
+                "motor": label, "device": device,
+                "license": _license_for(label),
                 "task": agg["task"], "n": agg["n"], "quality": agg["quality"],
                 "ms": agg["ms"], "provider": agg["provider"], "dataset": agg["dataset"],
             })
@@ -174,23 +181,28 @@ def main() -> int:
             )
         if not entries:
             md.append(f"| {feature} | — | — | — | — | 0 | N/A | N/A | — | — |")
-        md.append("")
 
     for ax in axes[n:]:
         ax.axis("off")
 
     fig.legend(handles=[
         Patch(facecolor=LICENSE_COLOR["Apache-2.0"], label="Apache-2.0"),
+        Patch(facecolor=LICENSE_COLOR["MIT"], label="MIT"),
         Patch(facecolor=LICENSE_COLOR["OpenRAIL-M-Mod"], label="OpenRAIL-M-Mod (Indra)"),
-        Patch(facecolor="#90a4ae", label="fuera de catálogo / sin verificar"),
-    ], loc="lower center", bbox_to_anchor=(0.5, 0.02), ncol=3, frameon=False, fontsize=10)
-    fig.suptitle("pyocrust — todas las features: calidad, tiempo, licencia y device", fontsize=14)
+        Patch(facecolor=LICENSE_COLOR["AGPL-3.0"], label="AGPL-3.0 (copyleft)"),
+        Patch(facecolor="#90a4ae", label="unverified / outside catalog"),
+    ], loc="lower center", bbox_to_anchor=(0.5, 0.02), ncol=5, frameon=False, fontsize=9)
+    fig.suptitle("pyocrust — all features: quality, runtime, license, and device", fontsize=14)
     fig.tight_layout(rect=(0, 0.06, 1, 0.97))
+    FIGURES.mkdir(parents=True, exist_ok=True)
     for ext in ("png", "svg"):
-        fig.savefig(BENCH / f"SCOREBOARD.{ext}", dpi=150, bbox_inches="tight", facecolor="white")
-    (BENCH / "SCOREBOARD.md").write_text("\n".join(md), encoding="utf-8")
-    print("[scoreboard] ->", BENCH / "SCOREBOARD.png")
-    print("[scoreboard] ->", BENCH / "SCOREBOARD.md")
+        fig.savefig(FIGURES / f"SCOREBOARD.{ext}", dpi=150, bbox_inches="tight", facecolor="white")
+    scoreboard_md = "\n".join(md)
+    REPORTS.mkdir(parents=True, exist_ok=True)
+    (REPORTS / "SCOREBOARD.md").write_text(scoreboard_md, encoding="utf-8")
+    (REPORTS / "SCOREBOARD.en.md").write_text(english_markdown(scoreboard_md), encoding="utf-8")
+    print("[scoreboard] ->", FIGURES / "SCOREBOARD.png")
+    print("[scoreboard] ->", REPORTS / "SCOREBOARD.md (+ SCOREBOARD.en.md)")
     return 0
 
 

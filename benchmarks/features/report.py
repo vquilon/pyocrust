@@ -2,8 +2,8 @@
 """Reporte **por feature** a partir de las runs de `benchmarks/results/<feature>/`.
 
 Lee la run más reciente (o `--run`) de una feature y escribe
-`benchmarks/features/<feature>/REPORT.md` (y, para features con datos,
-`REPORT.png`/`.svg` con la comparativa por motor) con:
+`benchmarks/reports/<feature>/REPORT.md` (y, para features con datos,
+`benchmarks/figures/<feature>/REPORT.png`/`.svg` con la comparativa por motor) con:
 
 * **provenance** explícita (comando reproducible, dataset, `n`, `warmup`,
   `repeats`, dispositivo, fecha) — todo `medido`;
@@ -30,14 +30,12 @@ from typing import Any, Sequence
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from common import BENCHMARKS_ROOT, module_available, select_device_rows
-
-try:
-    from .summary import EXCLUDED_MOTORS
-except ImportError:  # ejecutado directamente como script
-    from summary import EXCLUDED_MOTORS
+from common import BENCHMARKS_ROOT, applicable_rows, module_available, select_device_rows
+from features._localization import english_markdown
 
 RESULTS_DIR = BENCHMARKS_ROOT / "results"
+REPORTS_DIR = BENCHMARKS_ROOT / "reports"
+FIGURES_DIR = BENCHMARKS_ROOT / "figures"
 # Runs GPU en su propia jerarquía (`--output-dir benchmarks/results/_gpu`), para
 # que `latest_run` CPU (glob `results/<feature>/*/`) no se confunda con ellas.
 GPU_RESULTS_DIR = RESULTS_DIR / "_gpu"
@@ -108,10 +106,10 @@ FEATURE_COLUMNS: dict[str, list[tuple[str, str, str, bool | None]]] = {
 # etiqueta y si "más es mejor". Solo entran features con banco implementado y
 # con datos; el resto no tiene gráfica (un esqueleto no publica cifras).
 TITULAR_METRIC: dict[str, tuple[str, str, bool]] = {
-    "text": ("word_f1", "F1 palabra ↑", True),
-    "formula": ("latex_sim", "Similitud LaTeX ↑", True),
+    "text": ("word_f1", "Word F1 ↑", True),
+    "formula": ("latex_sim", "LaTeX similarity ↑", True),
     "layout": ("layout_map", "mAP@IoU 0.5 ↑", True),
-    "table": ("table_teds", "TEDS de estructura ↑", True),
+    "table": ("table_teds", "Structural TEDS ↑", True),
     "full_page": ("markdown_f1", "Markdown F1 ↑", True),
     "orientation": ("ori_acc", "accuracy ↑", True),
     "text_line": ("ori_acc", "accuracy ↑", True),
@@ -150,6 +148,33 @@ def latest_run(feature: str, root: Path = RESULTS_DIR, device: str = "cpu") -> P
     return max(eligible, key=lambda p: (*stats_of(p), p.name)) if eligible else None
 
 
+def _backend_for(summary: dict, name: str) -> str:
+    """Backend canónico de un nombre de motor (`model_name (variante)`).
+
+    Los informes etiquetan por `model_name`, pero el `summary.json` indexa por
+    `backend`. Sin este puente `_provider_of` no encuentra la entrada y reporta
+    `n/a` para motores que corrieron en un acelerador real.
+    """
+    backends = summary.get("backends") or {}
+    # El `model_name` de algunos motores ya lleva un sufijo entre paréntesis
+    # (`yolo26m (doc-layout)`), así que la variante del informe es lo que va
+    # después del **segundo** paréntesis; sin él no hay forma de distinguir
+    # `yolo26m (doc-layout) (21.8M)` de `yolo26m (doc-layout)`.
+    parts = name.split(" (")
+    model = parts[0]
+    name_variant = parts[-1].rstrip(")") if len(parts) > 1 else ""
+    for backend, meta in backends.items():
+        meta = meta or {}
+        declared_model = meta.get("model_name") or ""
+        declared_variant = meta.get("model_variant") or ""
+        # Algunos YOLO declaran `model_name` ya con sufijo de dataset
+        # (`yolo26m (doc-layout)`), así que el nombre del informe es el prefijo.
+        same_model = declared_model == model or declared_model.startswith(f"{model} (")
+        if same_model and declared_variant == name_variant:
+            return backend
+    return ""
+
+
 def _provider_of(summary: dict, backend: str) -> str:
     """`provider_effective` real del backend en el `summary.json` de una run."""
     meta = (summary.get("backends") or {}).get(backend) or {}
@@ -165,13 +190,7 @@ def render_cpu_gpu(feature: str, cpu_rep: dict, cpu_sum: dict, gpu_rep: dict | N
     """
     key, label, _higher = TITULAR_METRIC[feature]
     same_dataset = not gpu_sum or cpu_sum.get("dataset") == gpu_sum.get("dataset")
-    if not same_dataset:
-        gpu_rep = {}
-    else:
-        gpu_rep = {name: values for name, values in (gpu_rep or {}).items()
-                   if name.split(" (")[0] not in EXCLUDED_MOTORS}
-    cpu_rep = {name: values for name, values in cpu_rep.items()
-               if name.split(" (")[0] not in EXCLUDED_MOTORS}
+    gpu_rep = (gpu_rep or {}) if same_dataset else {}
     lines = [
         "## CPU vs GPU (`device_requested` vs `provider_effective`)",
         "",
@@ -194,7 +213,7 @@ def render_cpu_gpu(feature: str, cpu_rep: dict, cpu_sum: dict, gpu_rep: dict | N
             g = gpu_rep.get(name) or {}
             gq = g.get(key)
             gms = g.get("mean_ms")
-            backend = name.split(" (")[0]
+            backend = _backend_for(gpu_sum or {}, name)
             lines.append(
                 f"| {name} | "
                 f"{'N/A' if cpu_rep.get(name, {}).get(key) is None else format(cpu_rep[name][key], '.3f')} | "
@@ -252,8 +271,9 @@ def latex_coverage(run: Path) -> dict[str, float]:
 def summarize(rows: Sequence[dict]) -> dict[str, dict[str, Any]]:
     grouped: dict[str, list[dict]] = defaultdict(list)
     for row in rows:
-        variant = row.get("model_variant") or "default"
-        grouped[f"{row['backend']} ({variant})"].append(row)
+        model = row.get("model_name") or row["backend"]
+        variant = row.get("model_variant")
+        grouped[f"{model} ({variant})" if variant else model].append(row)
     report: dict[str, dict[str, Any]] = {}
     for name, group in grouped.items():
         times = sorted(r["elapsed_ms"] for r in group if r["elapsed_ms"] is not None)
@@ -272,6 +292,7 @@ def summarize(rows: Sequence[dict]) -> dict[str, dict[str, Any]]:
 def analyze(feature: str, run: Path) -> tuple[dict[str, dict[str, Any]], dict]:
     """Carga la run y agrega el reporte por motor (+ cobertura LaTeX en `formula`)."""
     rows, summary = load_run(run)
+    rows = applicable_rows(feature, rows)
     if not rows:
         raise SystemExit(f"{run} no tiene filas `ok` para la feature {feature}")
     # Honestidad de proveedor: sólo cuentan las filas que de verdad corrieron en el
@@ -284,8 +305,6 @@ def analyze(feature: str, run: Path) -> tuple[dict[str, dict[str, Any]], dict]:
             "(provider_effective honesto: un fallback CPU no cuenta como GPU)"
         )
     report = summarize(device_rows)
-    report = {name: values for name, values in report.items()
-              if name.split(" (")[0] not in EXCLUDED_MOTORS}
     if feature == "formula":
         for name, value in latex_coverage(run).items():
             for key in report:
@@ -439,7 +458,7 @@ def plot_feature(feature: str, report: dict, summary: dict, out: Path,
     bars(axq, quality, "#1f6f5c", "{:.3f}")
     axq.set_ylim(0, (max(present_q) if present_q else 1.0) * 1.28)
     axq.set_ylabel(label)
-    axq.set_title(f"Calidad — {label}", fontsize=12, weight="bold")
+    axq.set_title(f"Quality — {label}", fontsize=12, weight="bold")
 
     present_t = [v for v in times if v is not None]
     # Series GPU (solo motores que corrieron en acelerador real): misma calidad,
@@ -466,31 +485,38 @@ def plot_feature(feature: str, report: dict, summary: dict, out: Path,
     else:
         bars(axt, times, "#3b6fb0", "{:.0f}")
     axt.set_ylim(0, (max(present_t) if present_t else 1.0) * 1.28)
-    axt.set_ylabel("ms/imagen ↓")
-    axt.set_title("Tiempo — ms/imagen (CPU vs GPU)", fontsize=12, weight="bold")
+    axt.set_ylabel("ms/unit ↓")
+    axt.set_title("Runtime — ms/unit (CPU vs. GPU)", fontsize=12, weight="bold")
 
     for ax in (axq, axt):
         ax.set_xticks(x)
         ax.set_xticklabels(names)
         ax.xaxis.set_major_formatter(FixedFormatter([_wrap_engine(n) for n in names]))
+        # 45° con anclaje a la derecha: con muchos motores (layout tiene 41) las
+        # etiquetas horizontales se pisan y no se pueden leer.
+        for tick in ax.get_xticklabels():
+            tick.set_rotation(45)
+            tick.set_ha("right")
+            tick.set_rotation_mode("anchor")
+            tick.set_fontsize(8)
 
-    origen = summary.get("origen") or "medido"
+    origen = "measured" if summary.get("origen") in (None, "medido") else "reference"
     skipped = sum(1 for m in (summary.get("backends") or {}).values()
                   if m.get("status") == "skipped")
     dataset = summary.get("dataset", "?")
     run_id = summary.get("timestamp", "?")
-    fig.suptitle(f"pyocrust · feature «{feature}» — comparativa por motor (origen: {origen})",
+    fig.suptitle(f"pyocrust · {feature} — engine comparison (source: {origen})",
                  fontsize=13, weight="bold")
     fig.legend(
         handles=[
-            Patch(color="#1f6f5c", label=f"Calidad: {label} (origen: {origen})"),
-            Patch(color="#3b6fb0", label=f"Tiempo: ms/imagen ↓ (origen: {origen})"),
+            Patch(color="#1f6f5c", label=f"Quality: {label} (source: {origen})"),
+            Patch(color="#3b6fb0", label=f"Runtime: ms/unit ↓ (source: {origen})"),
         ],
         loc="lower center", ncol=2, frameon=False, fontsize=9, bbox_to_anchor=(0.5, -0.03),
     )
     fig.text(0.5, -0.075,
-             f"dataset: {dataset} · n por motor: {sorted({c for c in counts if c}) or '?'} · "
-             f"run: {run_id} · motores saltados (skipped): {skipped}",
+             f"dataset: {dataset} · n per engine: {sorted({c for c in counts if c}) or '?'} · "
+             f"run: {run_id} · skipped engines: {skipped}",
              ha="center", fontsize=8.5, color="#444444")
     # rect con mas aire arriba: con `ms` altos (p. ej. layout >2 s) el ultimo tick
     # del eje de tiempo asoma por encima del area y chocaba con el suptitulo.
@@ -504,12 +530,17 @@ GPU_PROVIDERS = frozenset({"cuda", "directml", "tensorrt", "coreml", "openvino",
 
 
 def load_gpu(feature: str) -> tuple[dict, dict] | None:
-    """Agrega la última run GPU real de cada motor, no una sola run global."""
-    base = RESULTS_DIR / feature
-    if not base.is_dir():
+    """Agrega la última run GPU real de cada motor, no una sola run global.
+
+    Escanea la jerarquía designada (`results/_gpu/<feature>/`) y también la ruta
+    CPU (`results/<feature>/`): hay runs GPU escritas sin `--output-dir`.
+    """
+    roots = (GPU_RESULTS_DIR / feature, RESULTS_DIR / feature)
+    runs = sorted({p for root in roots if root.is_dir() for p in root.iterdir()
+                   if p.is_dir() and any(p.glob("*.csv"))},
+                  key=lambda p: (p.name, p.as_posix()), reverse=True)
+    if not runs:
         return None
-    runs = sorted((p for p in base.iterdir() if p.is_dir() and any(p.glob("*.csv"))),
-                  reverse=True)
     selected: dict[str, list[dict]] = {}
     gpu_summary: dict[str, Any] = {"device_requested": "gpu", "backends": {}}
     for run in runs:
@@ -523,20 +554,18 @@ def load_gpu(feature: str) -> tuple[dict, dict] | None:
         if summary.get("device_requested") != "gpu":
             continue
         rows, _ = load_run(run)
+        rows = applicable_rows(feature, rows)
         grouped: dict[str, list[dict]] = defaultdict(list)
         for row in rows:
             backend = row.get("backend", "")
             provider = str(row.get("provider_effective", "")).lower()
-            if backend in EXCLUDED_MOTORS or provider not in GPU_PROVIDERS:
+            if provider not in GPU_PROVIDERS:
                 continue
-            variant = row.get("model_variant") or "default"
-            name = f"{backend} ({variant})"
-            grouped[name].append(row)
-        for name, backend_rows in grouped.items():
-            if name in selected:
+            grouped[backend].append(row)
+        for backend, backend_rows in grouped.items():
+            if backend in selected:
                 continue
-            selected[name] = backend_rows
-            backend = name.split(" (")[0]
+            selected[backend] = backend_rows
             meta = dict((summary.get("backends") or {}).get(backend) or {})
             meta["provider_effective"] = backend_rows[0].get("provider_effective") or "n/a"
             gpu_summary["backends"][backend] = meta
@@ -575,7 +604,7 @@ def consolidated_table(features: Sequence[str]) -> str:
         key = TITULAR_METRIC[feature][0]
         for name in sorted(set(cpu_rep) | set(gpu_rep)):
             c, g = cpu_rep.get(name) or {}, gpu_rep.get(name) or {}
-            backend = name.split(" (")[0]
+            backend = _backend_for(gpu_sum or {}, name)
             q = c.get(key) if c.get(key) is not None else g.get(key)
             lines.append(
                 f"| `{feature}` | {name} | "
@@ -610,18 +639,38 @@ def main(argv: Sequence[str] | None = None) -> int:
         md = render_md(feature, report, summary, run, gpu=gpu)
         print(md)
         if not args.no_md:
-            out = FEATURES_DIR / feature / "REPORT.md"
+            out = REPORTS_DIR / feature / "REPORT.md"
+            out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(md + "\n", encoding="utf-8")
-            print(f"\n[report] {feature} -> {out}")
+            (REPORTS_DIR / feature / "REPORT.en.md").write_text(
+                english_markdown(md) + "\n", encoding="utf-8"
+            )
+            table_md = REPORTS_DIR / feature / "benchmark_table.md"
+            if table_md.exists():
+                (REPORTS_DIR / feature / "benchmark_table.en.md").write_text(
+                    english_markdown(table_md.read_text(encoding="utf-8")), encoding="utf-8"
+                )
+            table_tex = REPORTS_DIR / feature / "benchmark_table.tex"
+            if table_tex.exists():
+                table_tex.write_text(
+                    english_markdown(table_tex.read_text(encoding="utf-8")), encoding="utf-8"
+                )
+            print(f"\n[report] {feature} -> {out} (+ .en.md)")
         if feature in TITULAR_METRIC:
-            out = FEATURES_DIR / feature / "REPORT"
+            out = FIGURES_DIR / feature / "REPORT"
+            out.parent.mkdir(parents=True, exist_ok=True)
             plot_feature(feature, report, summary, out, gpu_report=(gpu[0] if gpu else None))
             print(f"[report] {feature} -> {out}.png (+ .svg)")
         print()
     if features == sorted(FEATURE_COLUMNS):
-        consolidated = BENCHMARKS_ROOT / "CPU_VS_GPU.md"
-        consolidated.write_text(consolidated_table(features), encoding="utf-8")
-        print(f"[report] tabla consolidada -> {consolidated}")
+        consolidated = REPORTS_DIR / "CPU_VS_GPU.md"
+        table = consolidated_table(features)
+        consolidated.parent.mkdir(parents=True, exist_ok=True)
+        consolidated.write_text(table, encoding="utf-8")
+        (REPORTS_DIR / "CPU_VS_GPU.en.md").write_text(
+            english_markdown(table), encoding="utf-8"
+        )
+        print(f"[report] tabla consolidada -> {consolidated} (+ .en.md)")
     return rc
 
 

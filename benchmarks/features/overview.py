@@ -29,9 +29,11 @@ if __package__ in (None, ""):
 
 from common import BENCHMARKS_ROOT
 
-OVERVIEW_PNG = BENCHMARKS_ROOT / "FEATURES_OVERVIEW.png"
-OVERVIEW_SVG = BENCHMARKS_ROOT / "FEATURES_OVERVIEW.svg"
-OVERVIEW_MD = BENCHMARKS_ROOT / "FEATURES_OVERVIEW.md"
+REPORTS_DIR = BENCHMARKS_ROOT / "reports"
+FIGURES_DIR = BENCHMARKS_ROOT / "figures"
+OVERVIEW_PNG = FIGURES_DIR / "FEATURES_OVERVIEW.png"
+OVERVIEW_SVG = FIGURES_DIR / "FEATURES_OVERVIEW.svg"
+OVERVIEW_MD = REPORTS_DIR / "FEATURES_OVERVIEW.md"
 RESULTS_DIR = BENCHMARKS_ROOT / "results"
 FEATURES_DIR = Path(__file__).resolve().parent
 
@@ -97,7 +99,7 @@ def feature_status(feature: str) -> dict[str, Any]:
                   if p.is_dir() and any(p.glob("*.csv"))) if (RESULTS_DIR / feature).is_dir() else []
     if runs:
         latest = runs[-1].name
-    report_md = FEATURES_DIR / feature / "REPORT.md"
+    report_md = REPORTS_DIR / feature / "REPORT.md"
     references = report_md.is_file() and "Referencias externas" in report_md.read_text(encoding="utf-8")
     if latest:
         estado = "medido"
@@ -176,7 +178,7 @@ def render_markdown(statuses: dict[str, dict[str, Any]], catalog: dict[str, dict
         "modelos** (`ensure_models`), sin servicios externos ni pesos versionados "
         "a mano. Lo `medido` se separa siempre de lo `referencia` y lo `esqueleto`.",
         "",
-        "![Cobertura feature × capacidad](FEATURES_OVERVIEW.png)",
+        "![Cobertura feature × capacidad](../figures/FEATURES_OVERVIEW.png)",
         "",
         "## Autogestión de modelos",
         "",
@@ -262,7 +264,9 @@ def plot_overview(statuses: dict[str, dict[str, Any]], catalog: dict[str, dict[s
     ax.set_xticks(list(range(len(capabilities))))
     ax.set_xticklabels([c.replace("_", "\n") for c in capabilities], fontsize=9)
     ax.set_yticks(list(range(len(FEATURE_ORDER))))
-    ax.set_yticklabels([f"{f}  ·  {statuses[f]['estado']}" for f in FEATURE_ORDER], fontsize=10)
+    state_en = {"medido": "measured", "documentado": "documented", "esqueleto": "skeleton"}
+    ax.set_yticklabels([f"{f}  ·  {state_en.get(statuses[f]['estado'], statuses[f]['estado'])}"
+                        for f in FEATURE_ORDER], fontsize=10)
     ax.set_xticks(np.arange(-0.5, len(capabilities), 1), minor=True)
     ax.set_yticks(np.arange(-0.5, len(FEATURE_ORDER), 1), minor=True)
     ax.grid(which="major", visible=False)
@@ -271,21 +275,21 @@ def plot_overview(statuses: dict[str, dict[str, Any]], catalog: dict[str, dict[s
 
     ax.legend(
         handles=[
-            Patch(facecolor="#2e8b57", label="medido (banco con números)"),
-            Patch(facecolor="#f0b429", label="esqueleto (documentado, sin cifras)"),
-            Patch(facecolor="white", edgecolor="#bbbbbb", label="no cubierto"),
+            Patch(facecolor="#2e8b57", label="measured (benchmark data)"),
+            Patch(facecolor="#f0b429", label="skeleton (documented, no measurements)"),
+            Patch(facecolor="white", edgecolor="#bbbbbb", label="not covered"),
         ],
         loc="upper left", bbox_to_anchor=(1.02, 1.0), borderaxespad=0.0, frameon=False, fontsize=9,
     )
 
     known = [v["size_bytes"] for v in catalog.values() if isinstance(v.get("size_bytes"), int)]
     unknown = len(catalog) - len(known)
-    fig.suptitle("pyocrust — cobertura «todo en uno» (feature × capacidad)",
+    fig.suptitle("pyocrust — all-in-one coverage (feature × capability)",
                  fontsize=13, weight="bold")
     fig.text(0.5, -0.04,
-             f"1 paquete · {len(FEATURE_ORDER)} features · {len(capabilities)} capacidades · "
-             f"{len(catalog)} modelos auto-descargados en catálogo ({_fmt_bytes(sum(known))}"
-             + (f" + {unknown} sin tamaño" if unknown else "") + ") · descarga y caché integradas",
+             f"1 package · {len(FEATURE_ORDER)} features · {len(capabilities)} capabilities · "
+             f"{len(catalog)} auto-downloadable models in catalog ({_fmt_bytes(sum(known))}"
+             + (f" + {unknown} size unknown" if unknown else "") + ") · built-in download and cache",
              ha="center", fontsize=9, color="#333333")
     fig.tight_layout(rect=(0, 0.02, 1, 0.95))
     fig.savefig(out.with_suffix(".png"), dpi=160, bbox_inches="tight", facecolor="white")
@@ -322,6 +326,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     statuses = {f: feature_status(f) for f in FEATURE_ORDER}
     catalog = load_catalog()
     capabilities = usable(catalog)
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     OVERVIEW_MD.write_text(render_markdown(statuses, catalog, capabilities) + "\n", encoding="utf-8")
     plot_overview(statuses, catalog, capabilities, OVERVIEW_PNG)
     print(f"[overview] -> {OVERVIEW_MD}")

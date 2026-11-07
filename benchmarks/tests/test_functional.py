@@ -289,7 +289,10 @@ def test_device_outcome_is_honest_about_provider():
     # pyocrust + gpu: el provider no se adivina aquí -> se CONFIRMA al construir el
     # motor (None = "por resolver"), nunca se asume cuda/directml.
     assert device_outcome("pyocrust", "gpu") == (None, None)
-    provider, reason = device_outcome("rapidocr", "gpu")
+    # rapidocr si expone GPU (cuda) en este banco: provider por resolver, no "n/a".
+    assert device_outcome("rapidocr", "gpu") == (None, None)
+    # Un motor CPU-only sigue quedando "n/a" con motivo, nunca como GPU.
+    provider, reason = device_outcome("tesseract", "gpu")
     assert provider == "n/a" and "solo CPU" in reason
 
 

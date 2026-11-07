@@ -2,14 +2,8 @@
 """Genera tablas y graficos listos para publicar (paper, README).
 
 Lee los CSV de `benchmarks/results/` producidos por `run_benchmarks.py` y
-escribe en `benchmarks/output_examples/`:
-
-* `benchmark_table.md`      — tabla markdown (para README)
-* `benchmark_table.tex`     — tabla LaTeX standalone
-* `benchmark_table.png|svg` — la misma tabla renderizada
-* `benchmark_quality.png`   — CER y F1 de palabra por backend
-* `benchmark_speed.png`     — ms/pagina y paginas/s por backend
-* `benchmark_quality_vs_speed.png` — calidad vs velocidad (grafico principal)
+* tablas y metadatos en `benchmarks/reports/legacy/`
+* gráficos en `benchmarks/figures/legacy/`
 
 Uso:
     python benchmarks/report_benchmarks.py                 # todas las runs
@@ -29,7 +23,8 @@ from typing import Any, Sequence
 
 HERE = Path(__file__).resolve().parent
 RESULTS_DIR = HERE / "results"
-OUT_DIR = HERE / "output_examples"
+OUT_DIR = HERE / "reports" / "legacy"
+FIGURES_DIR = HERE / "figures" / "legacy"
 
 # metricas donde mas alto es mejor / mas bajo es mejor
 HIGHER_BETTER = {"word_f1", "markdown_f1", "block_f1", "exact_match", "pages_per_s", "mean_confidence"}
@@ -534,6 +529,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     rows = load_rows(args.run, all_runs=args.all)
     if not rows:
         print("[report] no hay filas 'ok' en los CSV; ejecuta run_benchmarks.py antes.")
@@ -546,10 +542,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     (OUT_DIR / "benchmark_summary.json").write_text(
         json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
     )
-    plot_table(report, OUT_DIR / "benchmark_table")
-    plot_quality(report, OUT_DIR / "benchmark_quality.png")
-    plot_speed(report, OUT_DIR / "benchmark_speed.png")
-    plot_quality_vs_speed(report, OUT_DIR / "benchmark_quality_vs_speed.png")
+    plot_table(report, FIGURES_DIR / "benchmark_table")
+    plot_quality(report, FIGURES_DIR / "benchmark_quality.png")
+    plot_speed(report, FIGURES_DIR / "benchmark_speed.png")
+    plot_quality_vs_speed(report, FIGURES_DIR / "benchmark_quality_vs_speed.png")
 
     print(md)
     print(f"\n[report] escritos en {OUT_DIR}")
