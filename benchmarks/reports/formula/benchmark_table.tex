@@ -1,0 +1,16 @@
+\documentclass[border=2pt]{standalone}
+\usepackage{booktabs}
+\begin{document}
+\begin{tabular}{lrrrrrrl}
+\toprule
+Engine (variant/size) & n & Exact LaTeX $\uparrow$ & Similarity $\uparrow$ & Token F1 $\uparrow$ & Outputs with LaTeX $\uparrow$ & ms/formula $\downarrow$ & license \\
+\midrule
+indra (math) & 20 & \underline{0.000} & 0.243 & 0.505 & N/A & \textbf{103} & OpenRAIL-M-Mod \\
+paddle\_latex\_ocr (default) & 20 & \textbf{0.050} & \textbf{0.694} & \textbf{0.839} & N/A & 4453 & Apache-2.0 \\
+pix2tex (default) & 20 & \underline{0.000} & 0.460 & \underline{0.669} & N/A & 5971 & MIT \\
+pp-formulanet-s (direct) & 20 & \underline{0.000} & \underline{0.497} & 0.622 & N/A & \underline{842} & Apache-2.0 \\
+pp\_structurev3 (pp-formulanet-s) & 20 & \underline{0.000} & 0.196 & 0.295 & N/A & 1512 & Apache-2.0 \\
+\bottomrule
+\end{tabular}
+\par\smallskip{\footnotesize Note: \texttt{N/A} = not evaluated, never \texttt{0.0}. Values and n match \texttt{REPORT.md}; licenses informational per \texttt{../QUALITY\_VS\_TIME.md}.}
+\end{document}
