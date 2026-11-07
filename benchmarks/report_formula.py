@@ -35,7 +35,7 @@ from typing import Sequence
 
 from report_benchmarks import RESULTS_DIR, load_rows
 
-OUT = Path(__file__).resolve().parent / "FORMULA_REPORT.md"
+OUT = Path(__file__).resolve().parent / "reports" / "formula" / "FORMULA_REPORT.md"
 COLS = [
     ("n", "n", "{}"),
     ("exact_match", "LaTeX exacto ↑", "{:.3f}"),
@@ -366,6 +366,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     run = args.run or latest_run_with_formula()
     md = build(run)
+    OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(md + "\n", encoding="utf-8")
     print(md)
     print(f"\n[report] escrito en {OUT}")

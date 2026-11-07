@@ -15,6 +15,7 @@ Verifican, sin descargar datasets ni cargar modelos:
 from __future__ import annotations
 
 import importlib
+from pathlib import Path
 
 import pytest
 from PIL import Image
@@ -64,6 +65,16 @@ def test_esqueletos_no_publican_cifras(feature):
     spec = _bank(feature).SPEC
     assert spec.status == "skeleton"
     assert "sin valores numéricos" in spec.provenance
+
+
+def test_informes_y_graficas_viven_en_carpetas_por_feature():
+    benchmarks = Path(__file__).resolve().parents[1]
+    for feature in ALL_FEATURES:
+        report_dir = benchmarks / "reports" / feature
+        figure_dir = benchmarks / "figures" / feature
+        assert (report_dir / "REPORT.md").is_file(), feature
+        assert (figure_dir / "REPORT.png").is_file(), feature
+        assert (figure_dir / "REPORT.svg").is_file(), feature
 
 
 def test_el_csv_conserva_las_22_columnas_y_solo_anade():
@@ -184,3 +195,55 @@ def test_alternativas_onnx_de_orientation_textline_rectification():
     expected = (128 / 255.0 - 0.485) / 0.229
     assert abs(float(doc[0, 0, 0, 0]) - expected) < 1e-4
     assert np.isfinite(doc).all() and np.isfinite(line).all()
+
+
+def test_registro_de_39_yolo_doclaynet_y_resumen_canonico(monkeypatch):
+    import common.runner as runner
+    from features.summary import _license_for, _motor_label
+
+    names = set(runner.YOLO_LAYOUT_MODELS)
+    assert len(names) == 39
+    assert names == set(runner.LICENSES) == {
+        backend for backend in runner.MODEL_NAMES if backend in runner.YOLO_LAYOUT_MODELS
+    }
+    assert {runner.LICENSES[name] for name in names if name.startswith(("hantian_", "omoured_"))} == {"AGPL-3.0"}
+    assert {runner.LICENSES[name] for name in names if name.startswith("armaggheddon_")} == {"MIT"}
+    assert names <= set(runner.PROVIDERS) == set(runner.BACKENDS)
+    assert names <= runner.GPU_CAPABLE_BACKENDS
+    assert names <= set(runner.TASK_TYPES) and names <= set(runner.FEATURE_TYPES)
+    assert all(runner.YOLO_LAYOUT_MODELS[name].endswith(".pt") for name in names)
+    assert not {"yolov10x", "yolov10b", "yolo26m"} & names
+    assert len(runner.DOCLAYNET_CLASSES) == 11
+
+    assert runner.MODEL_NAMES["omoured_v10x"] == ("omoured/v10-x", "31.7M")
+    assert runner.MODEL_NAMES["hantian_v11n"] == ("hantian/v11-n", "2.6M")
+    assert runner.MODEL_NAMES["hantian_v11m"] == ("hantian/v11-m", "21.8M")
+    assert runner.MODEL_NAMES["armaggheddon_y26n"] == ("armaggheddon/y26-n", "2.6M")
+    for backend in names:
+        model_name, params = runner.MODEL_NAMES[backend]
+        label = _motor_label(backend, params or "", model_name)
+        assert "/" in label
+        assert _license_for(label) == runner.LICENSES[backend]
+
+    import features.summary as summary
+    monkeypatch.setattr(summary, "collect_rows", lambda: {
+        ("layout", "cpu", "hantian_v11n"): [{
+            "layout_map": "0.5", "model_name": "hantian/v11-n", "model_variant": "2.6M",
+        }],
+    })
+    assert summary.measured_from_rows("layout") == {
+        ("hantian/v11-n (2.6M)", "cpu"): (0.5, 1, "hantian_v11n"),
+    }
+
+    # Resuelve las 39 factorías sin cargar los pesos; el smoke con modelo real se
+    # limita a un único YOLO pequeño, como exige la envolvente del banco.
+    calls = []
+
+    def fake_backend(name, device="cpu"):
+        calls.append((name, device))
+        return lambda image: None
+
+    monkeypatch.setattr(runner, "_yolo_layout_backend", fake_backend)
+    for backend in names:
+        assert callable(runner.BACKENDS[backend](device="gpu"))
+    assert set(calls) == {(name, "gpu") for name in names}

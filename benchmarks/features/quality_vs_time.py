@@ -3,11 +3,11 @@
 calidad, X = ms por página/unidad).
 
 Complementa a `summary.py` (que solo compara calidad). Reutiliza su parser de las
-tablas `## Comparativa` de `features/<feature>/REPORT.md` y produce
-`SUMMARY_QUALITY_VS_TIME.{png,svg}` + `QUALITY_VS_TIME.md`.
+tablas `## Comparativa` de `reports/<feature>/REPORT.md` y produce
+`SUMMARY_QUALITY_VS_TIME_CPU.{png,svg}` + `SUMMARY_QUALITY_VS_TIME_GPU.{png,svg}` + `QUALITY_VS_TIME.md`.
 
 * Un **panel por feature** (9).
-* Cada **punto** es un motor **medido** en `features/<feature>/REPORT*.md`:
+* Cada **punto** es un motor **medido** en `reports/<feature>/REPORT*.md`:
   - eje X → su columna `ms/<unidad>` (ms/página, ms/imagen, ms/fórmula, ms/línea…);
     se prefiere ms frente a páginas/s porque así se lee calidad vs tiempo.
   - eje Y → su columna titular de calidad (`↑`).
@@ -30,29 +30,19 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 BENCH = HERE.parent
+REPORTS = BENCH / "reports"
+FIGURES = BENCH / "figures"
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
 # Reutiliza el parser de tablas y la lista de features de `summary.py`: una sola
 # fuente de verdad para "qué features hay y cuál es su métrica titular".
-from summary import EXCLUDED_MOTORS, FEATURES, _clean, _license_for, _num, _rows_from, feature_title  # noqa: E402
-
-# Nombre corto para que la anotación del punto no se solape ni ocupe el panel.
-_SHORT = {
-    "pyocrust_formulanet (direct)": "pyocrust_formulanet",
-    "pyocrust_formula (pp-formulanet-s)": "pyocrust_formula",
-    "pyocrust_structure (default)": "pyocrust_structure",
-    "pyocrust_layout (default)": "pyocrust_layout",
-    "pyocrust_table (default)": "pyocrust_table",
-    "pyocrust_orientation (default)": "pyocrust_orientation",
-    "pyocrust_textline (default)": "pyocrust_textline",
-    "pyocrust_rectify (default)": "pyocrust_rectify",
-    "pyocrust (tiny)": "pyocrust (tiny)",
-}
-
-
-def _short(name: str) -> str:
-    return _SHORT.get(name, name)
+from summary import (
+    FEATURES, MODEL_NAMES, YOLO_LAYOUT_MODELS, _LEGACY_YOLO_LAYOUT_BACKENDS,
+    _clean, _is_pyocrust, _license_for, _num, _rows_from, feature_title,
+    summary_yolo_layout_backends,
+)
+from features._localization import english_markdown  # noqa: E402
 
 
 def _device(lines: list[str]) -> str:
@@ -70,10 +60,10 @@ def parse_quality_time(feature: str, titular: str | None) -> tuple[list[tuple[st
     """Puntos `(motor, ms, calidad, device)` desde Comparativa y CPU vs GPU.
 
     La tabla `Comparativa` aporta el device de provenance; `CPU vs GPU` añade
-    solo las filas GPU cuyo provider fue un acelerador real. Excluye motores
-    retirados y nunca rellena celdas vacías.
+    solo las filas GPU cuyo provider fue un acelerador real. Nunca rellena celdas
+    vacías.
     """
-    p = BENCH / "features" / feature / "REPORT.md"
+    p = REPORTS / feature / "REPORT.md"
     if titular is None or not p.exists():
         return [], "?", ""
     lines = p.read_text(encoding="utf-8").splitlines()
@@ -94,9 +84,7 @@ def parse_quality_time(feature: str, titular: str | None) -> tuple[list[tuple[st
     for cells in rows:
         if qi >= len(cells) or mi >= len(cells):
             continue
-        name = _short(_clean(cells[0]))
-        if name.split(" (")[0] in EXCLUDED_MOTORS:
-            continue
+        name = _clean(cells[0])
         ms, quality = _num(cells[mi]), _num(cells[qi])
         if ms is not None and quality is not None:
             points[(name, default_device)] = (name, ms, quality, default_device)
@@ -108,20 +96,30 @@ def parse_quality_time(feature: str, titular: str | None) -> tuple[list[tuple[st
     if gpu_start is not None:
         gpu_header, gpu_rows = _rows_from(lines, gpu_start + 1)
         if gpu_header:
-            def col(prefix: str) -> int | None:
-                return next((i for i, key in enumerate(gpu_header)
-                            if key.lower().startswith(prefix.lower())), None)
+            # La cabecera es `<titular> ↑ (CPU)` y el titular de FEATURES es solo
+            # el prefijo («Similitud» de «Similitud LaTeX ↑»): normalizando y
+            # mirando prefijo+sufijo es el unico modo de casar sin tablas rotas.
+            def _norm(text: str) -> str:
+                return text.lower().replace("↑", "").replace("↓", "").replace(" ", "")
 
-            cpu_qi = col(f"{titular} (CPU)")
-            gpu_qi = col(f"{titular} (GPU)")
-            cpu_mi, gpu_mi = col("ms CPU"), col("ms GPU")
-            provider_i = col("provider GPU")
+            def col_quality(device: str) -> int | None:
+                d, t = _norm(f"({device})"), _norm(titular)
+                return next((i for i, key in enumerate(gpu_header)
+                             if _norm(key).endswith(d) and _norm(key).startswith(t)), None)
+
+            def col_suffix(suffix: str) -> int | None:
+                s = _norm(suffix)
+                return next((i for i, key in enumerate(gpu_header)
+                             if _norm(key).endswith(s)), None)
+
+            cpu_qi = col_quality("cpu")
+            gpu_qi = col_quality("gpu")
+            cpu_mi, gpu_mi = col_suffix("ms CPU"), col_suffix("ms GPU")
+            provider_i = col_suffix("provider GPU")
             for cells in gpu_rows:
                 if not cells:
                     continue
-                name = _short(_clean(cells[0]))
-                if name.split(" (")[0] in EXCLUDED_MOTORS:
-                    continue
+                name = _clean(cells[0])
                 if cpu_qi is not None and cpu_mi is not None and max(cpu_qi, cpu_mi) < len(cells):
                     q, ms = _num(cells[cpu_qi]), _num(cells[cpu_mi])
                     if q is not None and ms is not None:
@@ -131,6 +129,20 @@ def parse_quality_time(feature: str, titular: str | None) -> tuple[list[tuple[st
                     q, ms = _num(cells[gpu_qi]), _num(cells[gpu_mi])
                     if provider in {"cuda", "directml", "tensorrt", "coreml", "openvino", "webgpu", "rocm", "mps"} and q is not None and ms is not None:
                         points[(name, "gpu")] = (name, ms, q, "gpu")
+    if feature == "layout":
+        selected = summary_yolo_layout_backends()
+        all_labels, selected_labels = set(), set()
+        for backend in YOLO_LAYOUT_MODELS:
+            model, variant = MODEL_NAMES[backend]
+            labels = {backend, model}
+            if variant:
+                labels.update({f"{backend} ({variant})", f"{model} ({variant})"})
+            all_labels.update(labels)
+            if backend in selected:
+                selected_labels.update(labels)
+        points = {key: point for key, point in points.items()
+                  if point[0].split(" (")[0] not in _LEGACY_YOLO_LAYOUT_BACKENDS
+                  and (point[0] not in all_labels or point[0] in selected_labels)}
     devices = {point[3] for point in points.values()}
     device = "+".join(d for d in ("cpu", "gpu") if d in devices) or default_device
     return list(points.values()), device, mkey
@@ -157,14 +169,15 @@ def _ms_ticks(ax) -> None:
 
 
 def _panel(ax, points, title, device) -> None:
+    points = [point for point in points if point[3] == device]
     if not points:
         ax.axis("off")
-        ax.set_title(f"{title}\n(pendiente: sin tiempo medido)", fontsize=9, color="#888")
+        ax.set_title(f"{title}\n(pending: no measured runtime)", fontsize=9, color="#888")
         return
     xs = [p[1] for p in points]
     ys = [p[2] for p in points]
     for i, (name, ms, q, point_device) in enumerate(points):
-        py = "pyocrust" in name
+        py = _is_pyocrust(name)
         ax.scatter(ms, q, s=70, zorder=3,
                    color="#2e7d32" if py else "#3b6fb0",
                    marker="*" if point_device == "gpu" else "o",
@@ -188,10 +201,10 @@ def _panel(ax, points, title, device) -> None:
     lo, hi = min(ys), max(ys)
     pad = (hi - lo) * 0.25 or 0.05
     ax.set_ylim(max(0.0, lo - pad), hi + pad)
-    ax.set_xlabel("ms por unidad ↓ (izquierda = mejor)", fontsize=7)
-    ax.set_ylabel("índice de calidad ↑", fontsize=7)
+    ax.set_xlabel("Runtime per unit (ms) ↓ (left = faster)", fontsize=7)
+    ax.set_ylabel("Quality score ↑", fontsize=7)
     ax.grid(True, which="major", alpha=0.18)
-    ax.set_title(f"{title}  ·  device: {device}\n{len(points)} motor(es) MEDIDO(s) · mismo GT", fontsize=9)
+    ax.set_title(f"{title}  ·  device: {device}\n{len(points)} measured engine(s)", fontsize=9)
     ax.tick_params(labelsize=7)
     ax.spines[["top", "right"]].set_visible(False)
 
@@ -202,26 +215,22 @@ def main() -> int:
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    n = len(FEATURES)
-    cols = 3
-    rows = math.ceil(n / cols)
-    fig, axes = plt.subplots(rows, cols, figsize=(16, 4.0 * rows))
-    axes = axes.ravel()
+    feature_data = []
 
-    md = ["# Calidad vs tiempo por feature — un panel por feature", "",
-          "> Cada punto es un motor **medido** (`features/<feature>/REPORT.md`).",
+    md = ["# Calidad vs tiempo por feature — tabla unificada CPU/GPU", "",
+          "> Cada punto es un motor **medido** (`reports/<feature>/REPORT.md`).",
           "> X = `ms` por unidad (izquierda = mejor) · Y = índice de calidad (arriba = mejor).",
           "> Un panel con un solo punto significa: **no hay alternativas medidas** para esa",
           "> feature todavía; el hueco se ve, no se rellena.",
           ">",
-          "> **Solo motores medidos** (mismo banco/GT por panel): aquí **no** hay referencias",
+          "> **Solo motores medidos** (mismo banco por panel): aquí **no** hay referencias",
           "> externas. Por eso puede contradecir [`SUMMARY.md`](SUMMARY.md), que sí añade",
           "> referencias de **otro dataset/métrica** (p. ej. los YOLO sobre DocLayNet en `layout`).", "",
           "## Mismas condiciones para todos los motores", "",
           "- **Mismo host y mismo intérprete**: el `.venv` del repo (la versión de Python y el",
           "  resto del runtime quedan en el `provenance` de cada `REPORT.md`). El *device* se",
           "  anota en el título de cada panel.",
-          "- **Mismo banco y mismo GT**: todas las filas de un panel salen del mismo",
+          "- **Mismo banco**: todas las filas de un panel salen del mismo",
           "  `bank.py`, el mismo dataset anotado y el mismo `--limit`/`warmup`.",
           "- Un **modelo a la vez** (nunca dos motores cargados en paralelo).",
           "- El tiempo es **inferencia + post-proceso**: excluye carga de modelo y descarga.",
@@ -232,45 +241,54 @@ def main() -> int:
     for k, (feature, titular) in enumerate(FEATURES):
         points, device, unit = parse_quality_time(feature, titular)
         title = feature_title(feature)
-        _panel(axes[k], points, title, device)
+        feature_data.append((title, points, unit))
         md += [f"## {title} — device `{device}` · motores medidos", ""]
         if points:
             md += [f"| Motor | Device | {unit} | calidad ↑ | license |", "| :--- | :--- | ---: | ---: | :--- |"]
             for name, ms, q, point_device in sorted(points, key=lambda p: (p[3], p[1], p[0])):
-                mark = "**" if "pyocrust" in name else ""
+                mark = "**" if _is_pyocrust(name) else ""
                 md.append(f"| {mark}{name}{mark} | {point_device} | {ms:.0f} | {q:.3f} | {_license_for(name)} |")
         else:
             md.append("_Sin tiempo medido todavía._")
         md.append("")
 
-    for ax in axes[n:]:
-        ax.axis("off")
-
     from matplotlib.lines import Line2D
 
-    fig.legend(handles=[
-        Line2D([], [], marker="o", linestyle="", color="#2e7d32", label="pyocrust · CPU"),
-        Line2D([], [], marker="o", linestyle="", color="#3b6fb0", label="alternativa · CPU"),
-        Line2D([], [], marker="*", linestyle="", color="#2e7d32", label="pyocrust · GPU real"),
-        Line2D([], [], marker="*", linestyle="", color="#3b6fb0", label="alternativa · GPU real"),
-    ], loc="lower center", bbox_to_anchor=(0.5, 0.045), ncol=4, frameon=False, fontsize=9)
-    fig.suptitle("pyocrust — calidad vs tiempo por feature · motores medidos en CPU y GPU (mismo GT por panel)",
-                 fontsize=14)
-    fig.text(0.5, 0.022,
-             "Cada punto es una medición del mismo banco/GT; círculos = CPU, estrellas = GPU real. "
-             "Referencias externas excluidas.",
-             ha="center", fontsize=8, color="#555555")
-    fig.text(0.5, 0.004,
-             "Mismo host/.venv y un modelo a la vez · ms = inferencia+post-proceso (sin carga ni descarga) · el nombre lleva el tamaño del modelo.",
-             ha="center", fontsize=7.5, color="#777777")
-    fig.tight_layout(rect=(0, 0.10, 1, 0.96))
-    for ext in ("png", "svg"):
-        fig.savefig(BENCH / f"SUMMARY_QUALITY_VS_TIME.{ext}", dpi=150,
-                    bbox_inches="tight", facecolor="white")
-    plt.close(fig)
-    (BENCH / "QUALITY_VS_TIME.md").write_text("\n".join(md), encoding="utf-8")
-    print("[quality_vs_time] ->", BENCH / "SUMMARY_QUALITY_VS_TIME.png")
-    print("[quality_vs_time] ->", BENCH / "QUALITY_VS_TIME.md")
+    for device in ("cpu", "gpu"):
+        n = len(feature_data)
+        cols = 3
+        rows = math.ceil(n / cols)
+        fig, axes = plt.subplots(rows, cols, figsize=(16, 4.0 * rows))
+        axes = axes.ravel()
+        for k, (title, points, _unit) in enumerate(feature_data):
+            _panel(axes[k], points, title.replace("sintético", "Synthetic"), device)
+        for ax in axes[n:]:
+            ax.axis("off")
+
+        marker = "o" if device == "cpu" else "*"
+        fig.legend(handles=[
+            Line2D([], [], marker=marker, linestyle="", color="#2e7d32", label="pyocrust"),
+            Line2D([], [], marker=marker, linestyle="", color="#3b6fb0", label="alternative"),
+        ], loc="lower center", bbox_to_anchor=(0.5, 0.045), ncol=2, frameon=False, fontsize=9)
+        fig.suptitle(f"pyocrust — quality vs. runtime by feature · {device.upper()}", fontsize=14)
+        fig.text(0.5, 0.022,
+                 f"Each point is a {device.upper()} measurement from the same benchmark. External references excluded.",
+                 ha="center", fontsize=8, color="#555555")
+        fig.text(0.5, 0.004,
+                 "Same host/.venv; one model at a time · ms = inference + post-processing (excluding load/download) · model size included in label.",
+                 ha="center", fontsize=7.5, color="#777777")
+        fig.tight_layout(rect=(0, 0.10, 1, 0.96))
+        FIGURES.mkdir(parents=True, exist_ok=True)
+        for ext in ("png", "svg"):
+            fig.savefig(FIGURES / f"SUMMARY_QUALITY_VS_TIME_{device.upper()}.{ext}", dpi=150,
+                        bbox_inches="tight", facecolor="white")
+        plt.close(fig)
+        print(f"[quality_vs_time] -> {FIGURES / f'SUMMARY_QUALITY_VS_TIME_{device.upper()}.png'}")
+    quality_md = "\n".join(md)
+    REPORTS.mkdir(parents=True, exist_ok=True)
+    (REPORTS / "QUALITY_VS_TIME.md").write_text(quality_md, encoding="utf-8")
+    (REPORTS / "QUALITY_VS_TIME.en.md").write_text(english_markdown(quality_md), encoding="utf-8")
+    print("[quality_vs_time] ->", REPORTS / "QUALITY_VS_TIME.md (+ .en.md)")
     return 0
 
 

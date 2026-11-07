@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 """Resumen de benchmarks de las 9 features: `medido` + `referencia` (separados).
 
-Genera `benchmarks/SUMMARY.png` + `SUMMARY.svg` + `SUMMARY.md`.
+Genera `benchmarks/figures/SUMMARY.png` + `SUMMARY.svg` + `benchmarks/reports/SUMMARY.md`.
 
 Un panel por feature. En cada panel conviven dos orígenes, **siempre distinguidos**:
 
-* **`medido`** — números ejecutados en este repo (`features/<feature>/REPORT.md`,
+* **`medido`** — números ejecutados en este repo (`reports/<feature>/REPORT.md`,
   sección `## Comparativa`). Barra sólida; `pyocrust` en verde.
 * **`referencia`** — valores publicados en papers (`features/<feature>/REFERENCES.md`,
   o la sección `## Referencias externas` del REPORT). Barra gris rayada.
@@ -20,6 +20,7 @@ Uso:
 from __future__ import annotations
 
 import math
+import os
 import re
 import sys
 import csv
@@ -29,6 +30,16 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 BENCH = HERE.parent
 RESULTS = BENCH / "results"
+REPORTS = BENCH / "reports"
+FIGURES = BENCH / "figures"
+
+# El registro del runner es la fuente única de nombres canónicos y licencias YOLO.
+if str(BENCH) not in sys.path:
+    sys.path.insert(0, str(BENCH))
+from common.runner import (  # noqa: E402
+    FORMULA_BACKENDS_EXCLUDED, LICENSES, MODEL_NAMES, YOLO_LAYOUT_MODELS,
+)
+from features._localization import english_markdown  # noqa: E402
 
 # (feature, prefijo de la métrica titular ↑ o None). El título del panel NO se
 # escribe a mano: sale de `feature_title()`, que lee el `dataset` REAL del
@@ -100,8 +111,19 @@ EXTERNAL_LICENSE = {
 def _license_for(motor: str) -> str:
     """Licencia de un motor: del catálogo si es de `pyocrust`, verificada en HF
     si es de comparación (vacía si no se pudo verificar: nunca se inventa)."""
+    if motor in LICENSES:
+        return LICENSES[motor]
+    for backend, license_name in LICENSES.items():
+        model_name = MODEL_NAMES[backend][0]
+        if motor == model_name or motor.startswith(f"{model_name} ("):
+            return license_name
     if "indra" in motor:
         return "OpenRAIL-M-Mod"
+    # Los modelos de pyocrust se etiquetan por `model_name` (p. ej.
+    # `pp-doclayoutv3 (130M)`), no por el id del backend: Todos son Apache-2.0.
+    for backend, (model_name, _variant) in MODEL_NAMES.items():
+        if backend.startswith("pyocrust") and (motor == model_name or motor.startswith(f"{model_name} (")):
+            return "Apache-2.0"
     if motor.startswith("pyocrust"):
         return "Apache-2.0"
     base = motor.split(" (")[0]
@@ -111,24 +133,13 @@ def _license_for(motor: str) -> str:
     return ""
 
 
-# Motores excluidos de las metricas: no son validos para comparar (no son
-# DocLayNet-finetuned verificables). Se mantienen en los CSV de resultados.
-EXCLUDED_MOTORS = frozenset({"yolov10x", "yolov10b", "yolo26m"})
-
-
-def collect_rows() -> dict[tuple[str, str, str], list[dict]]:
-    """{(feature, device, backend): filas} de la ultima corrida por motor.
-
-    Es la **unica** fuente de `SUMMARY` y `SCOREBOARD`: ambos deben mostrar
-    exactamente lo mismo. Sin esto, el SUMMARY leia los REPORT.md (que pueden
-    estar generados contra otra run) y los dos informes divergian.
-    """
+def _collect_rows() -> dict[tuple[str, str, str], list[dict]]:
+    """{(feature, device, backend): filas} de la ultima corrida por motor."""
     out: dict[tuple[str, str, str], list[dict]] = {}
     for feature, _titular in FEATURES:
-        d = RESULTS / feature
-        if not d.is_dir():
-            continue
-        runs = sorted((p for p in d.iterdir() if p.is_dir() and any(p.glob("*.csv"))), reverse=True)
+        roots = (RESULTS / feature, RESULTS / "_gpu" / feature)
+        runs = sorted({p for root in roots if root.is_dir()
+                       for p in root.iterdir() if p.is_dir() and any(p.glob("*.csv"))}, reverse=True)
         seen: set[tuple[str, str, str]] = set()
         for run in runs:
             by_key: dict[tuple[str, str, str], list[dict]] = defaultdict(list)
@@ -136,15 +147,131 @@ def collect_rows() -> dict[tuple[str, str, str], list[dict]]:
                 for r in csv.DictReader(csv_path.read_text(encoding="utf-8").splitlines()):
                     if r.get("status") != "ok" or not r.get("device_requested"):
                         continue
-                    if r["backend"] in EXCLUDED_MOTORS:
-                        continue
                     key = (feature, r["device_requested"], r["backend"])
                     by_key[key].append(r)
             for key, rows in by_key.items():
-                if key not in seen:
-                    seen.add(key)
-                    out[key] = rows
+                if key in seen:
+                    continue
+                # `formula` no compara OCR de texto: no emiten LaTeX.
+                if key[0] == "formula" and key[2] in FORMULA_BACKENDS_EXCLUDED:
+                    continue
+                seen.add(key)
+                out[key] = rows
     return out
+
+
+_YOLO_VERSION = re.compile(r"_(?:v|y)(8|10|11|12|26)[a-z]$")
+# Older generic aliases are not part of the verified 39-model DocLayNet inventory.
+_LEGACY_YOLO_LAYOUT_BACKENDS = {"yolov10x", "yolov10b", "yolo26m"}
+
+
+def _yolo_scores(rows: dict[tuple[str, str, str], list[dict]] | None = None
+                 ) -> dict[str, dict[str, dict[str, list[float]]]]:
+    """mAP@0.5 de los YOLO verificados, por versión → backend → device.
+
+    CPU manda sobre GPU: la medida en GPU es un respaldo, así un modelo con run
+    duplicada no puede sesgar su propia puntuación.
+    """
+    rows = _collect_rows() if rows is None else rows
+    scores: dict[str, dict[str, dict[str, list[float]]]] = defaultdict(
+        lambda: defaultdict(lambda: defaultdict(list))
+    )
+    for (feature, device, backend), measurements in rows.items():
+        match = _YOLO_VERSION.search(backend)
+        if feature != "layout" or backend not in YOLO_LAYOUT_MODELS or not match:
+            continue
+        for row in measurements:
+            if row.get("dataset") != "omnidocbench_layout":
+                continue
+            quality = _num(row.get("layout_map", ""))
+            if quality is not None:
+                scores[match.group(1)][backend][device].append(quality)
+    return scores
+
+
+def _yolo_mean(by_device: dict[str, list[float]]) -> float | None:
+    values = by_device.get("cpu") or [v for device in by_device.values() for v in device]
+    return sum(values) / len(values) if values else None
+
+
+def _checkpoint_bytes(path: str | None) -> int | None:
+    try:
+        return Path(path).stat().st_size if path else None
+    except OSError:
+        return None
+
+
+def size_matched_yolo_layout_backend(rows: dict[tuple[str, str, str], list[dict]] | None = None
+                                    ) -> str | None:
+    """El YOLO cuyo checkpoint más se acerca en bytes al de `pyocrust_layout`.
+
+    Es el único punto del panel resumen que compara modelos de **tamaño parecido**
+    (~130 MB): el resto de YOLO son bastante más pequeños y su tiempo no sería
+    una comparación equiparable contra `pp-doclayoutv3`.
+    """
+    target = _checkpoint_bytes(os.environ.get("OAR_HOME", str(Path.home() / ".oar"))
+                               + "/pp-doclayoutv3.onnx")
+    if target is None:
+        return None
+    best, best_delta = None, None
+    for backend, path in YOLO_LAYOUT_MODELS.items():
+        size = _checkpoint_bytes(path)
+        if size is None:
+            continue
+        delta = abs(size - target)
+        if best_delta is None or delta < best_delta:
+            best, best_delta = backend, delta
+    return best
+
+
+def summary_yolo_layout_backends(rows: dict[tuple[str, str, str], list[dict]] | None = None
+                                 ) -> set[str]:
+    """YOLO que sobreviven en los paneles resumen (`SUMMARY`, `SCOREBOARD`, `QUALITY_VS_TIME`).
+
+    Tres cortes, en orden:
+
+    1. **Un solo proveedor.** Gana el autor (hantian/omoured/armaggheddon) con el
+       mejor mAP@0.5, del tamaño que sea; los otros dos no entran en el resumen.
+    2. **Uno por versión.** Dentro de ese proveedor, el mejor modelo de cada
+       versión de YOLO (v8, v10, v11, v12, y26).
+    3. **El de tamaño similar a `pyocrust`.** Se añade aunque repita versión.
+
+    Los informes **por feature** no pasan por aquí: `REPORT.md`,
+    `benchmark_table.*` y `LAYOUT_ALL_MODELS` conservan los 39 modelos medidos.
+    """
+    scores = _yolo_scores(rows)
+    means: dict[str, float] = {}
+    for models in scores.values():
+        for backend, by_device in models.items():
+            mean = _yolo_mean(by_device)
+            if mean is not None:
+                means[backend] = mean
+    if not means:
+        return set()
+    provider = max(means, key=lambda backend: (means[backend], backend)).split("_", 1)[0]
+    winners: set[str] = set()
+    for models in scores.values():
+        pool = {backend: means[backend] for backend in means
+                if backend.startswith(f"{provider}_") and backend in models}
+        if pool:
+            winners.add(max(pool, key=lambda backend: (pool[backend], backend)))
+    size_matched = size_matched_yolo_layout_backend(rows)
+    if size_matched and size_matched in means:
+        winners.add(size_matched)
+    return winners
+
+
+def collect_rows() -> dict[tuple[str, str, str], list[dict]]:
+    """Latest rows shared by SUMMARY/SCOREBOARD, with the summary YOLO subset."""
+    rows = _collect_rows()
+    winners = summary_yolo_layout_backends(rows)
+    return {
+        key: measurements for key, measurements in rows.items()
+        if key[0] != "layout" or (
+            key[2] not in _LEGACY_YOLO_LAYOUT_BACKENDS
+            and (key[2] not in YOLO_LAYOUT_MODELS or key[2] in winners)
+        )
+    }
 
 
 # Columna de calidad por feature en los CSV de resultados (la del REPORT puede
@@ -162,28 +289,61 @@ QUALITY_COL = {
 }
 
 
-def _motor_label(backend: str, variant: str) -> str:
-    return f"{backend} ({variant})" if variant and variant != "default" else backend
+def _motor_label(backend: str, variant: str, model_name: str = "") -> str:
+    """Nomenclatura unica del banco: el **modelo real** (`model_name`) con la
+    variante entre parentesis; `backend` solo como respaldo si no hay
+    `model_name`. Iguala a `report.py` (`row.get("model_name") or row["backend"]`),
+    de modo que `REPORT`, `SUMMARY`, `SCOREBOARD` y `QUALITY_VS_TIME` etiquetan
+    el mismo motor con la misma cadena."""
+    motor = model_name or backend
+    return f"{motor} ({variant})" if variant and variant != "default" else motor
 
 
-def measured_from_rows(feature: str, _titular: str) -> dict[str, float]:
-    """Motores medidos de una feature, desde los CSV (misma fuente que el SCOREBOARD)."""
+def _is_pyocrust(motor: str, backend: str = "") -> bool:
+    """True si la fila es un modelo de `pyocrust` (catalogo Apache-2.0).
+
+    Con la nomenclatura unica la etiqueta es el `model_name` (p. ej.
+    `pp-lcnet_x1_0_doc_ori (6.8M)`), no el id del backend, asi que el criterio
+    de "fila propia de pyocrust" no puede ser `"pyocrust" in motor`. Cuando se
+    conoce el `backend` manda ese; el chequeo por nombre es solo el respaldo
+    para los informes que parsean texto (p. ej. `QUALITY_VS_TIME`).
+    """
+    if backend:
+        return backend.startswith("pyocrust")
+    base = motor.split(" (")[0]
+    return any(b.startswith("pyocrust") and m == base for b, (m, _v) in MODEL_NAMES.items())
+
+
+def measured_from_rows(feature: str) -> dict[tuple[str, str], tuple[float, int, str]]:
+    """Motores medidos por device: `(motor, device) -> (calidad, n, backend)`.
+
+    Misma fuente que el SCOREBOARD (`collect_rows`), asi los dos informes no
+    pueden divergir. El `n` es obligatorio y se muestra por fila/device: una
+    corrida de 5 muestras no se confunde con una de 20 ni con otro device. El
+    `backend` viaja con la fila para distinguir "modelo propio" aunque el
+    `model_name` coincida con el de un motor externo (p. ej. `lcnet_doc_ori`
+    y `pyocrust_orientation` comparten `pp-lcnet_x1_0_doc_ori`).
+    """
     col = QUALITY_COL[feature]
-    out: dict[str, float] = {}
-    for (f, _device, backend), rws in collect_rows().items():
+    out: dict[tuple[str, str], tuple[float, int]] = {}
+    for (f, device, backend), rws in collect_rows().items():
         if f != feature:
             continue
         vals = [r for r in rws if _num(r.get(col, "")) is not None]
         if not vals:
             continue
-        label = _motor_label(backend, vals[0].get("model_variant", ""))
-        out[label] = sum(_num(r[col]) for r in vals) / len(vals)
+        label = _motor_label(
+            backend, vals[0].get("model_variant", ""), vals[0].get("model_name", "")
+        )
+        key = (label, device)
+        quality = sum(_num(r[col]) for r in vals) / len(vals)
+        out[key] = (quality, len(rws), backend)
     return out
 
 
 def parse_dataset(feature: str) -> str:
     """Token del `dataset`/GT realmente medido (`**dataset**: \\`x\\`` del REPORT)."""
-    p = BENCH / "features" / feature / "REPORT.md"
+    p = REPORTS / feature / "REPORT.md"
     if not p.exists():
         return ""
     m = DATASET_RE.search(p.read_text(encoding="utf-8"))
@@ -248,7 +408,7 @@ def _rows_from(lines, start_idx):
 def parse_measured(feature: str, titular: str | None) -> dict[str, float]:
     if titular is None:
         return {}
-    p = BENCH / "features" / feature / "REPORT.md"
+    p = REPORTS / feature / "REPORT.md"
     if not p.exists():
         return {}
     lines = p.read_text(encoding="utf-8").splitlines()
@@ -302,7 +462,7 @@ def parse_references(feature: str) -> tuple[dict[str, float], str, str]:
                     return out, metric, urls
 
     # fallback: sección de referencias dentro del REPORT.md
-    rep = BENCH / "features" / feature / "REPORT.md"
+    rep = REPORTS / feature / "REPORT.md"
     if not rep.exists():
         return {}, "", {}
     text = rep.read_text(encoding="utf-8")
@@ -330,23 +490,25 @@ def parse_references(feature: str) -> tuple[dict[str, float], str, str]:
 
 
 def _panel(ax, measured, refs, title):
-    entries = []  # (nombre, valor, origen)
-    entries += [(n, v, "medido") for n, v in measured.items()]
-    entries += [(n, v, "referencia") for n, v in refs.items()]
+    entries = []  # (nombre, valor, origen, n)
+    entries += [(f"{name} · {device}", v, "medido", cnt, backend)
+                for (name, device), (v, cnt, backend) in measured.items()]
+    entries += [(n, v, "referencia", None, "") for n, v in refs.items()]
     if not entries:
         ax.axis("off")
-        ax.set_title(f"{title}\n(pendiente: sin datos ni referencia)", fontsize=9, color="#888")
+        ax.set_title(f"{title}\n(pending: no data or references)", fontsize=9, color="#888")
         return
     entries.sort(key=lambda e: e[1])
     names = [e[0] for e in entries]
     vals = [e[1] for e in entries]
+    counts = [e[3] for e in entries]
     colors, hatches = [], []
-    for n, _v, origin in entries:
+    for n, _v, origin, _cnt, backend in entries:
         if origin == "referencia":
             colors.append("#b0bec5")   # gris azulado: referencia externa (no rayada)
             hatches.append(None)
         else:
-            colors.append("#2e7d32" if "pyocrust" in n else "#607d8b")
+            colors.append("#2e7d32" if _is_pyocrust(n, backend) else "#607d8b")
             hatches.append(None)
     bars = ax.barh(range(len(vals)), vals)
     for bar, c, h in zip(bars, colors, hatches):
@@ -354,8 +516,9 @@ def _panel(ax, measured, refs, title):
         if h:
             bar.set_hatch(h)
             bar.set_edgecolor("#78909c")
-    for i, v in enumerate(vals):
-        ax.text(v + (max(vals) or 1) * 0.01, i, f"{v:.3f}", va="center", fontsize=7)
+    for i, (v, cnt) in enumerate(zip(vals, counts)):
+        label = f"{v:.3f} · n={cnt}" if cnt else f"{v:.3f}"
+        ax.text(v + (max(vals) or 1) * 0.01, i, label, va="center", fontsize=7)
     ax.set_yticks(range(len(vals)))
     ax.set_yticklabels(names, fontsize=7)
     ax.set_xlim(0, (max(vals) or 1) * 1.22)
@@ -380,28 +543,35 @@ def main() -> int:
     md = ["# Resumen de benchmarks — 9 features (`medido` + `referencia`)", "",
           "> `medido` = ejecutado en este repo · `referencia` = publicado en un paper (con URL),",
           "> **no comparable 1:1** · `pendiente` = aún sin datos. Una barra rayada es referencia.",
+          "> Las filas medidas se separan por device y muestran `n`; si difiere entre motores, queda declarado por fila.",
           "> `license` es **informativa** (señala las no permisivas, p. ej. AGPL-3.0); la puerta solo aplica a los modelos de `pyocrust`.", ""]
 
     for k, (feature, titular) in enumerate(FEATURES):
-        measured = measured_from_rows(feature, titular)
+        measured = measured_from_rows(feature)
         refs, metric, ref_urls = parse_references(feature)
         ds = parse_dataset(feature)
         title = feature_title(feature)
         nota = REF_NOTE.get(feature)
-        _panel(axes[k], measured, refs, f"{title}\n({nota})" if nota else title)
+        plot_title = title.replace("sintético", "Synthetic")
+        plot_note = (nota.replace("otro dataset/GT", "different dataset/ground truth")
+                    .replace("otra métrica y dataset", "different metric and dataset")
+                    .replace("otro conjunto de eval.", "different evaluation set")
+                    .replace("otra escala 0-100", "different 0–100 scale") if nota else "")
+        _panel(axes[k], measured, refs, f"{plot_title}\n({plot_note})" if plot_note else plot_title)
         status = "medido" if measured else ("referencia" if refs else "pendiente")
         src = f" · **dataset medido**: `{ds}`" if ds else ""
         md += [f"## {title} — `{status}`{src}", ""]
         if nota:
             md += [f"> ⚠️ **{nota}**", ""]
         if measured or refs:
-            md += ["| Motor | Valor | Origen | license |", "| :--- | ---: | :--- | :--- |"]
-            for nm, v in sorted(measured.items(), key=lambda p: -p[1]):
-                mark = "**" if "pyocrust" in nm else ""
-                md.append(f"| {mark}{nm}{mark} | {v:.3f} | medido | {_license_for(nm)} |")
+            md += ["| Motor | Device | Valor | n | Origen | license |",
+                   "| :--- | :--- | ---: | ---: | :--- | :--- |"]
+            for (nm, device), (v, cnt, backend) in sorted(measured.items(), key=lambda p: -p[1][0]):
+                mark = "**" if _is_pyocrust(nm, backend) else ""
+                md.append(f"| {mark}{nm}{mark} | {device} | {v:.3f} | {cnt} | medido | {_license_for(nm)} |")
             for nm, v in sorted(refs.items(), key=lambda p: -p[1]):
                 src = ref_urls.get(nm, "") or "ver REFERENCES.md"
-                md.append(f"| {nm} | {v:.3f} | referencia [ref: {src}] | {_license_for(nm)} |")
+                md.append(f"| {nm} | — | {v:.3f} | — | referencia [ref: {src}] | {_license_for(nm)} |")
         else:
             md.append("_Sin datos ni referencia todavía._")
         md.append("")
@@ -410,21 +580,25 @@ def main() -> int:
         ax.axis("off")
 
     fig.legend(handles=[
-        Patch(facecolor="#2e7d32", label="pyocrust (medido)"),
-        Patch(facecolor="#607d8b", label="alternativa (medida)"),
-        Patch(facecolor="#b0bec5", label="referencia (externo)"),
+        Patch(facecolor="#2e7d32", label="pyocrust (measured)"),
+        Patch(facecolor="#607d8b", label="alternative (measured)"),
+        Patch(facecolor="#b0bec5", label="external reference"),
     ], loc="lower center", bbox_to_anchor=(0.5, 0.035), ncol=3, frameon=False, fontsize=10)
-    fig.suptitle("pyocrust — benchmarks por feature: medido vs referencia externa", fontsize=14)
+    fig.suptitle("pyocrust — benchmark results by feature: measured vs. external reference", fontsize=14)
     fig.text(0.5, 0.006,
-             "Barra sólida = MEDIDO (dataset del título del panel) · barra rayada = REFERENCIA "
-             "externa de OTRO dataset/métrica (ver nota del panel). No comparables 1:1.",
+             "Solid bar = MEASURED (panel dataset) · gray bar = EXTERNAL REFERENCE "
+             "from a DIFFERENT dataset/metric (see panel note). Not directly comparable.",
              ha="center", fontsize=8, color="#555555")
     fig.tight_layout(rect=(0, 0.075, 1, 0.96))
+    FIGURES.mkdir(parents=True, exist_ok=True)
     for ext in ("png", "svg"):
-        fig.savefig(BENCH / f"SUMMARY.{ext}", dpi=150, bbox_inches="tight", facecolor="white")
-    (BENCH / "SUMMARY.md").write_text("\n".join(md), encoding="utf-8")
-    print("[summary] ->", BENCH / "SUMMARY.png")
-    print("[summary] ->", BENCH / "SUMMARY.md")
+        fig.savefig(FIGURES / f"SUMMARY.{ext}", dpi=150, bbox_inches="tight", facecolor="white")
+    summary_md = "\n".join(md)
+    REPORTS.mkdir(parents=True, exist_ok=True)
+    (REPORTS / "SUMMARY.md").write_text(summary_md, encoding="utf-8")
+    (REPORTS / "SUMMARY.en.md").write_text(english_markdown(summary_md), encoding="utf-8")
+    print("[summary] ->", FIGURES / "SUMMARY.png")
+    print("[summary] ->", REPORTS / "SUMMARY.md (+ SUMMARY.en.md)")
     return 0
 
 
