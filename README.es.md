@@ -510,9 +510,9 @@ componentes de `oar-ocr`): cada capacidad tiene su banco, su métrica y alternat
 reales en Python. Mide **las 9 features**; cada número es `medido` (ejecutado
 aquí) o `referencia` (citado de un paper con URL) — nunca mezclados sin etiquetar.
 
-![Resumen de benchmarks por feature](https://raw.githubusercontent.com/vquilon/pyocrust/main/benchmarks/SUMMARY.png)
+![Resumen de benchmarks por feature](https://raw.githubusercontent.com/vquilon/pyocrust/main/benchmarks/figures/SUMMARY.png)
 
-![Calidad vs tiempo por feature](https://raw.githubusercontent.com/vquilon/pyocrust/main/benchmarks/SUMMARY_QUALITY_VS_TIME.png)
+![Calidad vs tiempo por feature](https://raw.githubusercontent.com/vquilon/pyocrust/main/benchmarks/figures/SUMMARY_QUALITY_VS_TIME_CPU.png)
 
 | Feature | Métrica titular ↑ | pyocrust (medido) | Mejor alternativa medida | Estado |
 | :--- | :--- | ---: | :--- | :--- |
@@ -531,7 +531,7 @@ Los 9 bancos se ejecutaron con `--limit 20` (`n=20`, CPU, `warmup=1`, `repeats=1
 **medida** gana (`formula`, `layout`), la tabla lo dice. Tablas por motor, provenance
 completa (comando, dataset, `n`, runtime) y referencias externas con URL en
 [`benchmarks/README.md`](benchmarks/README.md) y
-[`benchmarks/SUMMARY.md`](benchmarks/SUMMARY.md).
+[`benchmarks/reports/SUMMARY.md`](benchmarks/reports/SUMMARY.md).
 
 **Cómo se mide la campaña.**
 
@@ -545,7 +545,7 @@ completa (comando, dataset, `n`, runtime) y referencias externas con URL en
 - **CPU vs GPU reales** — cada adaptador registra `provider_effective` (el EP que de
   verdad ejecutó). `--device gpu` sobre un motor sin acelerador queda `skipped` con
   motivo; un *fallback* a CPU nunca se reporta como GPU
-  (ver `benchmarks/CPU_VS_GPU.md`).
+  (ver `benchmarks/reports/CPU_VS_GPU.md`).
 - **Licencia por motor** — la columna `license` es **informativa** (señala pesos no
   permisivos, p. ej. AGPL-3.0 en las referencias YOLOv10); la puerta vinculante es el
   catálogo + los flags de política (ADR-017), no esta columna.

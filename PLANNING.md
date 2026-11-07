@@ -291,7 +291,7 @@ auditan; `B9` reescribe `B3` con el alcance nuevo.
 * **Tarjeta:** `t_da2882a8`. **Responsable:** `escriba`. **Estado:** Hecho (2026-10-25).
 * **Contenido:** `benchmarks/README.md` (qué mide, comandos con `.venv/Scripts/python.exe`, contrato del CSV de 15 columnas, interpretación de cada métrica y limitaciones conocidas); una sección `## Benchmarking` en `README.md`; y esta `Fase 7`.
 * **Criterio de aceptación:** los ficheros existen; `benchmarks/README.md` documenta comandos copiables; `PLANNING.md` conserva el estilo y no rompe las tablas previas.
-* **Evidencia:** números leídos de `benchmarks/output_examples/benchmark_summary.json` (run `2026-10-25_22-07-24`, n=29 por backend, 3 backends: `pyocrust`, `rapidocr`, `easyocr`): `pyocrust` CER `0.483`, F1 `0.744`, `715` ms/pág.; `rapidocr` CER `0.477`, F1 `0.603`, `5994` ms/pág.; `easyocr` CER `0.523`, F1 `0.428`, `8303` ms/pág. `pyocrust` es ~8,4× más rápido que `rapidocr` y ~11,6× que `easyocr`. El JSON se regenera con cada `report_benchmarks.py`, así que los números del post corresponden a la run vigente al escribir `B3`.
+* **Evidencia:** números leídos de `benchmarks/reports/legacy/benchmark_summary.json` (run `2026-10-25_22-07-24`, n=29 por backend, 3 backends: `pyocrust`, `rapidocr`, `easyocr`): `pyocrust` CER `0.483`, F1 `0.744`, `715` ms/pág.; `rapidocr` CER `0.477`, F1 `0.603`, `5994` ms/pág.; `easyocr` CER `0.523`, F1 `0.428`, `8303` ms/pág. `pyocrust` es ~8,4× más rápido que `rapidocr` y ~11,6× que `easyocr`. El JSON se regenera con cada `report_benchmarks.py`, así que los números del post corresponden a la run vigente al escribir `B3`.
 
 ### `B4` — Atacar la metodología del benchmark
 
@@ -611,12 +611,37 @@ Dependencias: `L1` → `L2` → `L3` → `L4` → `L5` → `L6`.
 ### `Fase 11` — Campaña de métricas CPU/GPU y coherencia de informes
 
 * **Tarjetas:** `t_347622f2` (medición, `coder`→`hefesto`), `t_c2e5a1a9` (probador), `t_7188f49a` (crítico), `t_9fe2c075` (escriba→`hefesto`). **Estado:** Hecho (2026-11-07).
-* **`n` uniforme:** los 9 bancos re-ejecutados con `--limit 20`. `SUMMARY` y `SCOREBOARD` salen del **mismo** colector de CSV (`benchmarks/features/summary.py::collect_rows`), de modo que no pueden divergir; los `REPORT.md` por feature los genera `report.py` (desde los CSV de cada run) y `QUALITY_VS_TIME.md` deriva de esos `REPORT.md`. `SCOREBOARD.md` declara `n` por fila: las alternativas de control de `formula` con solo run `n=5` (rapidocr, easyocr, `pyocrust_indra`) se muestran con su `n`, nunca fusionadas con las de `n=20` (queda re-medirlas).
-* **GPU real:** `device_outcome` habilita GPU solo donde la factoría la soporta (`paddle_latex_ocr`, `rapidocr`, `easyocr`, los YOLO); cada adaptador declara `provider_effective` y el runner **rechaza** etiquetar CPU como GPU.
+* **`n` y device por fila:** los 9 bancos de la campaña principal se re-ejecutaron con `--limit 20`. `SUMMARY` y `SCOREBOARD` salen del colector de CSV (`benchmarks/features/summary.py::collect_rows`) y muestran `device` + `n` por fila; `benchmarks/tests/test_report_consistency.py` exige que coincidan por (feature, motor, device). `REPORT.md` por feature lo genera `report.py` y `QUALITY_VS_TIME.md` deriva de esos reportes; el test también falla si un artefacto derivado es más antiguo que cualquier `REPORT.md`. Verificación focal: `7 passed` (2026-11-07; un warning heredado de `asyncio_mode`).
+* **OCR de texto fuera de `formula` (corrregido 2026-11-07):** `rapidocr`, `easyocr` y `tesseract` no tienen módulo de fórmulas→LaTeX y no son equiparables contra un GT LaTeX, así que **no entran** en los informes de `formula`. El corte vive en `common/runner.py::FORMULA_BACKENDS_EXCLUDED` + `applicable_rows()`, y lo aplican `report.py` (`analyze`, `load_gpu`) y `summary.py` (`collect_rows`); `quality_vs_time` hereda el filtro al leer `REPORT.md`. Se retiraron de los ejemplos de `benchmarks/README.md` y del docstring del banco. Las runs viejas que los contienen siguen en disco (provenance) pero ya no publican filas.
+* **Revertido:** las corridas `2026-11-07_20-05-57`, `2026-11-07_20-06-31`, `2026-11-07_20-10-17`, `2026-11-07_20-14-45` y `2026-11-07_20-20-26` (hechas en esta sesión al ampliar `n` a esos dos motores) se borraron: la run de referencia de `formula` vuelve a ser `2026-11-07_14-47-19` (5 backends, `n=20`).
+* **GPU real:** `device_outcome` habilita GPU solo donde la factoría la soporta (`paddle_latex_ocr`, `rapidocr`, `easyocr`, los YOLO y los motores `pyocrust*` vía DirectML); cada adaptador declara `provider_effective` y el runner **rechaza** etiquetar CPU como GPU. Para esta campaña el `.pyd` del `.venv` se reconstruyó con `maturin develop --release --features directml` (el build del 6 nov lo había dejado sin acelerador: `available_providers() == []`).
 * **Licencias informativas:** `EXTERNAL_LICENSE` (verificada en HF `cardData.license`) señala las no permisivas (AGPL-3.0) en los informes de comparación. La **puerta** (`license_commercial_use` / `license_acknowledge`) sigue solo en los modelos que usa `pyocrust` (ADR-017).
-* **Motores excluidos de las métricas:** `yolov10x`, `yolov10b`, `yolo26m` (`EXCLUDED_MOTORS`) por no ser DocLayNet-finetuned verificables; se conservan en los CSV.
+* **Layout:** `yolov10x`, `yolov10b` y `yolo26m` aparecen en los informes generados desde sus runs; se conserva la comprobación de vocabulario DocLayNet (11 clases) descrita a continuación.
 * **Solo DocLayNet en `layout`:** las filas YOLOv10 de referencia llevan mAP de DocLayNet y los YOLO medidos exponen las **11 clases de DocLayNet** (validado sobre `model.names`), nunca las 80 de COCO.
-* **Pendiente (`t_b304e350`):** retirar las referencias externas que no están medidas sobre el mismo dataset/GT y re-ejecutarlas en CPU+GPU. No se publica calidad entre datasets distintos.
+* **Pendiente (`t_b304e350`, archivada):** retirar las referencias externas que no están medidas sobre el mismo dataset/GT y re-eecutarlas en CPU+GPU. No se publica calidad entre datasets distintos.
+
+### Revisión final pendiente (tarjetas archivadas; retomar en la siguiente sesión)
+
+1. **`report.py` no filtra `EXCLUDED_MOTORS`**: los YOLO siguen saliendo en la sección «CPU vs GPU» de `layout/REPORT.md`. **Cerrada**: la exclusión se retiró de plano; los YOLO se miden y aparecen con su `n` y `device` (ver «Layout» más arriba).
+2. **`load_gpu` agrega por run, no por motor**: la sección «CPU vs GPU» coge la última run con GPU, no la última por motor. **Cerrada**: `load_gpu` agrupa por `backend` y se queda la primera run con GPU real de cada uno.
+3. **Gráfica quality-vs-time de GPU**: no existe; `QUALITY_VS_TIME` solo pinta CPU (el código que lee `## CPU vs GPU` está muerto). **Cerrada**: `SUMMARY_QUALITY_VS_TIME_GPU.{png,svg}` y el panel `device cpu+gpu` de `QUALITY_VS_TIME.md`.
+4. **`latest_run` no filtra por `device`** al elegir la run de referencia del `REPORT`. **Cerrada**: `latest_run(feature, device="cpu")` filtra por `device_requested`/run y desempata por nombre de run.
+5. **El `SUMMARY` no declara `n`** en cada panel. **Cerrada**: cada fila lleva `Device` y `n`, y el test de consistencia cruza `SUMMARY` contra `SCOREBOARD`.
+6. **Sin test de coherencia** entre `REPORT`/`SUMMARY`/`SCOREBOARD` en `benchmarks/tests/`. **Cerrada**: `benchmarks/tests/test_report_consistency.py` (13 casos) cruza los tres artefactos y falla si un derivado es más viejo que un `REPORT.md`.
+
+### `Fase 11` — Cierre de coherencia de proveedor (2026-11-07)
+
+* **Bug encontrado y corregido:** la tabla consolidada `CPU_VS_GPU.md` publicaba `provider GPU = n/a` en filas con `ms GPU` medido. Causa raíz: `render_cpu_gpu`/`consolidated_table` derivaban el `backend` del nombre del informe (`name.split(" (")[0]`) y lo buscaban en `MODEL_NAMES`, que indexa por `backend` canónico (`pyocrust_layout`, `hantian_v12n`). Como no coincidían, `_provider_of` no encontraba la entrada del `summary.json` y devolvía `n/a` para los 39 YOLO y para `pp-doclayoutv3`.
+* **Corrección:** `_backend_for(summary, name)` resuelve `model_name (variante)` → `backend` contra el `summary.json` de la run GPU, con prefijo para los YOLO que declaran el sufijo de dataset en `model_name` (`yolo26m (doc-layout)`). Ambos llamadores usan la misma función: es el arreglo en la raíz, no un parche por sitio.
+* **Cubierto por test:** `test_tabla_consolidada_resuelve_provider_por_model_name` falla si una fila tiene `ms GPU` medido y `provider n/a`; `test_render_cpu_gpu_sin_model_name_no_inventa_provider` fija que sin `model_name` en el summary el provider sale `n/a` y no se inventa.
+
+### `Fase 11` — Resumen coherente: un proveedor, uno por versión y el de tamaño similar (2026-11-07)
+
+* **Petición:** las gráficas y tablas **resumen** no deben volcar los 39 YOLO; en las de **cada feature** sí deben salir todos los modelos medidos.
+* **Regla implementada** (`summary.summary_yolo_layout_backends`, usada por `SUMMARY`, `SCOREBOARD` y `QUALITY_VS_TIME`): (1) un solo proveedor, el de mejor mAP@0.5 del tamaño que sea; (2) dentro de ese proveedor, el mejor modelo por versión de YOLO (v8, v10, v11, v12, y26); (3) el YOLO de checkpoint más cercano en bytes a `pp-doclayoutv3` (~130 MB), que se añade aunque repita versión.
+* **Resultado medido en esta campaña:** gana **hantian** (0.508 con `v8-n`). Panel `layout` del resumen = `v8-n` 0.508, `v10-m` 0.499, `v12-s` 0.494, `y26-s` 0.471, `v11-s` 0.429 y `v8-x` 0.497 (130 MB, el de tamaño similar a `pyocrust`). `omoured` (0.437) y `armaggheddon` (0.479) no entran en el resumen.
+* **Los 39 se conservan** en `reports/layout/REPORT.md` (41 filas de comparativa), `benchmark_table.*` y la figura `LAYOUT_ALL_MODELS`. El filtro no se aplica a `report.py`.
+* **Tests:** `test_resumen_yolo_un_proveedor_uno_por_version` y `test_el_yolo_de_tamano_similar_a_pyocrust_entra_en_el_resumen` fijan la regla con fixtures; `test_report_de_layout_conserva_los_39_yolo_medidos` impide que el filtro se filtre a los informes por feature; `test_resumen_contiene_un_yolo_por_version` y `test_quality_vs_time_table_muestra_un_yolo_por_version` admiten 1-2 modelos por versión (el segundo es el de tamaño similar).
 
 ## 6. Qué quedó fuera de alcance y por qué
 
@@ -639,12 +664,12 @@ Condiciones abiertas del dictamen `S1` (comentario de `t_d005409b`, 2026-10-25).
 | S1.3 | `PyOcrValueError`/`PyOcrRuntimeError` no heredan de `PyOcrError` | Mayor | **Cerrada (`c30a3a9`)** | `src/core/error.rs:147-149` |
 | S1.4 | `VeloceOCR::new` no ejecuta el preflight (ni el descargador) | Mayor | **Cerrada (`S2.0`, `t_54cab62c`)** | `src/storage/models.rs:224-242` (`ensure_models` conectado); `DESIGN.md` ADR-007 |
 | S1.5 | `OAR_HOME` relativa rompe la autodescarga de `oar-ocr` | Mayor | **Cerrada (`c30a3a9`)** | `src/storage/config.rs:115-126,144-155` |
-| S1.6 | `VeloceOCR::new` retiene el GIL durante la carga | Menor | Parcial (`D2`) | `src/lib.rs:35-65` |
+| S1.6 | `VeloceOCR::new` retiene el GIL durante la carga | Menor | **Cerrada (`D3`, re-verificada 2026-11-07)** | `src/lib.rs:100,102` (`py.detach` en `ensure_models` y `create_engine`) |
 | S1.7 | Retirar de `DESIGN.md` las capacidades de VRAM inexistentes | Menor | **Hecho en `D1`** | `DESIGN.md` §3.3 y ADR-005 |
 
 `S1.2` la resolvió `arquitecto` por la opción A (implementar `StructureResult`) y la cerró `t_ab6ff8d0` (`b128566`, `D2`); `S1.3` y `S1.5` las cerró `c30a3a9`, que aterrizó mientras `D2` corría.
 
-> **Nota (`D2`, actualizada en `D3`).** Queda `S1.6` (parcial): las rutas/preflight aún retienen el GIL (`src/lib.rs:35-60`). `S1.1` la cerró `4502d1e` y `S1.4`, `S2.0` (`t_54cab62c`): `ensure_models` conecta el descargador nativo con paralelismo de 4 hilos y sidecar SHA-256. Debe re-verificar `S1.6` quien la posea.
+> **Nota (`D2`, actualizada en `D3` y cerrada en 2026-11-07).** `S1.6` queda **cerrada**: `VeloceOCR::new` libera el GIL con `py.detach` (PyO3 0.30, antes `allow_threads`) tanto en la descarga/preflight (`src/lib.rs:100`, `ensure_models`) como en la construcción del motor (`src/lib.rs:102`, `create_engine`). `S1.1` la cerró `4502d1e` y `S1.4`, `S2.0` (`t_54cab62c`): `ensure_models` conecta el descargador nativo con paralelismo de 4 hilos y sidecar SHA-256.
 
 ## 8. Disciplina de commits (verificada en `D1`)
 

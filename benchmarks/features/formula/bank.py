@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 """Banco de la feature **formula** (fórmula → LaTeX).
 
-Igual que el componente `formula` de `oar-ocr`. La crítica del usuario es
-explícita: **easyocr/rapidocr no tienen modelo de fórmulas→LaTeX**, así que este
-banco compara contra motores que **sí** emiten LaTeX. La unidad es cada fórmula
-anotada (bloque `equation_isolated` de OmniDocBench, recorte por `poly` + GT de
-su `latex`), la misma entrada PNG para todos.
+Igual que el componente `formula` de `oar-ocr`. Los motores de OCR de texto
+(`easyocr`, `rapidocr`, `tesseract`) **no** entran: no tienen módulo de
+fórmulas→LaTeX y no son equiparables contra un GT LaTeX. Este banco compara
+únicamente motores que **sí** emiten LaTeX. La unidad es cada fórmula anotada
+(bloque `equation_isolated` de OmniDocBench, recorte por `poly` + GT de su
+`latex`), la misma entrada PNG para todos.
 
 Métrica (sobre la **forma canónica** de LaTeX, `latex_metrics.py`):
 `latex_exact` (coincidencia normalizada), `latex_sim` (similitud) y
@@ -15,8 +16,8 @@ repite símbolos como texto.
 
 Provenance: números **`medidos`** por este banco. Las alternativas comparadas son
 reales; la disponibilidad es real (las ausentes quedan `skipped` con su
-`pip install`). Los motores de OCR de texto (`easyocr`, `rapidocr`, `tesseract`)
-se incluyen como **control** (no emiten LaTeX), no como alternativas del ranking.
+`pip install`). Los OCR de texto quedan fuera por diseño: ver
+`FORMULA_BACKENDS_EXCLUDED` en `common/runner.py`.
 
 Uso:
     .venv/Scripts/python.exe benchmarks/features/formula/bank.py --limit 10
@@ -109,8 +110,8 @@ EXTRA_FACTORIES = {
 }
 EXTRA_MODELS = {name: (name, "default") for name in EXTRA_FACTORIES}
 
-# Orden por defecto: motores LaTeX de pyocrust, luego alternativas LaTeX reales,
-# y al final los controles de OCR de texto (etiquetados como tales).
+# Orden por defecto: motores LaTeX de pyocrust y alternativas LaTeX reales.
+# Los OCR de texto (easyocr/rapidocr/tesseract) no entran: no emiten LaTeX.
 DEFAULT_BACKENDS = (
     "pyocrust_formulanet,pyocrust_formula,pyocrust_indra,"
     "paddle_latex_ocr,pix2tex,texify,nougat,unimernet,pix2text,texteller,img2latex"
