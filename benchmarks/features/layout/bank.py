@@ -37,6 +37,7 @@ from datetime import datetime
 from common import OcrOutput, Sample, load_dataset, run_backends
 from common.datasets import LAYOUT_MODEL_TO_GT, layout_gt_classes
 from common.metrics import detection_map
+from common.runner import YOLO_LAYOUT_MODELS
 from features._base import FeatureSpec, common_argparser, feature_out_dir
 
 SPEC = FeatureSpec(
@@ -60,7 +61,9 @@ SPEC = FeatureSpec(
 # Orden: detector propio de `pyocrust` y, después, las alternativas reales
 # (`transformers`, offline desde la cache HF). Las que no tengan pesos en caché
 # quedan `skipped` con su motivo — nunca `ok`.
-DEFAULT_BACKENDS = "pyocrust_layout,docling_heron_101,yolov10x,yolov10b,yolo26m,deformable_detr"
+DEFAULT_BACKENDS = ",".join(
+    ["pyocrust_layout", "docling_heron_101", "deformable_detr", *sorted(YOLO_LAYOUT_MODELS)]
+)
 
 
 def _model_bbox(element: dict) -> tuple[float, float, float, float] | None:
