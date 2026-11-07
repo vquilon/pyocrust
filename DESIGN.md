@@ -504,7 +504,7 @@ El componente `SmartImageProcessor` admite dos estrategias de segmentación visu
 `benchmarks/` (fuera de `src/`) es el banco de evidencia del paquete, con un banco por
 feature. La campaña `t_347622f2`/`t_c2e5a1a9`/`t_7188f49a`/`t_9fe2c075` fija cuatro
 reglas que los informes (`SUMMARY.md`, `SCOREBOARD.md`, `CPU_VS_GPU.md`,
-`features/<feature>/REPORT.md`) deben cumplir; incumplirlas invalida la comparación:
+`reports/<feature>/REPORT.md`) deben cumplir; incumplirlas invalida la comparación:
 
 1. **`n` uniforme por feature.** Todas las filas salen del mismo barrido (`--limit 20`).
    `SUMMARY` y `SCOREBOARD` se generan del mismo colector de CSV
@@ -515,7 +515,7 @@ reglas que los informes (`SUMMARY.md`, `SCOREBOARD.md`, `CPU_VS_GPU.md`,
    tales, nunca fusionadas con las de `n=20`.
 2. **CPU vs GPU reales.** Cada adaptador reporta `provider_effective` (el EP que de
    verdad ejecutó). `--device gpu` sobre un motor sin acelerador queda `skipped` con
-   motivo; un *fallback* a CPU jamás se etiqueta como GPU (`benchmarks/CPU_VS_GPU.md`).
+   motivo; un *fallback* a CPU jamás se etiqueta como GPU (`benchmarks/reports/CPU_VS_GPU.md`).
 3. **Licencia por motor (informativa).** La columna `license` de los informes señala las
    licencias no permisivas de los motores de comparación (p. ej. AGPL-3.0 de los YOLOv10
    de `omoured`); la **puerta** vinculante sigue siendo el catálogo + los flags de

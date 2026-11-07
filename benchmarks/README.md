@@ -22,33 +22,33 @@ capacidad y se compara contra alternativas comparables.
 
 Cada carpeta de feature tiene su `README.md` (qué mide, alternativa y métrica) y
 su `bank.py`. El reporte **por feature** se genera con
-`features/report.py` y se guarda junto al banco (`features/<feature>/REPORT.md`).
+`features/report.py` y se guarda junto al banco (`reports/<feature>/REPORT.md`).
 
 ## Resultados medidos (resumen)
 
 > **`medido`** = ejecutado en este repo (`--limit 20`, CPU, `warmup=1`, `repeats=1`,
 > pyocrust 0.1.0; campaña 2026-11-06/07); detalle por motor, provenance completa y la
-> columna `license` por motor en `features/<feature>/REPORT.md`.
+> columna `license` por motor en `reports/<feature>/REPORT.md`.
 > **`referencia`** = valor de paper (con URL, panel aparte, **no comparable 1:1**).
 > **`pendiente`** = sin datos aún (nunca ceros).
 >
 > **9 de 9 features medidas.**
 
-![Resumen de benchmarks por feature](SUMMARY.png)
+![Resumen de benchmarks por feature](figures/SUMMARY.png)
 
-Tabla consolidada generada por `features/summary.py`: [`SUMMARY.md`](SUMMARY.md). Regenerar: `.venv/Scripts/python.exe benchmarks/features/summary.py`.
+Tabla consolidada generada por `features/summary.py`: [`reports/SUMMARY.md`](reports/SUMMARY.md). Regenerar: `.venv/Scripts/python.exe benchmarks/features/summary.py`.
 
 | Feature | Métrica titular ↑ | pyocrust (medido) | Mejor alternativa medida | Run | Estado |
 | :--- | :--- | ---: | :--- | :--- | :--- |
-| `text` | F1 palabra | 0.717 | rapidocr 0.585 | [text/2026-11-06_22-46-46](benchmarks/results/text/2026-11-06_22-46-46) | medido |
-| `formula` | Similitud LaTeX | 0.497 | paddle_latex_ocr 0.694 | [formula/2026-11-06_22-42-36](benchmarks/results/formula/2026-11-06_22-42-36) | medido |
-| `layout` | mAP@IoU 0.5 | 0.827 | docling_heron_101 0.843 | [layout/2026-11-06_22-53-15](benchmarks/results/layout/2026-11-06_22-53-15) | medido |
-| `orientation` | accuracy | 0.950 | lcnet_doc_ori 0.950 | [orientation/2026-11-06_23-05-36](benchmarks/results/orientation/2026-11-06_23-05-36) | medido |
-| `rectification` | SSIM | 0.707 | uvdoc 0.707 | [rectification/2026-11-06_23-06-42](benchmarks/results/rectification/2026-11-06_23-06-42) | medido |
-| `text_line` | accuracy | 1.000 | lcnet_textline_ori 1.000 | [text_line/2026-11-06_23-07-36](benchmarks/results/text_line/2026-11-06_23-07-36) | medido |
-| `seal` | recall@IoU 0.5 | 0.750 | — | [seal/2026-11-06_23-08-24](benchmarks/results/seal/2026-11-06_23-08-24) | medido |
-| `table` | TEDS | 0.854 | tatr 0.699 | [table/2026-11-06_23-09-19](benchmarks/results/table/2026-11-06_23-09-19) | medido |
-| `full_page` | Markdown F1 | 0.231 | — | [full_page/2026-11-06_23-31-43](benchmarks/results/full_page/2026-11-06_23-31-43) | medido |
+| `text` | F1 palabra | 0.717 | rapidocr 0.585 | [text/2026-11-06_22-46-46](results/text/2026-11-06_22-46-46) | medido |
+| `formula` | Similitud LaTeX | 0.497 | paddle_latex_ocr 0.694 | [formula/2026-11-06_22-42-36](results/formula/2026-11-06_22-42-36) | medido |
+| `layout` | mAP@IoU 0.5 | 0.827 | docling_heron_101 0.843 | [layout/2026-11-06_22-53-15](results/layout/2026-11-06_22-53-15) | medido |
+| `orientation` | accuracy | 0.950 | lcnet_doc_ori 0.950 | [orientation/2026-11-06_23-05-36](results/orientation/2026-11-06_23-05-36) | medido |
+| `rectification` | SSIM | 0.707 | uvdoc 0.707 | [rectification/2026-11-06_23-06-42](results/rectification/2026-11-06_23-06-42) | medido |
+| `text_line` | accuracy | 1.000 | lcnet_textline_ori 1.000 | [text_line/2026-11-06_23-07-36](results/text_line/2026-11-06_23-07-36) | medido |
+| `seal` | recall@IoU 0.5 | 0.750 | — | [seal/2026-11-06_23-08-24](results/seal/2026-11-06_23-08-24) | medido |
+| `table` | TEDS | 0.854 | tatr 0.699 | [table/2026-11-06_23-09-19](results/table/2026-11-06_23-09-19) | medido |
+| `full_page` | Markdown F1 | 0.231 | — | [full_page/2026-11-06_23-31-43](results/full_page/2026-11-06_23-31-43) | medido |
 
 
 ### `text` — FUNSD, n=20 (detección + reconocimiento)
@@ -61,7 +61,7 @@ Tabla consolidada generada por `features/summary.py`: [`SUMMARY.md`](SUMMARY.md)
 
 > Run: `benchmarks/results/text/2026-11-06_22-46-46` (CPU, n=20, warmup=1, repeats=1)
 
-![Reporte text](features/text/REPORT.png)
+![Reporte text](figures/text/REPORT.png)
 
 ### `formula` — OmniDocBench, n=20 (fórmula → LaTeX)
 
@@ -74,14 +74,14 @@ Tabla consolidada generada por `features/summary.py`: [`SUMMARY.md`](SUMMARY.md)
 
 > Run: `benchmarks/results/formula/2026-11-06_22-42-36` (CPU, n=20, warmup=1, repeats=1)
 
-![Reporte formula](features/formula/REPORT.png)
+![Reporte formula](figures/formula/REPORT.png)
 
 ### Cobertura global («todo en uno» + autogestión de modelos)
 
 Resumen de las 9 features y 12 capacidades que cubre el paquete, con la autogestión
-de modelos: [`FEATURES_OVERVIEW.md`](FEATURES_OVERVIEW.md).
+de modelos: [`reports/FEATURES_OVERVIEW.md`](reports/FEATURES_OVERVIEW.md).
 
-![Cobertura feature × capacidad](FEATURES_OVERVIEW.png)
+![Cobertura feature × capacidad](figures/FEATURES_OVERVIEW.png)
 
 ### Resto de features (gráfica por feature)
 
@@ -91,13 +91,13 @@ de modelos: [`FEATURES_OVERVIEW.md`](FEATURES_OVERVIEW.md).
 
 | Feature | Gráfica |
 | :--- | :--- |
-| layout | ![layout](features/layout/REPORT.png) |
-| orientation | ![orientation](features/orientation/REPORT.png) |
-| rectification | ![rectification](features/rectification/REPORT.png) |
-| text_line | ![text_line](features/text_line/REPORT.png) |
-| seal | ![seal](features/seal/REPORT.png) |
-| table | ![table](features/table/REPORT.png) |
-| full_page | ![full_page](features/full_page/REPORT.png) |
+| layout | ![layout](figures/layout/REPORT.png) |
+| orientation | ![orientation](figures/orientation/REPORT.png) |
+| rectification | ![rectification](figures/rectification/REPORT.png) |
+| text_line | ![text_line](figures/text_line/REPORT.png) |
+| seal | ![seal](figures/seal/REPORT.png) |
+| table | ![table](figures/table/REPORT.png) |
+| full_page | ![full_page](figures/full_page/REPORT.png) |
 
 ### Estructura
 
@@ -108,9 +108,11 @@ benchmarks/
 │   ├── runner.py        # orquesta: warmup, repeats, CSV 28 cols, skipped≠ok
 │   ├── metrics.py       # CER/WER/word_f1, markdown_f1, block_f1, cajas, LaTeX
 │   └── datasets.py      # FUNSD, OmniDocBench, recortes de fórmula, manifests
-├── features/<feature>/  # bank.py + README.md (+ REPORT.md tras ejecutar)
+├── features/<feature>/  # bank.py + README.md (+ SPEC/REFERENCES)
+├── reports/<feature>/   # REPORT.md/.en.md + tablas .md/.en.md/.tex
+├── figures/<feature>/   # REPORT.png/.svg y gráficas específicas
 ├── results/             # salidas por feature/<run> (NO se versionan)
-└── tests/               # contrato y organización (pytest)
+└── tests/                # contrato y organización (pytest)
 ```
 
 ### Cómo correr cada banco
@@ -121,8 +123,9 @@ benchmarks/
   --backends pyocrust,rapidocr,easyocr,tesseract,surya,paddleocr,doctrl
 
 # formula (recortes de OmniDocBench; compara contra alternativas que SÍ hacen LaTeX)
+# Los OCR de texto (easyocr/rapidocr/tesseract) no entran: no emiten LaTeX.
 .venv/Scripts/python.exe benchmarks/features/formula/bank.py --limit 10 \
-  --backends pyocrust_formulanet,pyocrust_formula,pyocrust_indra,pix2tex,easyocr,rapidocr --dump-outputs
+  --backends pyocrust_formulanet,pyocrust_formula,pyocrust_indra,pix2tex --dump-outputs
 
 # medido (imprime su plan y el estado real de sus alternativas; ver REPORT.md)
 .venv/Scripts/python.exe benchmarks/features/layout/bank.py
@@ -149,13 +152,13 @@ crudos, `*.outputs.json`) **no se versionan**; solo el markdown con valores.
 panel por feature: eje X = `ms` por unidad (izquierda = mejor; log sólo si el rango
 supera 1 década), eje Y = índice de calidad (arriba = mejor). Un punto por motor
 **medido**; el `device` se anota en el título del panel y la leyenda distingue
-`pyocrust` de la alternativa (ambos medidos, provenance de `features/<feature>/REPORT.md`).
+`pyocrust` de la alternativa (ambos medidos, provenance de `reports/<feature>/REPORT.md`).
 
 > **Sólo motores medidos** (mismo banco/GT por panel): aquí **no** hay referencias
-> externas, así que esta gráfica puede **contradecir** `SUMMARY.png`, que sí añade
+> externas, así que esta gráfica puede **contradecir** `figures/SUMMARY.png`, que sí añade
 > referencias de **otro dataset/métrica** (p. ej. los YOLO sobre DocLayNet en `layout`).
 
-Salidas: `SUMMARY_QUALITY_VS_TIME.png` + `QUALITY_VS_TIME.md`.
+Salidas: `figures/SUMMARY_QUALITY_VS_TIME_CPU.{png,svg}` + `figures/SUMMARY_QUALITY_VS_TIME_GPU.{png,svg}` + `reports/QUALITY_VS_TIME.md` (tabla unificada con columna `Device`).
 
 ```bash
 .venv/Scripts/python.exe benchmarks/features/quality_vs_time.py
@@ -186,9 +189,9 @@ Resumen de comparativas CPU vs GPU (`text`, `formula`, `layout`, `table`,
 .venv/Scripts/python.exe benchmarks/features/text/bank.py    --limit 5 --device cpu --backends pyocrust,rapidocr,easyocr
 .venv/Scripts/python.exe benchmarks/features/text/bank.py    --limit 5 --device gpu --backends pyocrust,rapidocr,easyocr --output-dir benchmarks/results/_gpu
 
-# formula CPU + GPU
-.venv/Scripts/python.exe benchmarks/features/formula/bank.py --limit 5 --device cpu --backends pyocrust_formula,pyocrust_formulanet,pix2tex,easyocr,rapidocr
-.venv/Scripts/python.exe benchmarks/features/formula/bank.py --limit 5 --device gpu --backends pyocrust_formula,pyocrust_formulanet,pix2tex,easyocr,rapidocr --output-dir benchmarks/results/_gpu
+# formula CPU + GPU (solo motores que emiten LaTeX)
+.venv/Scripts/python.exe benchmarks/features/formula/bank.py --limit 5 --device cpu --backends pyocrust_formula,pyocrust_formulanet,pix2tex
+.venv/Scripts/python.exe benchmarks/features/formula/bank.py --limit 5 --device gpu --backends pyocrust_formula,pyocrust_formulanet,pix2tex --output-dir benchmarks/results/_gpu
 ```
 
 El resto de features (`layout`, `table`, `full_page`, `orientation`, `text_line`,
@@ -217,7 +220,7 @@ y 0 errores**; `tesseract` **skipped** (no instalado). Muestras por `task_type`:
 **`text` 75** (tres backends), **`structure` 25**, **`formula` 25**,
 **`full_page` 25** — todas **≥ 20**.
 
-Tabla (generada por el reportero, `output_examples/benchmark_table.md`):
+Tabla (generada por el reportero, `reports/legacy/benchmark_table.md`):
 
 | Backend (variante; tarea) | n | F1 Markdown ↑ | F1 bloques ↑ | F1 palabra ↑ | WER ord. ↓ | CER ↓ | WER ↓ | ms/pág. | págs/s |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -377,7 +380,8 @@ CPU solicitado, `provider_effective=unverified`, `warmup=1`, `repeats=1`:
   `provider_effective=unverified` no demuestra el provider ejecutado.
 * Reportero agrupa backend/variante/tarea; marcas solo dentro de la misma tarea,
   calidad textual en `text`, Markdown en las otras. Gráfico de velocidad con
-  tareas distintas no permite ranking general. `output_examples/` es mutable.
+  tareas distintas no permite ranking general. Los informes legacy son mutables en
+  `reports/legacy/` y sus gráficos en `figures/legacy/`.
 
 ```bash
 # Ejemplos futuros, no ejecutados por B9; siempre --run explícito
@@ -416,11 +420,12 @@ Los backends que no están instalados (o cuyos modelos faltan) se registran como
 | `common/metrics.py` | Métricas: CER/WER/`word_f1`, `cer_ord`/`wer_ord`, `markdown_f1`, `block_f1`, cajas (`iou`/`box_metrics`) y LaTeX (reexporta `latex_metrics.py`). |
 | `common/datasets.py` | Carga de datasets con GT: FUNSD (texto + cajas), OmniDocBench (texto + LaTeX), recortes de fórmula y manifests locales. |
 | `features/<feature>/bank.py` | Banco **por feature** (9 features implementadas y medidas). |
-| `features/<feature>/REPORT.md` | Reporte por feature (provenance + comparativa + `skipped`), generado por `features/report.py`. |
+| `reports/<feature>/REPORT.md` | Reporte por feature (provenance + comparativa + `skipped`), generado por `features/report.py`. |
 | `run_benchmarks.py` | CLI histórica, viva: mantiene el mismo contrato de CSV que `common/runner.py` (22 columnas + aditivas) y sigue siendo el driver de las runs de página completa. Los bancos por feature usan `common/runner.py`. |
-| `report_benchmarks.py` | Agrega los CSV y escribe tablas (`.md`, `.tex`, `.png`, `.svg`) y gráficos en `output_examples/`. |
+| `report_benchmarks.py` | Reportero legacy de CSV: guarda informes y metadatos en `reports/legacy/` y gráficos en `figures/legacy/`. |
+| `reports/` | Informes Markdown/LaTeX, por feature en `reports/<feature>/`; la subcarpeta `legacy/` conserva salidas del agregador anterior. |
+| `figures/` | Gráficos PNG/SVG, por feature en `figures/<feature>/`; `legacy/` contiene salidas del agregador anterior. |
 | `results/<feature>/<run>/` | Salida por run: `<ts>.csv`, `<ts>.meta.json`, `<backend>.meta.json` y `summary.json`. **No se versiona.** |
-| `output_examples/` | Artefactos listos para publicar: `benchmark_table.md`, `benchmark_summary.json`, gráficos. Mutable. |
 | `data_cache/` | Caché local de FUNSD (`nielsr/funsd`) y OmniDocBench. Gitignored. |
 | `tests/` | Contrato del CSV/organización por feature (`test_features.py`) y pruebas funcionales (`test_functional.py`). |
 
@@ -441,8 +446,8 @@ Los backends que no están instalados (o cuyos modelos faltan) se registran como
 .venv/Scripts/python.exe benchmarks/report_benchmarks.py --all
 ```
 
-Salidas: `benchmarks/results/<timestamp>/` (CSV + metadatos) y
-`benchmarks/output_examples/` (tabla y gráficos).
+Salidas: `benchmarks/results/<timestamp>/` (CSV + metadatos), `benchmarks/reports/legacy/` (tabla)
+y `benchmarks/figures/legacy/` (gráficos).
 
 ### Opciones útiles
 
@@ -526,7 +531,7 @@ produce un OCR, y castiga más a quien más se desvía de ella.
 
 ## Estado de la última ejecución registrada
 
-Los artefactos de `output_examples/` que documentan esta página se generaron con
+Los artefactos legacy de `reports/legacy/` y `figures/legacy/` que documentan esta página se generaron con
 `report_benchmarks.py --run benchmarks/results/2026-10-25_22-26-51` — dataset FUNSD
 `train`, `--limit 30`, `warmup = 1`, **30 imágenes medidas por backend** — en
 **CPU**, sin GPU. Es la run posterior a la revisión metodológica de `B4`.
@@ -539,7 +544,7 @@ Los artefactos de `output_examples/` que documentan esta página se generaron co
 | `pyocrust_structure` | no incluido | faltan 6 artefactos del preset `pp_structurev3` |
 | `tesseract` | no incluido | `pytesseract` + binario de Tesseract no instalados |
 
-Tabla resultante (`output_examples/benchmark_table.md`, generada por el reportero):
+Tabla resultante (`reports/legacy/benchmark_table.md`, generada por el reportero):
 
 | Backend | n | F1 palabra ↑ | WER ord. ↓ | CER ↓ | WER ↓ | ms/pág. | págs/s |
 |---|---|---|---|---|---|---|---|
@@ -556,10 +561,10 @@ Todo con el modelo **Tiny** (preset por defecto), en CPU y con n=30: indicios
 sólidos, no un veredicto de paper.
 
 Los valores agregados completos (incluidos `median_ms`, `p95_ms`, `cer_std` y
-`mean_confidence`) están en `output_examples/benchmark_summary.json`.
+`mean_confidence`) están en `reports/legacy/benchmark_summary.json`.
 
 > **Provenance.** `report_benchmarks.py` se puede re-ejecutar en cualquier
-> momento, así que estos números son los que había en `output_examples/` cuando se
+> momento, así que estos números son los que se conservan en `reports/legacy/` y `figures/legacy/` cuando se
 > escribió esta documentación (run `2026-10-25_22-07-24`). Una run posterior los
 > sustituye.
 

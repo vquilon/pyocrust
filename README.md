@@ -507,9 +507,9 @@ components): each capability has its own bank, its metric and real Python altern
 It measures **all 9 features**; every number is `medido` (run here) or `referencia`
 (cited from a paper with a URL) — never mixed without a label.
 
-![Benchmark summary by feature](https://raw.githubusercontent.com/vquilon/pyocrust/main/benchmarks/SUMMARY.png)
+![Benchmark summary by feature](https://raw.githubusercontent.com/vquilon/pyocrust/main/benchmarks/figures/SUMMARY.png)
 
-![Quality vs time per feature](https://raw.githubusercontent.com/vquilon/pyocrust/main/benchmarks/SUMMARY_QUALITY_VS_TIME.png)
+![Quality vs time per feature](https://raw.githubusercontent.com/vquilon/pyocrust/main/benchmarks/figures/SUMMARY_QUALITY_VS_TIME_CPU.png)
 
 | Feature | Head metric ↑ | pyocrust (measured) | Best measured alternative | Status |
 | :--- | :--- | ---: | :--- | :--- |
@@ -528,7 +528,7 @@ All 9 banks ran with `--limit 20` (`n=20`, CPU, `warmup=1`, `repeats=1`, pyocrus
 (`formula`, `layout`) the table says so. Full per-engine tables, provenance
 (command, dataset, `n`, runtime) and external references with URLs live in
 [`benchmarks/README.md`](https://github.com/vquilon/pyocrust/blob/main/benchmarks/README.md) and
-[`benchmarks/SUMMARY.md`](https://github.com/vquilon/pyocrust/blob/main/benchmarks/SUMMARY.md).
+[`benchmarks/reports/SUMMARY.md`](https://github.com/vquilon/pyocrust/blob/main/benchmarks/reports/SUMMARY.md).
 
 **How the campaign is measured.**
 
@@ -542,7 +542,7 @@ All 9 banks ran with `--limit 20` (`n=20`, CPU, `warmup=1`, `repeats=1`, pyocrus
 - **Real CPU vs GPU** — each adapter records `provider_effective` (the execution
   provider that actually ran). `--device gpu` on an engine without an accelerator stays
   `skipped` with a reason; a CPU fallback is never reported as GPU
-  (see `benchmarks/CPU_VS_GPU.md`).
+  (see `benchmarks/reports/CPU_VS_GPU.md`).
 - **Per-engine license** — the `license` column is **informative** (it flags
   non-permissive weights, e.g. AGPL-3.0 for the YOLOv10 references); the binding gate is
   the artifact catalog + policy flags (ADR-017), not this column.
