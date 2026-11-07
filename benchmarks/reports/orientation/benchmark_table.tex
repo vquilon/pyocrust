@@ -1,0 +1,13 @@
+\documentclass[border=2pt]{standalone}
+\usepackage{booktabs}
+\begin{document}
+\begin{tabular}{lrrrl}
+\toprule
+Engine (variant/size) & n & accuracy $\uparrow$ & ms/page $\downarrow$ & license \\
+\midrule
+pp-lcnet\_x1\_0\_doc\_ori (6.8M) & 20 & \textbf{95.0\%} & \underline{1124} & Apache-2.0 \\
+pp-lcnet\_x1\_0\_doc\_ori (onnxruntime) & 20 & \textbf{95.0\%} & \textbf{2} & Apache-2.0 \\
+\bottomrule
+\end{tabular}
+\par\smallskip{\footnotesize Note: \texttt{N/A} = not evaluated, never \texttt{0.0}. Values and n match \texttt{REPORT.md}; licenses informational per \texttt{../QUALITY\_VS\_TIME.md}.}
+\end{document}

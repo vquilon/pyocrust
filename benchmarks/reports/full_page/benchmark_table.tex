@@ -1,0 +1,13 @@
+\documentclass[border=2pt]{standalone}
+\usepackage{booktabs}
+\begin{document}
+\begin{tabular}{lrrrrrl}
+\toprule
+Engine (variant/size) & n & Markdown F1 $\uparrow$ & Block F1 $\uparrow$ & CER $\downarrow$ & ms/page $\downarrow$ & license \\
+\midrule
+indra (math) & 20 & \textbf{0.231} & \underline{0.000} & \textbf{0.996} & \textbf{1547} & OpenRAIL-M-Mod \\
+pp\_structurev3 (default) & 20 & \underline{0.211} & \textbf{0.849} & \underline{3.743} & \underline{10033} & Apache-2.0 \\
+\bottomrule
+\end{tabular}
+\par\smallskip{\footnotesize Note: \texttt{N/A} = not evaluated, never \texttt{0.0}. Values and n match \texttt{REPORT.md}; licenses informational per \texttt{../QUALITY\_VS\_TIME.md}.}
+\end{document}

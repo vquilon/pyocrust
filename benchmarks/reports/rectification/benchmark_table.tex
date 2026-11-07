@@ -1,0 +1,13 @@
+\documentclass[border=2pt]{standalone}
+\usepackage{booktabs}
+\begin{document}
+\begin{tabular}{lrrrl}
+\toprule
+Engine (variant/size) & n & SSIM $\uparrow$ & ms/page $\downarrow$ & license \\
+\midrule
+uvdoc (31.7M) & 20 & \textbf{0.707} & \underline{261} & Apache-2.0 \\
+uvdoc (onnxruntime) & 20 & \textbf{0.707} & \textbf{74} & Apache-2.0 \\
+\bottomrule
+\end{tabular}
+\par\smallskip{\footnotesize Note: \texttt{N/A} = not evaluated, never \texttt{0.0}. Values and n match \texttt{REPORT.md}; licenses informational per \texttt{../QUALITY\_VS\_TIME.md}.}
+\end{document}
