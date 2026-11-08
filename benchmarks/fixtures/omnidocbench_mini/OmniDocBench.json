@@ -1,0 +1,4126 @@
+[
+ {
+  "layout_dets": [
+   {
+    "category_type": "title",
+    "order": 2,
+    "ignore": false,
+    "text": "# 人体的奥秘",
+    "anno_id": "box_id_0",
+    "poly": [
+     280.144,
+     362.64,
+     774.125,
+     362.64,
+     774.125,
+     462.72,
+     280.144,
+     462.72
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 3,
+    "ignore": false,
+    "text": "——比",
+    "anno_id": "box_id_1",
+    "poly": [
+     712.843,
+     497.28,
+     874.477,
+     497.28,
+     874.477,
+     554.16,
+     712.843,
+     554.16
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 5,
+    "ignore": false,
+    "text": "## 第1课时",
+    "anno_id": "box_id_2",
+    "poly": [
+     210.919,
+     599.04,
+     436.509,
+     599.04,
+     436.509,
+     672.24,
+     210.919,
+     672.24
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 7,
+    "ignore": false,
+    "text": "### 课前预习",
+    "anno_id": "box_id_3",
+    "poly": [
+     588.821,
+     730.08,
+     834.758,
+     730.08,
+     834.758,
+     800.16,
+     588.821,
+     800.16
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 11,
+    "ignore": false,
+    "text": "目标指南",
+    "anno_id": "box_id_4",
+    "poly": [
+     108.792,
+     878.64,
+     304.3,
+     878.64,
+     304.3,
+     936.0,
+     108.792,
+     936.0
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 12,
+    "ignore": false,
+    "text": "目标出现啦，我们抓住它！",
+    "anno_id": "box_id_5",
+    "poly": [
+     335.589,
+     886.56,
+     771.531,
+     886.56,
+     771.531,
+     934.8,
+     335.589,
+     934.8
+    ]
+   },
+   {
+    "category_type": "table",
+    "order": 13,
+    "ignore": false,
+    "html": "<table><tr><td>学习目标</td><td>重难点</td></tr><tr><td>1 .结合具体情境认识比,理解比的意义,掌握比的读、写方法,知道比的各部分名称以及比与分数、除法的关系。<br/>2 .理解并掌握比的基本性质,能应用比的意义和基本性质求比值、化简比。3 .在探究活动中,感受生活与数学的密切联系,激发学习兴趣。(德育目标)</td><td>重点:掌握比的意义和基本性质。<br/>难点:能正确运用比的基本性质化简比。</td></tr></table>",
+    "anno_id": "box_id_6",
+    "poly": [
+     77.98,
+     954.24,
+     1460.704,
+     954.24,
+     1460.704,
+     1336.8,
+     77.98,
+     1336.8
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 14,
+    "ignore": false,
+    "text": "## 教材知识",
+    "anno_id": "box_id_7",
+    "poly": [
+     589.794,
+     1396.8,
+     840.918,
+     1396.8,
+     840.918,
+     1467.36,
+     589.794,
+     1467.36
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 18,
+    "ignore": false,
+    "text": "#### 知识讲解",
+    "anno_id": "box_id_8",
+    "poly": [
+     87.175,
+     1550.88,
+     305.901,
+     1550.88,
+     305.901,
+     1604.16,
+     87.175,
+     1604.16
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 20,
+    "ignore": false,
+    "text": "##### 知识点一",
+    "anno_id": "box_id_9",
+    "poly": [
+     80.898,
+     1625.28,
+     250.51,
+     1625.28,
+     250.51,
+     1675.68,
+     80.898,
+     1675.68
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 22,
+    "ignore": false,
+    "text": "问题(1)导入 赵凡的头部长和身长有怎样的关系呢？(教材85页例题）",
+    "anno_id": "box_id_10",
+    "poly": [
+     146.233,
+     1695.12,
+     1374.294,
+     1695.12,
+     1374.294,
+     1747.2,
+     146.233,
+     1747.2
+    ]
+   },
+   {
+    "category_type": "figure",
+    "order": 23,
+    "ignore": false,
+    "text": "",
+    "anno_id": "box_id_11",
+    "poly": [
+     580.067,
+     1766.88,
+     957.645,
+     1766.88,
+     957.645,
+     2249.04,
+     580.067,
+     2249.04
+    ]
+   },
+   {
+    "category_type": "figure",
+    "order": 16,
+    "ignore": false,
+    "text": "",
+    "anno_id": "box_id_12",
+    "poly": [
+     1286.749,
+     1356.0,
+     1440.277,
+     1356.0,
+     1440.277,
+     1509.595,
+     1286.749,
+     1509.595
+    ]
+   },
+   {
+    "category_type": "page_number",
+    "order": 24,
+    "ignore": false,
+    "text": "185",
+    "anno_id": "box_id_13",
+    "poly": [
+     1439.656,
+     2292.459,
+     1498.723,
+     2292.459,
+     1498.723,
+     2327.9,
+     1439.656,
+     2327.9
+    ]
+   },
+   {
+    "category_type": "figure",
+    "order": 9,
+    "ignore": false,
+    "text": "",
+    "anno_id": "box_id_14",
+    "poly": [
+     1292.099,
+     686.88,
+     1447.248,
+     686.88,
+     1447.248,
+     837.228,
+     1292.099,
+     837.228
+    ]
+   },
+   {
+    "category_type": "header",
+    "order": 26,
+    "ignore": false,
+    "text": "七单元",
+    "anno_id": "box_id_15",
+    "poly": [
+     1501.306,
+     1497.878,
+     1547.023,
+     1497.878,
+     1547.023,
+     1637.534,
+     1501.306,
+     1637.534
+    ]
+   },
+   {
+    "category_type": "footer",
+    "order": 25,
+    "ignore": false,
+    "text": "关注微信公众号“小考教辅站”获取更多小学教辅资料",
+    "anno_id": "box_id_16",
+    "poly": [
+     404.652,
+     2360.64,
+     1209.418,
+     2360.64,
+     1209.418,
+     2398.56,
+     404.652,
+     2398.56
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 1,
+    "ignore": false,
+    "text": "# 第七单元",
+    "anno_id": "box_id_17",
+    "poly": [
+     186.687,
+     201.36,
+     592.712,
+     201.36,
+     592.712,
+     313.44,
+     186.687,
+     313.44
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 15,
+    "ignore": false,
+    "text": "### 全解",
+    "anno_id": "box_id_19",
+    "poly": [
+     866.961,
+     1397.105,
+     1023.925,
+     1397.105,
+     1023.925,
+     1478.202,
+     866.961,
+     1478.202
+    ]
+   },
+   {
+    "category_type": "figure",
+    "order": 4,
+    "ignore": false,
+    "text": "",
+    "anno_id": "box_id_20",
+    "poly": [
+     940.46,
+     42.96,
+     1613.584,
+     42.96,
+     1613.584,
+     476.4,
+     940.46,
+     476.4
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 8,
+    "ignore": false,
+    "text": "### 全解",
+    "anno_id": "box_id_21",
+    "poly": [
+     853.063,
+     717.664,
+     1021.701,
+     717.664,
+     1021.701,
+     808.469,
+     853.063,
+     808.469
+    ]
+   },
+   {
+    "category_type": "abandon",
+    "order": 0,
+    "ignore": false,
+    "text": "",
+    "anno_id": "box-u08xq2w8",
+    "poly": [
+     71.58,
+     215.396,
+     178.054,
+     215.396,
+     178.054,
+     295.97,
+     71.58,
+     295.97
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 6,
+    "ignore": false,
+    "text": "## 比的意义和基本性质[教材85~89页]",
+    "anno_id": "box-v5oxp4o5",
+    "poly": [
+     507.856,
+     602.222,
+     1333.752,
+     602.222,
+     1333.752,
+     669.245,
+     507.856,
+     669.245
+    ]
+   },
+   {
+    "category_type": "figure_caption",
+    "order": 10,
+    "ignore": false,
+    "text": "预习题卡",
+    "anno_id": "box-517hlm9l",
+    "poly": [
+     1318.021,
+     841.553,
+     1430.447,
+     841.553,
+     1430.447,
+     878.307,
+     1318.021,
+     878.307
+    ]
+   },
+   {
+    "category_type": "figure_caption",
+    "order": 17,
+    "ignore": false,
+    "text": "知识点微课",
+    "anno_id": "box-lb98039b",
+    "poly": [
+     1295.995,
+     1514.827,
+     1437.262,
+     1514.827,
+     1437.262,
+     1548.836,
+     1295.995,
+     1548.836
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 19,
+    "ignore": false,
+    "text": "名师到身边，亲自来指点！",
+    "anno_id": "box-4of4tzco",
+    "poly": [
+     336.276,
+     1553.958,
+     768.682,
+     1553.958,
+     768.682,
+     1596.841,
+     336.276,
+     1596.841
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 21,
+    "ignore": false,
+    "text": "##### 认识比",
+    "anno_id": "box-wemx1dp4",
+    "poly": [
+     277.312,
+     1627.216,
+     402.388,
+     1627.216,
+     402.388,
+     1677.247,
+     277.312,
+     1677.247
+    ]
+   }
+  ],
+  "page_info": {
+   "page_no": 0,
+   "height": 2400,
+   "width": 1621,
+   "image_path": "page-7a8cfa1e-c76b-4449-a38f-497648074cd1.png",
+   "page_attribute": {
+    "data_source": "colorful_textbook",
+    "language": "simplified_chinese",
+    "layout": "other_layout",
+    "special_issue": [],
+    "subset": "layout_hard"
+   }
+  },
+  "extra": {
+   "relation": []
+  }
+ },
+ {
+  "layout_dets": [
+   {
+    "category_type": "header",
+    "order": 1,
+    "ignore": false,
+    "text": "线性时不变系统",
+    "anno_id": "box_id_0",
+    "poly": [
+     271.0,
+     102.0,
+     1144.0,
+     102.0,
+     1144.0,
+     240.0,
+     271.0,
+     240.0
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 2,
+    "ignore": false,
+    "text": "- 单入单出",
+    "anno_id": "box_id_1",
+    "poly": [
+     221.78,
+     322.007,
+     590.702,
+     322.007,
+     590.702,
+     403.042,
+     221.78,
+     403.042
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 4,
+    "ignore": false,
+    "text": "- 线性：系统输入线性和的响应等于响应的线性和（叠加原理）",
+    "anno_id": "box_id_2",
+    "poly": [
+     222.0,
+     505.05,
+     1809.0,
+     505.05,
+     1809.0,
+     652.05,
+     222.0,
+     652.05
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 5,
+    "ignore": false,
+    "latex": "$$y\\left( t\\right)  = L\\left\\lbrack  {\\mathop{\\sum }\\limits_{i}{C}_{i}{x}_{i}\\left( t\\right) }\\right\\rbrack   = \\mathop{\\sum }\\limits_{i}{C}_{i}L\\left\\lbrack  {{x}_{i}\\left( t\\right) }\\right\\rbrack$$",
+    "anno_id": "box_id_3",
+    "poly": [
+     567.0,
+     645.002,
+     1458.0,
+     645.002,
+     1458.0,
+     829.95,
+     567.0,
+     829.95
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 6,
+    "ignore": false,
+    "text": "- 时不变性（恒参）",
+    "anno_id": "box_id_4",
+    "poly": [
+     245.237,
+     858.0,
+     771.0,
+     858.0,
+     771.0,
+     940.05,
+     245.237,
+     940.05
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 8,
+    "ignore": false,
+    "text": "- 对于线性时不变系统，",
+    "anno_id": "box_id_5",
+    "poly": [
+     253.767,
+     1075.668,
+     948.962,
+     1075.668,
+     948.962,
+     1177.05,
+     253.767,
+     1177.05
+    ]
+   },
+   {
+    "category_type": "page_number",
+    "order": 11,
+    "ignore": false,
+    "text": "42",
+    "anno_id": "box_id_7",
+    "poly": [
+     1867.0,
+     1414.05,
+     1917.0,
+     1414.05,
+     1917.0,
+     1453.95,
+     1867.0,
+     1453.95
+    ]
+   },
+   {
+    "category_type": "abandon",
+    "order": 0,
+    "ignore": false,
+    "text": "",
+    "anno_id": "box_id_9",
+    "poly": [
+     25.0,
+     96.0,
+     263.0,
+     96.0,
+     263.0,
+     309.0,
+     25.0,
+     309.0
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 7,
+    "ignore": false,
+    "text": "若$L[\\delta(t)] = h(t)$时，$L[\\delta(t-\\tau)] = h(t-\\tau)$",
+    "anno_id": "box-pp2u399n",
+    "poly": [
+     366.79,
+     968.761,
+     1558.857,
+     968.761,
+     1558.857,
+     1060.458,
+     366.79,
+     1060.458
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 9,
+    "ignore": false,
+    "latex": "$$h(t) \\Leftrightarrow H(f) = \\frac{Y(f)}{X(f)} = |H(f)| e^{j\\varphi(f)}$$",
+    "anno_id": "box-ruf6v3eo",
+    "poly": [
+     368.922,
+     1242.714,
+     1351.24,
+     1242.714,
+     1351.24,
+     1413.314,
+     368.922,
+     1413.314
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 10,
+    "ignore": false,
+    "text": "——传递函数",
+    "anno_id": "box-2t0vlsom",
+    "poly": [
+     1378.168,
+     1290.873,
+     1855.275,
+     1290.873,
+     1855.275,
+     1365.51,
+     1378.168,
+     1365.51
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 3,
+    "ignore": false,
+    "latex": "$$\\xrightarrow{x(t)}\\boxed{~~L(\\cdot)~~}\\xrightarrow{y(t)}$$",
+    "anno_id": "box-mtwmgk2i",
+    "poly": [
+     765.567,
+     309.212,
+     1537.532,
+     309.212,
+     1537.532,
+     479.812,
+     765.567,
+     479.812
+    ]
+   },
+   {
+    "category_type": "list_group",
+    "order": null,
+    "ignore": false,
+    "text": "",
+    "anno_id": "box-mhj7h6zd",
+    "poly": [
+     220.041,
+     311.983,
+     1856.405,
+     311.983,
+     1856.405,
+     1431.818,
+     220.041,
+     1431.818
+    ]
+   }
+  ],
+  "page_info": {
+   "page_no": 0,
+   "height": 1500,
+   "width": 2000,
+   "image_path": "page-ba4443e6-f432-435f-89e7-ddf0a571d2cd.png",
+   "page_attribute": {
+    "data_source": "PPT2PDF",
+    "language": "simplified_chinese",
+    "layout": "other_layout",
+    "special_issue": [],
+    "subset": "equation_hard"
+   }
+  },
+  "extra": {
+   "relation": []
+  }
+ },
+ {
+  "layout_dets": [
+   {
+    "category_type": "table",
+    "order": 2,
+    "ignore": false,
+    "html": "<table><tr><td>缩略语</td><td>英文全称</td><td>中文</td></tr><tr><td>DSB</td><td>Defense Science Board</td><td>美国国防科学局</td></tr><tr><td>DSCA</td><td>Defense Support to Civilian Authorities</td><td>对民选当局的国防支持</td></tr><tr><td>DSEEP</td><td>Distributed Simulation Engineering and Execution Process</td><td>分布式仿真工程与执行过程</td></tr><tr><td>DTDMA</td><td>Distributed Time Division Multiple Access</td><td>分布式时分多址</td></tr><tr><td>DTED</td><td>Digital Terrain Elevation Data</td><td>数字地形高程数据</td></tr><tr><td>DTRA</td><td>Defense Threat Reduction Agency</td><td>国防部威胁消减局</td></tr><tr><td>DUSA-OR</td><td>Deputy Under Secretary of the Army-Operations Research</td><td>美国陆军副参谋次长-军事运筹</td></tr><tr><td>EDAC</td><td>Error Detection and Correction</td><td>错误检测与纠正</td></tr><tr><td>EDCS</td><td>Environmental Data Coding Specification$^{\\textcircled{1}}$</td><td>环境数据编码规范</td></tr><tr><td>EDLC</td><td>Evolved DLC</td><td>进化的动态链接兼容性</td></tr><tr><td>EFFBD</td><td>Enhanced Functional Flow Block Diagram</td><td>改进的功能流模块图</td></tr><tr><td>EMBR</td><td>Enterprise Metacard Builder Resource</td><td>企业元卡片生成器资源</td></tr><tr><td>EMF</td><td>Exercise Management & Feedback</td><td>演练管理与反馈</td></tr><tr><td>ENIAC</td><td>Electronic Numerical Integrator and<br/>Computer</td><td>电子数字积分器与计算机</td></tr><tr><td>ENM</td><td>EPLRS Network Manager</td><td>增强型定位报告系统网络管理员</td></tr><tr><td>EOB</td><td>Electronic Order of Battle</td><td>电子力量作战序列</td></tr><tr><td>EOI</td><td>Event of Interest</td><td>感兴趣的事件</td></tr><tr><td>EP</td><td>Exercise Process</td><td>演练过程</td></tr><tr><td>EPLRS</td><td>Enhanced Position Location Radio Set</td><td>增强型定位报告系统</td></tr><tr><td>ERC</td><td>Environmental Runtime Component</td><td>环境运行时组件</td></tr><tr><td>ERM</td><td>Entity Relationship Model</td><td>实体关系模型</td></tr><tr><td>ESRI</td><td>Environmental Systems Research Institute</td><td>环境系统研究所</td></tr><tr><td>ETO</td><td>Exercise/Training Objectives</td><td>演练/训练目标</td></tr><tr><td>EU</td><td>EPLRS Unit</td><td>增强型定位报告系统单元</td></tr><tr><td>EXCEN</td><td>Exercise Center</td><td>演练中心</td></tr><tr><td>EXCON</td><td>Exercise Control</td><td>演练控制人员</td></tr><tr><td>EXDIR</td><td>Exercise Director</td><td>演练导演</td></tr></table>",
+    "anno_id": "box_id_0",
+    "poly": [
+     89.462,
+     190.154,
+     1093.392,
+     190.154,
+     1093.392,
+     1682.117,
+     89.462,
+     1682.117
+    ]
+   },
+   {
+    "category_type": "page_footnote",
+    "order": 3,
+    "ignore": false,
+    "text": "$\\textcircled{1}$ 原文为Environmental Data Coding Stondard。",
+    "anno_id": "box_id_1",
+    "poly": [
+     146.042,
+     1721.947,
+     711.968,
+     1721.947,
+     711.968,
+     1753.99,
+     146.042,
+     1753.99
+    ]
+   },
+   {
+    "category_type": "header",
+    "order": 0,
+    "ignore": false,
+    "text": "■ 缩略语表",
+    "anno_id": "box_id_2",
+    "poly": [
+     867.008,
+     113.95,
+     1030.636,
+     113.95,
+     1030.636,
+     149.026,
+     867.008,
+     149.026
+    ]
+   },
+   {
+    "category_type": "page_number",
+    "order": 1,
+    "ignore": false,
+    "text": "xxv",
+    "anno_id": "box-ua090l8e",
+    "poly": [
+     1058.342,
+     127.873,
+     1096.933,
+     127.873,
+     1096.933,
+     142.716,
+     1058.342,
+     142.716
+    ]
+   }
+  ],
+  "page_info": {
+   "page_no": 0,
+   "height": 1896,
+   "width": 1216,
+   "image_path": "page-eb7308e0-1395-4444-b6a5-9d33cc3a03b2.png",
+   "page_attribute": {
+    "data_source": "book",
+    "language": "en_ch_mixed",
+    "layout": "single_column",
+    "special_issue": [],
+    "subset": "layout_hard"
+   }
+  },
+  "extra": {
+   "relation": []
+  }
+ },
+ {
+  "layout_dets": [
+   {
+    "category_type": "title",
+    "order": 1,
+    "ignore": false,
+    "text": "2024年全国硕士研究生招生考试试题与答案（数学一）",
+    "anno_id": 0,
+    "poly": [
+     292.262,
+     138.134,
+     1023.624,
+     138.134,
+     1023.624,
+     181.545,
+     292.262,
+     181.545
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 2,
+    "ignore": false,
+    "text": "数学",
+    "anno_id": 16,
+    "poly": [
+     604.102,
+     200.448,
+     712.068,
+     200.448,
+     712.068,
+     253.1,
+     604.102,
+     253.1
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 3,
+    "ignore": false,
+    "text": "本试卷共 4 页，22题. 全卷满分 150 分，考试用时 120 分钟.",
+    "anno_id": 13,
+    "poly": [
+     215.255,
+     270.018,
+     791.24,
+     270.018,
+     791.24,
+     301.328,
+     215.255,
+     301.328
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 4,
+    "ignore": false,
+    "text": "注意事项：",
+    "anno_id": 20,
+    "poly": [
+     170.89,
+     309.84,
+     277.004,
+     309.84,
+     277.004,
+     335.696,
+     170.89,
+     335.696
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 5,
+    "ignore": false,
+    "text": "1. 答卷前，考生务必将自己的姓名、准考证号填写在答题卡上。\n2. 回答选择题时，用铅笔把答题卡上对应题目的答案标号涂黑，写在本试卷上无效。\n3. 考试结束后，将本试卷和答题卡一并交回，\n4. 本试卷由 kmath.cn 自动生成.",
+    "anno_id": 31,
+    "poly": [
+     212.743,
+     348.939,
+     989.936,
+     348.939,
+     989.936,
+     542.355,
+     212.743,
+     542.355
+    ]
+   },
+   {
+    "category_type": "table",
+    "order": 10,
+    "ignore": false,
+    "html": "<table border=\"1\"><tr><td>得分</td><td></td></tr><tr><td>阅卷人</td><td></td></tr></table>",
+    "anno_id": 19,
+    "poly": [
+     212.227,
+     554.695,
+     397.46,
+     554.695,
+     397.46,
+     653.665,
+     212.227,
+     653.665
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 11,
+    "ignore": false,
+    "text": "一、单选题：本题共 10 小题，每小题 5 分，共 40 分，在每小题给出的四个选项中，只有一项是符合题目要求的.",
+    "anno_id": 10,
+    "poly": [
+     171.385,
+     673.849,
+     1144.189,
+     673.849,
+     1144.189,
+     736.157,
+     171.385,
+     736.157
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 12,
+    "ignore": false,
+    "text": "1．已知函数 $ f(x)=\\int_{0}^{x}e^{\\cos t}dt,g(x)=\\int_{0}^{\\sin x}e^{t^{2}}dt $则\nA. f(x)是奇函数， g(x)是偶函数 B. f(x)足偶函数， g(x)足奇函数\nC. f(x)与 g(x)均为奇函数 D. f(x)与 g(x)均为周期函数",
+    "anno_id": 33,
+    "poly": [
+     178.837,
+     748.314,
+     1014.781,
+     748.314,
+     1014.781,
+     899.24,
+     178.837,
+     899.24
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 16,
+    "ignore": false,
+    "text": "[答案]：C[解析]：【解析】由于 $ e^{\\cos t} $是偶函数，所以 $ f(x)=\\int_{0}^{x}e^{\\cos t}d t $是奇函数，又 $ g^{\\prime}(x)=e^{(\\sin x)^{2}}\\cos x $是偶函数，所以 g(x)是奇函数.故选C.",
+    "anno_id": 18,
+    "poly": [
+     168.106,
+     911.006,
+     1146.365,
+     911.006,
+     1146.365,
+     1001.288,
+     168.106,
+     1001.288
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 17,
+    "ignore": false,
+    "text": "2. 设 $ P=P(x,y,z)\\exists Q=Q(x,y,z) $均为连续函数, $ \\sum $为曲面 $ Z={\\sqrt{1-x^{2}-y^{2}}}(x\\leqslant0,y\\geqslant0) $的上侧，则 $ \\iint_{\\Sigma}Pdydz+Qdzdx= $\nA. $ \\iint_{\\Sigma}\\left(\\frac{x}{z}P+\\frac{y}{z}Q\\right)dxdy $ B. $ \\iint_{\\Sigma}\\left(-\\frac{x}{z}P+\\frac{y}{z}Q\\right)dxdy $\nC. $ \\iint_{\\Sigma}\\left(\\frac{x}{z}P-\\frac{y}{z}Q\\right)dxdy $ D. $ \\iint_{\\Sigma}\\left(-\\frac{x}{z}P-\\frac{y}{z}Q\\right)dxdy $",
+    "anno_id": 35,
+    "poly": [
+     173.857,
+     1007.906,
+     1150.242,
+     1007.906,
+     1150.242,
+     1236.816,
+     173.857,
+     1236.816
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 21,
+    "ignore": false,
+    "text": "[答案]：A[解析]：【解析】转换投影法， $ z=\\sqrt{1-x^2-y^2},\\frac{\\partial z}{\\partial x}=-\\frac xz,\\frac{\\partial z}{\\partial y}=-\\frac yz $",
+    "anno_id": 7,
+    "poly": [
+     171.954,
+     1242.069,
+     892.432,
+     1242.069,
+     892.432,
+     1292.485,
+     171.954,
+     1292.485
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 22,
+    "ignore": false,
+    "latex": "$$\n\\iint_{\\Sigma}Pdydz+Qdzdx=\\iint_{\\Sigma}\\left(\\frac{x}{z}P+\\frac{y}{z}Q\\right)dxdy\n$$",
+    "anno_id": 14,
+    "poly": [
+     448.464,
+     1317.564,
+     881.361,
+     1317.564,
+     881.361,
+     1375.49,
+     448.464,
+     1375.49
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 23,
+    "ignore": false,
+    "text": "故选 A.",
+    "anno_id": 8,
+    "poly": [
+     215.418,
+     1400.875,
+     288.765,
+     1400.875,
+     288.765,
+     1426.894,
+     215.418,
+     1426.894
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 24,
+    "ignore": false,
+    "text": "3. 已知幂级数 $ \\sum_{n=0}^{\\infty}a_nx^n $的和函数为 ln(2+x) ，则 $ \\sum_{n=0}^{\\infty}na_{2n}= $\nA. $ -\\frac{1}{6} $ B. $ -\\frac{1}{3} $ C. $ \\frac{1}{6} $ D. $ \\frac{1}{3} $",
+    "anno_id": 50,
+    "poly": [
+     173.141,
+     1432.847,
+     1003.429,
+     1432.847,
+     1003.429,
+     1568.814,
+     173.141,
+     1568.814
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 27,
+    "ignore": false,
+    "text": "[答案]:A[解析]：【解析】方法 1: $ \\ln(2+x)=\\ln2\\left(1+{\\frac{1}{2}}x\\right)=\\ln2+\\ln\\left(1+{\\frac{1}{2}}x\\right) $",
+    "anno_id": 37,
+    "poly": [
+     1310.769,
+     143.04,
+     2055.63,
+     143.04,
+     2055.63,
+     193.11,
+     1310.769,
+     193.11
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 28,
+    "ignore": false,
+    "latex": "$$\n=\\ln2+\\sum_{n=1}^{\\infty}(-1)^{n-1}{\\frac{\\left({\\frac{1}{2}}x\\right)^{n}}{n}}\n$$",
+    "anno_id": 38,
+    "poly": [
+     1672.516,
+     208.221,
+     1923.184,
+     208.221,
+     1923.184,
+     271.333,
+     1672.516,
+     271.333
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 29,
+    "ignore": false,
+    "text": "所以， $ a_{n} = \\left\\{\\begin{array}{cc}\\ln2,&n=0\\\\(-1)^{n-1}\\frac{1}{n2^n},&n>0\\end{array}\\right. $当 $ a_{2n} = -\\frac{1}{2n\\cdot2^{2n}} $所以， $ \\begin{aligned}\\sum_{n=0}^\\infty na_{2n} = \\sum_{n=1}^\\infty na_{2n} =\\end{aligned} $",
+    "anno_id": 34,
+    "poly": [
+     1356.069,
+     296.222,
+     2284.076,
+     296.222,
+     2284.076,
+     378.0,
+     1356.069,
+     378.0
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 30,
+    "ignore": false,
+    "text": "$ \\sum_{n=1}^\\infty n\\cdot\\left(-\\frac1{2n\\cdot2^{2n}}\\right)=-\\sum_{n=1}^\\infty\\frac1{2^{2n+1}}=-\\frac{\\left(\\frac{1}{2}\\right)^3}{1-\\frac{1}{4}}=-\\frac{1}{6} $故选 A. 方法 2:",
+    "anno_id": 39,
+    "poly": [
+     1307.777,
+     379.443,
+     1948.094,
+     379.443,
+     1948.094,
+     447.719,
+     1307.777,
+     447.719
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 31,
+    "ignore": false,
+    "latex": "$$\n\\begin{aligned}[\\ln(2+x)]'=\\frac{1}{2+x}=\\frac{1}{2\\left(1+\\frac{x}{2}\\right)}=\\frac{1}{2}\\sum_{n=0}^{\\infty}(-1)^n\\left(\\frac{x}{2}\\right)^n\\end{aligned}\n$$",
+    "anno_id": 47,
+    "poly": [
+     1547.775,
+     465.987,
+     2044.759,
+     465.987,
+     2044.759,
+     526.521,
+     1547.775,
+     526.521
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 32,
+    "ignore": false,
+    "latex": "$$\n\\ln(2+x)=\\sum_{n=0}^{\\infty}(-1)^{n}\\frac{\\left(\\frac{1}{2}x\\right)^{n+1}}{n+1}+C=\\sum_{n=1}^{\\infty}(-1)^{n-1}\\frac{\\left(\\frac{1}{2}x\\right)^{n}}{n}+C\n$$",
+    "anno_id": 41,
+    "poly": [
+     1520.482,
+     555.322,
+     2083.233,
+     555.322,
+     2083.233,
+     623.331,
+     1520.482,
+     623.331
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 33,
+    "ignore": false,
+    "latex": "$$\nS(0)=C=\\ln(2+0)=\\ln2\n$$",
+    "anno_id": 48,
+    "poly": [
+     1515.251,
+     633.793,
+     1776.822,
+     633.793,
+     1776.822,
+     663.687,
+     1515.251,
+     663.687
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 34,
+    "ignore": false,
+    "text": "所以， $ a_{n}=\\left\\{\\begin{array}{cc}\\ln2,&n=0\\\\(-1)^{n-1}\\frac{1}{n2^n},&n>0\\end{array}\\right. $",
+    "anno_id": 43,
+    "poly": [
+     1522.926,
+     690.557,
+     1857.736,
+     690.557,
+     1857.736,
+     769.775,
+     1522.926,
+     769.775
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 35,
+    "ignore": false,
+    "text": "所以， $ \\sum_{n=0}^\\infty na_{2n}=\\sum_{n=1}^\\infty na_{2n}=\\sum_{n=1}^\\infty n\\cdot\\left(-\\frac{1}{2n\\cdot2^{2n}}\\right)=-\\sum_{n=1}^\\infty\\frac{1}{2^{2n+1}}=-\\frac{\\left(\\frac{1}{2}\\right)^3}{1-\\frac{1}{4}}=-\\frac{1}{6} $故选 A.",
+    "anno_id": 42,
+    "poly": [
+     1355.843,
+     778.513,
+     2180.912,
+     778.513,
+     2180.912,
+     848.017,
+     1355.843,
+     848.017
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 36,
+    "ignore": false,
+    "text": "4. 设函数 f(x)在区间（-1，1）上有定义，且 $ \\lim_{x\\to0}f(x)=0 $ ，则\nA.当 $ \\lim_{x\\to0}f(x)=m $时， $ f^{\\prime}(0)=m $ B.当 $ f^{\\prime}(0)=m $时， $ \\lim_{x\\to0}f(x)=m $\nC.当 $ \\lim_{x\\to0}f^{\\prime}(x)=m $时， $ f^{\\prime}(0)=m $ D.当 $ f^{\\prime}(0)=m $时， $ \\lim_{x\\to0}f^{\\prime}(x)=m $",
+    "anno_id": 5,
+    "poly": [
+     1309.687,
+     853.431,
+     2286.319,
+     853.431,
+     2286.319,
+     1006.042,
+     1309.687,
+     1006.042
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 40,
+    "ignore": false,
+    "text": "[答案]:B[解析]：【解析】因为 $ f^{\\prime}(0)=m $ ，所以 f(x)在 x = 0处连续，从而 $ \\lim_{x\\to0}f(x)=f(0)=0 $ ，所以\n$ \\lim_{x\\to0}\\frac{f(x)}{x}=\\lim_{x\\to0}\\frac{f(x)-f(0)}{x-0}=m $故选 B.\n对于 A 选项， $ \\lim_{x\\to0}f(x)=m $ ，推不出来 $ f^{\\prime}(0)=m $ ；对于 C 选项， $ f^{\\prime}(x) $在 x = 0处不一定连续；对于\nD  选项, $ f^{\\prime}(x) $在 x = 0处极限末必存在.",
+    "anno_id": 51,
+    "poly": [
+     1303.659,
+     1008.921,
+     2293.101,
+     1008.921,
+     2293.101,
+     1197.314,
+     1303.659,
+     1197.314
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 45,
+    "ignore": false,
+    "text": "5.   在空间直角坐标系 O - xyz中，三张平面 $ \\pi_{i}:a_{i}x+b_{i}y+c_{i}z=d_{i}(i=1,2,3) $的位置关系如图所示，记 $ \\alpha_{i}=(a_{i},b_{i},c_{i},d_{i}) $ ，若 $ r\\left(\\begin{array}{l}{\\alpha_{1}}\\\\ {\\alpha_{2}}\\\\ {\\alpha_{3}}\\end{array}\\right)=m,r\\left(\\begin{array}{l}{\\beta_{1}}\\\\ {\\beta_{2}}\\\\ {\\beta_{3}}\\end{array}\\right)=n $ ，则",
+    "anno_id": 12,
+    "poly": [
+     1319.464,
+     1201.36,
+     2300.006,
+     1201.36,
+     2300.006,
+     1346.383,
+     1319.464,
+     1346.383
+    ]
+   },
+   {
+    "category_type": "figure",
+    "order": 46,
+    "ignore": false,
+    "anno_id": 27,
+    "poly": [
+     1360.98,
+     1346.854,
+     1863.533,
+     1346.854,
+     1863.533,
+     1509.943,
+     1360.98,
+     1509.943
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 47,
+    "ignore": false,
+    "text": "A. m = 1,n = 2 B. m = n = 2 C. m = 2, n = 3 D. m = n = 3",
+    "anno_id": 25,
+    "poly": [
+     1350.785,
+     1520.154,
+     2211.779,
+     1520.154,
+     2211.779,
+     1551.52,
+     1350.785,
+     1551.52
+    ]
+   },
+   {
+    "category_type": "header",
+    "order": null,
+    "ignore": false,
+    "text": "此卷只装订不密封姓名____准考证号考场号座位号",
+    "anno_id": 24,
+    "poly": [
+     25.014,
+     141.378,
+     131.469,
+     141.378,
+     131.469,
+     1554.537,
+     25.014,
+     1554.537
+    ]
+   },
+   {
+    "category_type": "page_number",
+    "order": null,
+    "ignore": false,
+    "text": "数学试题第2页（共10页）",
+    "anno_id": 22,
+    "poly": [
+     1755.722,
+     1584.834,
+     1908.237,
+     1584.834,
+     1908.237,
+     1607.778,
+     1755.722,
+     1607.778
+    ]
+   },
+   {
+    "category_type": "footer",
+    "order": null,
+    "ignore": false,
+    "text": "数学试题",
+    "anno_id": 9,
+    "poly": [
+     1682.801,
+     1585.097,
+     1754.21,
+     1585.097,
+     1754.21,
+     1608.505,
+     1682.801,
+     1608.505
+    ]
+   },
+   {
+    "category_type": "footer",
+    "order": null,
+    "ignore": false,
+    "text": "数学试题",
+    "anno_id": 6,
+    "poly": [
+     541.948,
+     1585.329,
+     613.128,
+     1585.329,
+     613.128,
+     1608.159,
+     541.948,
+     1608.159
+    ]
+   },
+   {
+    "category_type": "page_number",
+    "order": null,
+    "ignore": false,
+    "text": "第1页（共10页）",
+    "anno_id": 3,
+    "poly": [
+     614.868,
+     1586.172,
+     770.164,
+     1586.172,
+     770.164,
+     1609.064,
+     614.868,
+     1609.064
+    ]
+   }
+  ],
+  "extra": {
+   "relation": []
+  },
+  "page_info": {
+   "page_attribute": {
+    "data_source": "exam_paper",
+    "language": "simplified_chinese",
+    "layout": "double_column",
+    "special_issue": [
+     "table_full_line",
+     "table_horizontal"
+    ],
+    "subset": "v1.5"
+   },
+   "page_no": 1525,
+   "height": 1697,
+   "width": 2400,
+   "image_path": "jiaocaineedrop_20608808.pdf_0.jpg",
+   "sample_id": 360
+  }
+ },
+ {
+  "layout_dets": [
+   {
+    "category_type": "title",
+    "order": 1,
+    "ignore": false,
+    "text": "南开大学2022年研究生入学考试数学分析试题解答",
+    "anno_id": 24,
+    "poly": [
+     312.036,
+     141.478,
+     1004.099,
+     141.478,
+     1004.099,
+     177.209,
+     312.036,
+     177.209
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 2,
+    "ignore": false,
+    "text": "数学",
+    "anno_id": 5,
+    "poly": [
+     607.932,
+     202.725,
+     718.879,
+     202.725,
+     718.879,
+     251.205,
+     607.932,
+     251.205
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 3,
+    "ignore": false,
+    "text": "本试卷共4页，22题.全卷满分150分，考试用时120分钟，",
+    "anno_id": 41,
+    "poly": [
+     212.088,
+     275.499,
+     784.516,
+     275.499,
+     784.516,
+     303.514,
+     212.088,
+     303.514
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 4,
+    "ignore": false,
+    "text": "注意事项：",
+    "anno_id": 2,
+    "poly": [
+     170.443,
+     314.115,
+     272.663,
+     314.115,
+     272.663,
+     340.616,
+     170.443,
+     340.616
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 5,
+    "ignore": false,
+    "text": "\\t1.答卷前，考生务必将自己的姓名、准考证号填写在答题卡上，\n\\t2.回答选择题时，用铅笔把答题卡上对应题目的答案标号涂黑，写在本试卷上无效\n\\t3.考试结束后，将本试卷和答题卡一并交回，\n\\t4.本试卷由 kmath.cn 自动生成",
+    "anno_id": 4,
+    "poly": [
+     211.203,
+     360.996,
+     982.962,
+     360.996,
+     982.962,
+     545.876,
+     211.203,
+     545.876
+    ]
+   },
+   {
+    "category_type": "table",
+    "order": 10,
+    "ignore": false,
+    "html": "<table border=\"1\"><tr><td>得分</td><td></td></tr><tr><td>阅卷人</td><td></td></tr></table>",
+    "anno_id": 25,
+    "poly": [
+     215.874,
+     567.77,
+     395.326,
+     567.77,
+     395.326,
+     660.146,
+     215.874,
+     660.146
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 11,
+    "ignore": false,
+    "text": "一、解答题：本题共6小题，每小题5分，请考生在22、23题中选择一题，并在答题纸上涂黑，不涂黑、多涂或多答均按第一题评分.",
+    "anno_id": 26,
+    "poly": [
+     167.415,
+     681.347,
+     1147.963,
+     681.347,
+     1147.963,
+     743.436,
+     167.415,
+     743.436
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 12,
+    "ignore": false,
+    "text": "\\t1. 求定积分 $ \\int_{0}^{\\frac{\\pi} {4}} \\frac{\\operatorname{s i n} x \\operatorname{c o s} x} {\\operatorname{s i n}^{4} x+\\operatorname{c o s}^{4} x-5} \\ \\mathrm{d} x $",
+    "anno_id": 3,
+    "poly": [
+     181.801,
+     760.094,
+     552.819,
+     760.094,
+     552.819,
+     831.269,
+     181.801,
+     831.269
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 13,
+    "ignore": false,
+    "text": "[答案]：解令 $ t=\\operatorname{s i n}^{2} x $则 $ \\mathrm{d} t=2 \\operatorname{s i n} x \\operatorname{c o s} x \\ \\mathrm{d} x, \\operatorname{s i n}^{4} x+\\operatorname{c o s}^{4} x=2 t^{2}-2 t+1 $ ，则",
+    "anno_id": 27,
+    "poly": [
+     172.715,
+     835.812,
+     915.509,
+     835.812,
+     915.509,
+     868.371,
+     172.715,
+     868.371
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 14,
+    "ignore": false,
+    "latex": "$$\n原式={\\frac{1} {2}} \\int_{0}^{\\frac{1} {2}} {\\frac{1} {2 t^{2}-2 t-4}} \\ \\mathrm{d} t={\\frac{1} {1 2}} \\int_{0}^{\\frac{1} {2}} \\left( {\\frac{1} {t-2}}-{\\frac{1} {t+1}} \\right) \\mathrm{d} t=-{\\frac{\\operatorname{l n} 2} {1 2}}\n$$",
+    "anno_id": 19,
+    "poly": [
+     351.884,
+     890.594,
+     972.015,
+     890.594,
+     972.015,
+     955.712,
+     351.884,
+     955.712
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 15,
+    "ignore": false,
+    "text": "[解析]：",
+    "anno_id": 29,
+    "poly": [
+     171.676,
+     980.699,
+     234.522,
+     980.699,
+     234.522,
+     1015.529,
+     171.676,
+     1015.529
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 16,
+    "ignore": false,
+    "text": "\\t2. 计算二重积分 $ \\iint_{D} \\operatorname{s i n} \\left( \\operatorname* {m a x} \\left\\{x^{2}, y^{2} \\right\\} \\right) \\mathrm{d} x \\ \\mathrm{d} y $ ，其中区域 $ D=\\{( x, y ) \\mid0 \\leqslant x, y \\leqslant\\sqrt{\\pi} \\}. $",
+    "anno_id": 7,
+    "poly": [
+     178.49,
+     1022.344,
+     997.759,
+     1022.344,
+     997.759,
+     1079.132,
+     178.49,
+     1079.132
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 17,
+    "ignore": false,
+    "text": "[答案]：解不妨记 $ D_{1}=\\{( x, y ) \\mid0 \\leqslant y \\leqslant x \\leqslant\\sqrt{\\pi} \\} $ ，由对称性可知",
+    "anno_id": 38,
+    "poly": [
+     170.918,
+     1088.975,
+     778.177,
+     1088.975,
+     778.177,
+     1121.534,
+     170.918,
+     1121.534
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 18,
+    "ignore": false,
+    "latex": "$$\n原式=2 \\iint_{D_{1}} \\operatorname{s i n} x^{2} \\ \\mathrm{d} x \\ \\mathrm{d} y=2 \\int_{0}^{\\sqrt{\\pi}} \\operatorname{s i n} x^{2} \\ \\mathrm{d} x \\int_{0}^{x} \\ \\mathrm{d} y=2 \\int_{0}^{\\sqrt{\\pi}} x \\operatorname{s i n} x^{2} \\ \\mathrm{d} x=2\n$$",
+    "anno_id": 32,
+    "poly": [
+     308.725,
+     1139.707,
+     1021.989,
+     1139.707,
+     1021.989,
+     1209.367,
+     308.725,
+     1209.367
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 19,
+    "ignore": false,
+    "text": "[解析]：",
+    "anno_id": 34,
+    "poly": [
+     214.078,
+     1238.14,
+     286.01,
+     1238.14,
+     286.01,
+     1270.699,
+     214.078,
+     1270.699
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 20,
+    "ignore": false,
+    "text": "\\t3. 求级数 $ \\sum_{n=1}^{\\infty} \\frac{(-1 )^{n-1}} {n ( 2 n+1 )} $的和.",
+    "anno_id": 30,
+    "poly": [
+     176.976,
+     1274.485,
+     474.548,
+     1274.485,
+     474.548,
+     1341.874,
+     176.976,
+     1341.874
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 21,
+    "ignore": false,
+    "text": "[答案]：解考虑",
+    "anno_id": 15,
+    "poly": [
+     171.676,
+     1350.96,
+     310.997,
+     1350.96,
+     310.997,
+     1379.733,
+     171.676,
+     1379.733
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 22,
+    "ignore": false,
+    "latex": "$$\n\\sum_{n=1}^{\\infty} \\frac{(-1 )^{n-1}} {n ( 2 n+1 )}=\\sum_{n=1}^{\\infty} \\frac{(-1 )^{n-1}} {n}+2 \\sum_{n=1}^{\\infty} \\frac{(-1 )^{n}} {2 n+1}.\n$$",
+    "anno_id": 39,
+    "poly": [
+     444.26,
+     1380.49,
+     869.796,
+     1380.49,
+     869.796,
+     1455.451,
+     444.26,
+     1455.451
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 23,
+    "ignore": false,
+    "text": "注意到",
+    "anno_id": 6,
+    "poly": [
+     214.835,
+     1466.051,
+     284.495,
+     1466.051,
+     284.495,
+     1498.61,
+     214.835,
+     1498.61
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 24,
+    "ignore": false,
+    "latex": "$$\n\\operatorname{l n} ( 1+x )=\\sum_{n=1}^{\\infty} \\frac{(-1 )^{n-1}} {n} x^{n}, x \\in(-1, 1 ]\n$$",
+    "anno_id": 33,
+    "poly": [
+     467.733,
+     1498.61,
+     848.595,
+     1498.61,
+     848.595,
+     1567.513,
+     467.733,
+     1567.513
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 25,
+    "ignore": false,
+    "text": "设",
+    "anno_id": 8,
+    "poly": [
+     1355.937,
+     145.495,
+     1378.816,
+     145.495,
+     1378.816,
+     171.738,
+     1355.937,
+     171.738
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 26,
+    "ignore": false,
+    "latex": "$$\nf ( x )=\\sum_{n=1}^{\\infty} \\frac{(-1 )^{n}} {2 n+1} x^{2 n+1}, x \\in[-1, 1 ].\n$$",
+    "anno_id": 18,
+    "poly": [
+     1630.538,
+     176.99,
+     1966.933,
+     176.99,
+     1966.933,
+     239.629,
+     1630.538,
+     239.629
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 27,
+    "ignore": false,
+    "text": "由幂级数相关性质可知",
+    "anno_id": 31,
+    "poly": [
+     1354.591,
+     253.833,
+     1568.576,
+     253.833,
+     1568.576,
+     283.44,
+     1354.591,
+     283.44
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 28,
+    "ignore": false,
+    "latex": "$$\nf^{\\prime} ( x )=\\sum_{n=1}^{\\infty} (-1 )^{n} x^{2 n}=-\\frac{x^{2}} {1+x^{2}}=\\frac{1} {1+x^{2}}-1, x \\in(-1, 1 ).\n$$",
+    "anno_id": 40,
+    "poly": [
+     1522.273,
+     306.134,
+     2078.291,
+     306.134,
+     2078.291,
+     368.0,
+     1522.273,
+     368.0
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 29,
+    "ignore": false,
+    "text": "即 f(x) = arctan x - x ，故",
+    "anno_id": 11,
+    "poly": [
+     1352.573,
+     395.143,
+     1604.24,
+     395.143,
+     1604.24,
+     422.059,
+     1352.573,
+     422.059
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 30,
+    "ignore": false,
+    "latex": "$$\n\\sum_{n=1}^{\\infty} {\\frac{(-1 )^{n-1}} {n ( 2 n+1 )}}=\\operatorname{l n} 2+2 f ( 1 )=\\operatorname{l n} 2+2 \\left( {\\frac{\\pi} {4}}-1 \\right)=\\operatorname{l n} 2+{\\frac{\\pi} {2}}-2\n$$",
+    "anno_id": 28,
+    "poly": [
+     1503.304,
+     450.321,
+     2098.826,
+     450.321,
+     2098.826,
+     518.245,
+     1503.304,
+     518.245
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 31,
+    "ignore": false,
+    "text": "[解析]：",
+    "anno_id": 47,
+    "poly": [
+     1311.537,
+     538.872,
+     1375.892,
+     538.872,
+     1375.892,
+     568.636,
+     1311.537,
+     568.636
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 32,
+    "ignore": false,
+    "text": "\\t4. 设 $ f(x, y) {=} x^{3}-3 x^{2} y-y^{3}+x^{2}-y $ （1）证明：存在 $ \\delta> 0 $ ，以及定义于 $ (-\\delta, \\delta) $上的连续可微函数 y=y(x) ，满足 y(0)=0 ，以及 f(x,y(x）)=0 .(2)证明： x=0时 (1)中的 y（x)取到极小值",
+    "anno_id": 37,
+    "poly": [
+     1322.348,
+     577.746,
+     2287.534,
+     577.746,
+     2287.534,
+     647.093,
+     1322.348,
+     647.093
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 33,
+    "ignore": false,
+    "text": "[答案]：证明(1)注意到 $ \\frac{\\partial f} {\\partial y} ( 0, 0 )=-3 x^{2} \\!-\\! 3 y^{2} \\!-\\! 1 |_{( 0, 0 )}=-1 \\neq0 $ (2)在 $ x^{3} \\!-\\! 3 x^{2} y \\!-\\! y^{3} \\!+\\! x^{2} \\!-\\! y= $ 0两边同时对 x求导，有",
+    "anno_id": 44,
+    "poly": [
+     1307.753,
+     651.806,
+     2286.692,
+     651.806,
+     2286.692,
+     731.985,
+     1307.753,
+     731.985
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 34,
+    "ignore": false,
+    "latex": "$$\n3 x^{2}-6 x y-3 x^{2} y^{\\prime}-3 y^{2} y^{\\prime}+2 x-y^{\\prime}=0.\n$$",
+    "anno_id": 22,
+    "poly": [
+     1604.49,
+     736.309,
+     1995.195,
+     736.309,
+     1995.195,
+     777.954,
+     1604.49,
+     777.954
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 35,
+    "ignore": false,
+    "text": "代入 x=0和 y(0)= 0得到 $ y^{\\prime} ( 0 )=0 $ ．重复上述操作，得到",
+    "anno_id": 14,
+    "poly": [
+     1352.505,
+     786.992,
+     1914.696,
+     786.992,
+     1914.696,
+     819.624,
+     1352.505,
+     819.624
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 36,
+    "ignore": false,
+    "latex": "$$\n6 x-6 y-1 2 x y^{\\prime}-3 x^{2} y^{\\prime\\prime}-6 y \\left( y^{\\prime} \\right)^{2}-3 y^{2} y^{\\prime\\prime}+2-y^{\\prime\\prime}=0.\n$$",
+    "anno_id": 45,
+    "poly": [
+     1526.501,
+     840.043,
+     2073.942,
+     840.043,
+     2073.942,
+     874.873,
+     1526.501,
+     874.873
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 37,
+    "ignore": false,
+    "text": "代入 x=0和 $ y ( 0 )=y^{\\prime} ( 0 )=0, $ ，得到 $ y^{\\prime} ( 0 )=2 > 0 $",
+    "anno_id": 46,
+    "poly": [
+     1356.135,
+     895.317,
+     1836.345,
+     895.317,
+     1836.345,
+     930.147,
+     1356.135,
+     930.147
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 38,
+    "ignore": false,
+    "text": "[解析]",
+    "anno_id": 52,
+    "poly": [
+     1842.411,
+     899.801,
+     1903.93,
+     899.801,
+     1903.93,
+     926.028,
+     1842.411,
+     926.028
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 39,
+    "ignore": false,
+    "text": "\\t5. 设 f(x)在 $ (-\\infty,+\\infty) $上可导且下凸，证明：对任意的实数 x ，都有 $ f \\left( x+f^{\\prime} ( x ) \\right) \\geqslant f ( x ). $",
+    "anno_id": 13,
+    "poly": [
+     1321.292,
+     936.217,
+     2178.321,
+     936.217,
+     2178.321,
+     965.996,
+     1321.292,
+     965.996
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 40,
+    "ignore": false,
+    "text": "[答案]：证明由题意可知对任意实数 x,y有",
+    "anno_id": 21,
+    "poly": [
+     1311.763,
+     976.12,
+     1711.988,
+     976.12,
+     1711.988,
+     1003.517,
+     1311.763,
+     1003.517
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 41,
+    "ignore": false,
+    "latex": "$$\nf ( y ) \\geqslant f ( x )+f^{\\prime} ( x ) ( y-x ),\n$$",
+    "anno_id": 17,
+    "poly": [
+     1667.32,
+     1027.34,
+     1935.923,
+     1027.34,
+     1935.923,
+     1060.692,
+     1667.32,
+     1060.692
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 42,
+    "ignore": false,
+    "text": "故 $ f \\left( x+f^{\\prime} ( x ) \\right) \\geqslant f ( x )+f^{\\prime} ( x ) \\left( ( x+f^{\\prime} ( x ) )-x \\right)=f ( x )+\\left( f^{\\prime} ( x ) \\right)^{2} \\geqslant f ( x ) $",
+    "anno_id": 20,
+    "poly": [
+     1351.071,
+     1083.323,
+     2044.323,
+     1083.323,
+     2044.323,
+     1117.867,
+     1351.071,
+     1117.867
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 43,
+    "ignore": false,
+    "text": "[解析]：",
+    "anno_id": 53,
+    "poly": [
+     2051.898,
+     1089.246,
+     2113.073,
+     1089.246,
+     2113.073,
+     1114.273,
+     2051.898,
+     1114.273
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 44,
+    "ignore": false,
+    "text": "\\t6. 设 $ x_{n}=\\sum_{k=0}^{n} \\frac{1} {k!}, n=1, 2, \\cdots $ ，求极限 $ \\operatorname* {l i m}_{n \\to\\infty} \\left( \\frac{\\operatorname{l n} x_{n}} {\\sqrt[n]{e} -1}-n \\right). \\sqrt[n]{e} $",
+    "anno_id": 35,
+    "poly": [
+     1323.079,
+     1127.396,
+     1887.682,
+     1127.396,
+     1887.682,
+     1186.953,
+     1323.079,
+     1186.953
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 45,
+    "ignore": false,
+    "text": "[答案]：解注意到",
+    "anno_id": 9,
+    "poly": [
+     1305.807,
+     1200.056,
+     1476.141,
+     1200.056,
+     1476.141,
+     1227.452,
+     1305.807,
+     1227.452
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 46,
+    "ignore": false,
+    "latex": "$$\nx_{n}=\\mathrm{e}-\\sum_{k=n+1}^{\\infty} {\\frac{1} {k!}} \\stackrel{\\mathrm{d e f}} {=} \\mathrm{e}-r_{n}, \\operatorname* {l i m}_{n \\to\\infty} r_{n}=0.\n$$",
+    "anno_id": 43,
+    "poly": [
+     1604.785,
+     1229.239,
+     1994.289,
+     1229.239,
+     1994.289,
+     1297.73,
+     1604.785,
+     1297.73
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 47,
+    "ignore": false,
+    "text": "又",
+    "anno_id": 0,
+    "poly": [
+     1354.644,
+     1313.214,
+     1381.445,
+     1313.214,
+     1381.445,
+     1342.993,
+     1354.644,
+     1342.993
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 48,
+    "ignore": false,
+    "latex": "$$\n\\root n \\of{\\mathrm{e}}-1=\\frac{1} {n}+\\frac{1} {2 n^{2}}+o \\left( \\frac{1} {n^{2}} \\right),\n$$",
+    "anno_id": 42,
+    "poly": [
+     1662.555,
+     1342.397,
+     1945.452,
+     1342.397,
+     1945.452,
+     1398.977,
+     1662.555,
+     1398.977
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 49,
+    "ignore": false,
+    "text": "故",
+    "anno_id": 12,
+    "poly": [
+     1353.453,
+     1414.462,
+     1382.636,
+     1414.462,
+     1382.636,
+     1438.88,
+     1353.453,
+     1438.88
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 50,
+    "ignore": false,
+    "latex": "$$\n原式=\\operatorname* {l i m}_{n \\to\\infty} n \\left( \\operatorname{l n} x_{n}-1-{\\frac{1} {2 n}} \\right)=\\operatorname* {l i m}_{n \\to\\infty} n \\left( \\operatorname{l n} {\\frac{\\mathrm{e}-r_{n}} {\\mathrm{e}}}-{\\frac{1} {2 n}} \\right)=-{\\frac{1} {2}}\n$$",
+    "anno_id": 10,
+    "poly": [
+     1493.413,
+     1439.476,
+     2115.191,
+     1439.476,
+     2115.191,
+     1498.438,
+     1493.413,
+     1498.438
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 51,
+    "ignore": false,
+    "text": "[解析]：",
+    "anno_id": 16,
+    "poly": [
+     1312.627,
+     1513.327,
+     1378.012,
+     1513.327,
+     1378.012,
+     1539.906,
+     1312.627,
+     1539.906
+    ]
+   },
+   {
+    "category_type": "header",
+    "order": null,
+    "ignore": false,
+    "text": "此卷只装订不密封姓名 ____准考证号考场号座位号",
+    "anno_id": 1,
+    "poly": [
+     25.128,
+     223.736,
+     121.179,
+     223.736,
+     121.179,
+     1465.162,
+     25.128,
+     1465.162
+    ]
+   },
+   {
+    "category_type": "footer",
+    "order": null,
+    "ignore": false,
+    "text": "数学试题第 2 页（共 2 页）",
+    "anno_id": 23,
+    "poly": [
+     1686.99,
+     1584.447,
+     1904.666,
+     1584.447,
+     1904.666,
+     1609.113,
+     1686.99,
+     1609.113
+    ]
+   },
+   {
+    "category_type": "footer",
+    "order": null,
+    "ignore": false,
+    "text": "数学试题第 1 页（共 2 页）",
+    "anno_id": 36,
+    "poly": [
+     545.925,
+     1585.74,
+     763.299,
+     1585.74,
+     763.299,
+     1604.829,
+     545.925,
+     1604.829
+    ]
+   }
+  ],
+  "extra": {
+   "relation": []
+  },
+  "page_info": {
+   "page_attribute": {
+    "data_source": "exam_paper",
+    "language": "simplified_chinese",
+    "layout": "double_column",
+    "special_issue": [
+     "table_full_line",
+     "table_horizontal"
+    ],
+    "subset": "v1.5"
+   },
+   "page_no": 1036,
+   "height": 1697,
+   "width": 2400,
+   "image_path": "jiaocai_71434495.pdf_0.jpg",
+   "sample_id": 299
+  }
+ },
+ {
+  "layout_dets": [
+   {
+    "category_type": "text_block",
+    "order": 0,
+    "ignore": false,
+    "text": "RWKV-7 uses four low-rank MLPs for decay $ w $ , value residual $ v $, in-context learning rate $ a $ and gate $ g $ respectively. The intermediate dimensions are listed in Table 16. These values are based on our mere speculation of how much information can be passed through.",
+    "anno_id": "box_id_0",
+    "poly": [
+     298.01,
+     227.92,
+     1403.01,
+     227.92,
+     1403.01,
+     324.06,
+     298.01,
+     324.06
+    ]
+   },
+   {
+    "category_type": "table",
+    "order": 1,
+    "ignore": false,
+    "html": "<table><tr><td>Dimension $(D)$</td><td>$d_{w}$</td><td>$d_{a}$</td><td>$d_{ν}$</td><td>$d_{g}$</td></tr><tr><td>768</td><td>64</td><td>64</td><td>32</td><td>128</td></tr><tr><td>1024</td><td>64</td><td>64</td><td>32</td><td>128</td></tr><tr><td>2048</td><td>96</td><td>96</td><td>64</td><td>256</td></tr><tr><td>2560</td><td>96</td><td>96</td><td>64</td><td>320</td></tr><tr><td>4096</td><td>128</td><td>128</td><td>96</td><td>480</td></tr><tr><td>6144</td><td>128</td><td>128</td><td>96</td><td>640</td></tr></table>",
+    "anno_id": "box_id_1",
+    "poly": [
+     602.99,
+     350.02,
+     1099.05,
+     350.02,
+     1099.05,
+     572.0,
+     602.99,
+     572.0
+    ]
+   },
+   {
+    "category_type": "table_caption",
+    "order": 2,
+    "ignore": false,
+    "text": "Table 16: Suggested Intermediate Dimensions for the low-rank MLPs for RWKV-7 models",
+    "anno_id": "box_id_2",
+    "poly": [
+     328.95,
+     623.92,
+     1360.0,
+     623.92,
+     1360.0,
+     656.92,
+     328.95,
+     656.92
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 3,
+    "ignore": false,
+    "text": "The number of parameters for all RWKV-7 models can be computed by the formula:",
+    "anno_id": "box_id_3",
+    "poly": [
+     293.655,
+     689.92,
+     1262.93,
+     689.92,
+     1262.93,
+     722.92,
+     293.655,
+     722.92
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 4,
+    "ignore": false,
+    "latex": "$$\\# \\left( \\text{Params}\\right)  = {2DV} + {4D} + {LD}\\left( {{12D} + 2\\left( {{d}_{w} + {d}_{a} + {d}_{v} + {d}_{g}}\\right)  + {19}}\\right)  - \\left( {{2D}{d}_{v} + D}\\right) \\text{.} \\tag{26}$$",
+    "anno_id": "box_id_4",
+    "poly": [
+     412.08,
+     733.92,
+     1404.506,
+     733.92,
+     1404.506,
+     775.06,
+     412.08,
+     775.06
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 5,
+    "ignore": false,
+    "text": "Where:",
+    "anno_id": "box_id_5",
+    "poly": [
+     295.97,
+     801.02,
+     383.01,
+     801.02,
+     383.01,
+     832.04,
+     295.97,
+     832.04
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 7,
+    "ignore": false,
+    "text": "- The weights of each layer yield $ D\\left( {{12D} + 2\\left( {{d}_{w} + {d}_{a} + {d}_{v} + {d}_{g}}\\right) + {19}}\\right) $ parameters, except for the first layer;",
+    "anno_id": "box_id_6",
+    "poly": [
+     371.96,
+     922.08,
+     1403.01,
+     922.08,
+     1403.01,
+     979.852,
+     371.96,
+     979.852
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 9,
+    "ignore": false,
+    "text": "Parameter Initializations Proper parameter initialization is crucial for ensuring training stability and achieving optimal performance for language models. RWKV-7 employs a carefully designed initialization strategy tailored to its architecture. The detailed initialization scheme is beyond the scope here but can be found in the official code repository. We emphasize that using the recommended initialization is essential for replicating the results in this paper. Deviations from the prescribed initialization may lead to performance degradation.",
+    "anno_id": "box_id_7",
+    "poly": [
+     296.99,
+     1076.02,
+     1405.05,
+     1076.02,
+     1405.05,
+     1259.94,
+     296.99,
+     1259.94
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 10,
+    "ignore": false,
+    "text": "Dataset Loading The dataset used for pretraining consists of 3119194079123 tokens stored on disk, which are memory-mapped using the mmap mechanism. To ensure a diverse and pseudorandom sampling of training sequences, we employ a custom data loading strategy based on a mathematical function with desirable properties. Specifically, we utilize a pseudo-random number generator defined by the function $ f\\left( x\\right) = a{x}^{3} $ over the finite field $ \\mathbb{Z}/p\\mathbb{Z} $, where $ p $ is a prime number of the form $ {3n} + 2 $. This function is chosen because it is a bijection (full map) in $\\mathbb{Z}/p\\mathbb{Z}$, ensuring that all possible indices are eventually accessed exactly once within one epoch.",
+    "anno_id": "box_id_8",
+    "poly": [
+     298.01,
+     1292.94,
+     1406.07,
+     1292.94,
+     1406.07,
+     1508.1,
+     298.01,
+     1508.1
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 11,
+    "ignore": false,
+    "text": "For pretraining with a sequence length of 4096, the relative address of the $ k $-th sample is determined as:",
+    "anno_id": "box_id_9",
+    "poly": [
+     293.93,
+     1521.08,
+     1404.03,
+     1521.08,
+     1404.03,
+     1585.98,
+     293.93,
+     1585.98
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 12,
+    "ignore": false,
+    "latex": "$$\\text{start_address}=4096\\cdot(ak^3\\pmod p,\\;\\text{end_address}=\\text{start_address}+4097.$$",
+    "anno_id": "box_id_10",
+    "poly": [
+     418.03,
+     1596.1,
+     1285.051,
+     1596.1,
+     1285.051,
+     1633.94,
+     418.03,
+     1633.94
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 13,
+    "ignore": false,
+    "text": "Here, $ p $ is chosen as the largest prime of the form $ {3n} + 2 $ smaller than [dataset_size/4096], yielding $ p = {761521949} $. The parameter $ a $ is set to an integer close to $ {0.618p} $ that ensures good mixing properties of the generated addresses.",
+    "anno_id": "box_id_11",
+    "poly": [
+     298.01,
+     1646.92,
+     1405.05,
+     1646.92,
+     1405.05,
+     1739.98,
+     298.01,
+     1739.98
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 14,
+    "ignore": false,
+    "text": "This approach guarantees both simple calculation and uniform access to the dataset while maintaining pseudo-randomness. By leveraging the properties of modular arithmetic and cubic mappings, we achieve a balance between computational efficiency and data diversity during pretraining.",
+    "anno_id": "box_id_12",
+    "poly": [
+     298.01,
+     1754.06,
+     1404.03,
+     1754.06,
+     1404.03,
+     1879.9,
+     298.01,
+     1879.9
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 15,
+    "ignore": false,
+    "text": "Training Details All RWKV-7 models were trained under bfloat 16 format on nodes of $ 8 \\times \\text{Nvidia H800}$. The AdamW optimizer was configured with $ {\\beta }_{1} = {0.9},{\\beta }_{2} = {0.99},\\epsilon = 1 \\times {10}^{-{18}} $, and a weight decay of 0.1 applied exclusively to linear layers and embedding weights. The choice of such a small $ \\epsilon $ value is motivated by the theory proposed by Molybog et al. (2023), which suggests that",
+    "anno_id": "box_id_13",
+    "poly": [
+     299.03,
+     1910.04,
+     1403.01,
+     1910.04,
+     1403.01,
+     2035.0,
+     299.03,
+     2035.0
+    ]
+   },
+   {
+    "category_type": "page_number",
+    "order": 16,
+    "ignore": false,
+    "text": "40",
+    "anno_id": "box_id_14",
+    "poly": [
+     835.04,
+     2090.0,
+     863.94,
+     2090.0,
+     863.94,
+     2112.0,
+     835.04,
+     2112.0
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 6,
+    "ignore": false,
+    "text": "- The weights of the embeddings and head, and the Layernorms beside them, yield $2DV+4D$ parameters;",
+    "anno_id": "box-lfq8ygbh",
+    "poly": [
+     372.083,
+     859.964,
+     1402.919,
+     859.964,
+     1402.919,
+     922.08,
+     372.083,
+     922.08
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 8,
+    "ignore": false,
+    "text": "- The low-rank MLP for the value residual is not present in the first layer, subtracting $( 2 D d _ {v } + D )$ parameters.",
+    "anno_id": "box-3gr5v2p3",
+    "poly": [
+     372.519,
+     983.096,
+     1404.806,
+     983.096,
+     1404.806,
+     1041.812,
+     372.519,
+     1041.812
+    ]
+   },
+   {
+    "category_type": "list_group",
+    "order": null,
+    "ignore": false,
+    "text": "",
+    "anno_id": "box-wfkrnaa1",
+    "poly": [
+     367.114,
+     855.235,
+     1409.571,
+     855.235,
+     1409.571,
+     1046.77,
+     367.114,
+     1046.77
+    ]
+   }
+  ],
+  "page_info": {
+   "page_no": 0,
+   "height": 2200,
+   "width": 1700,
+   "image_path": "page-f9583127-1277-4424-be9d-35430e0aedd6.png",
+   "page_attribute": {
+    "data_source": "academic_literature",
+    "language": "english",
+    "layout": "single_column",
+    "special_issue": [],
+    "subset": "equation_hard"
+   }
+  },
+  "extra": {
+   "relation": []
+  }
+ },
+ {
+  "layout_dets": [
+   {
+    "category_type": "table_caption",
+    "order": 2,
+    "ignore": false,
+    "text": "Table 5.8 End-point Constraints for a Cubic Spline",
+    "anno_id": "box_id_0",
+    "poly": [
+     298.036,
+     344.067,
+     927.994,
+     344.067,
+     927.994,
+     381.959,
+     298.036,
+     381.959
+    ]
+   },
+   {
+    "category_type": "table",
+    "order": 3,
+    "ignore": false,
+    "html": "<table><tr><td>Description of the strategy</td><td>Equations involving $m_{0}$ and $m_{N}$</td></tr><tr><td>(i) Clamped cubic spline: specify $S^{\\prime }(x_{0})$, $S^{\\prime }(x_{n})$(the “best choice\" if the derivatives are known)</td><td>$m_{0}=\\frac {3}{h_{0}}(d_{0}\\quad S^{\\prime }(x_{0}))\\frac {m_{1}}{2}$$m_{N}=\\frac{3}{h_{N\\quad1}}(S^{\\prime}(x_{N})\\quad d_{N\\quad1})\\quad\\frac{m_{N\\quad1}}{2}$</td></tr><tr><td>(ii) Natural cubic spline(a\"relaxed curve\")</td><td>$m_{0}=0,m_{N}=0$</td></tr><tr><td>(iii) Extrapolate $S^{\\prime \\prime }(x)$to the<br/>endpoints</td><td>$m_{0}=m_{1}\\quad\\frac {h_{0}(m_{2}\\quad m_{1})}{h_{1}},$$m_{N}=m_{N\\quad1}+\\frac{h_{N\\quad1}(m_{N\\quad1}\\quad m_{N\\quad2})}{h_{N\\quad2}}$</td></tr><tr><td>(iv) $S^{\\prime \\prime }(x)$ is constant near the<br/>endpoints</td><td>$m_{0}=m_{1},m_{N}=m_{N\\quad1}$</td></tr><tr><td>(v) Specify $S^{\\prime \\prime }(X)$ at each<br/>endpoint</td><td>$m_{0}=S^{\\prime \\prime }(x_{0}),m_{N}=S^{\\prime \\prime }(x_{N})$</td></tr></table>",
+    "anno_id": "box_id_1",
+    "poly": [
+     282.002,
+     402.074,
+     1315.953,
+     402.074,
+     1315.953,
+     1172.073,
+     282.002,
+     1172.073
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 4,
+    "ignore": false,
+    "text": "Equations (13) and (14) with (12) used for $ k = 2,3,\\ldots ,N\\quad2 $ form $ N\\quad1 $ linear equations involving the coefficients $ {m}_{1},{m}_{2},\\ldots ,{m}_{N \\quad1} $.",
+    "anno_id": "box_id_2",
+    "poly": [
+     248.942,
+     1390.068,
+     1351.989,
+     1390.068,
+     1351.989,
+     1467.956,
+     248.942,
+     1467.956
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 5,
+    "ignore": false,
+    "text": "Regardless of the particular strategy chosen in Table 5.8, we can rewrite equations 1 and $ N\\quad1 $ in (12) and obtain a tridiagonal linear system of the form $ \\pmb{{HM}} = \\pmb{V} $, which involves $ {m}_{1},{m}_{2},\\ldots ,{m}_{N \\quad1} $ :",
+    "anno_id": "box_id_3",
+    "poly": [
+     252.082,
+     1470.061,
+     1354.964,
+     1470.061,
+     1354.964,
+     1584.906,
+     252.082,
+     1584.906
+    ]
+   },
+   {
+    "category_type": "equation_isolated",
+    "order": 6,
+    "ignore": false,
+    "latex": "$$\\left\\lbrack  \\begin{array}{ccccccc} {b}_{1} & {c}_{1} & & & & & & \\\\  {a}_{1} & {b}_{2} & {c}_{2} & & & & & \\\\   & &  \\ddots  & & & & & \\\\   & & & {a}_{N\\quad3} & {b}_{N\\quad 2}  & {c}_{N\\quad 2} \\\\   & & & & {a}_{N\\quad2} & {b}_{N\\quad1} \\end{array}\\right\\rbrack  \\left\\lbrack  \\begin{array}{c} {m}_{1} \\\\  {m}_{2} \\\\  \\vdots \\\\  {m}_{N\\quad2} \\\\  {m}_{N\\quad1} \\\\  \\end{array}\\right\\rbrack   = \\left\\lbrack  \\begin{array}{cc} {v}_{1} \\\\  {v}_{2} \\\\  \\vdots \\\\  {v}_{N\\quad2} \\\\  {v}_{N\\quad1}  \\\\  \\end{array}\\right\\rbrack  .\\tag{15}$$",
+    "anno_id": "box_id_4",
+    "poly": [
+     252.736,
+     1626.073,
+     1213.963,
+     1626.073,
+     1213.963,
+     1859.973,
+     252.736,
+     1859.973
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 7,
+    "ignore": false,
+    "text": "The linear system in (15) is strictly diagonally dominant and has a unique solution (see Chapter 3 for details). After the coefficients $\\{ {m}_{k}\\} $ are determined, the spline",
+    "anno_id": "box_id_5",
+    "poly": [
+     250.925,
+     1899.97,
+     1355.956,
+     1899.97,
+     1355.956,
+     1980.899,
+     250.925,
+     1980.899
+    ]
+   },
+   {
+    "category_type": "page_number",
+    "order": 0,
+    "ignore": false,
+    "text": "284",
+    "anno_id": "box_id_6",
+    "poly": [
+     240.016,
+     254.951,
+     290.158,
+     254.951,
+     290.158,
+     287.931,
+     240.016,
+     287.931
+    ]
+   },
+   {
+    "category_type": "header",
+    "order": 1,
+    "ignore": false,
+    "text": "CHAP.5 CURVE FITTING",
+    "anno_id": "box-fth4536l",
+    "poly": [
+     314.988,
+     256.875,
+     646.056,
+     256.875,
+     646.056,
+     283.085,
+     314.988,
+     283.085
+    ]
+   }
+  ],
+  "page_info": {
+   "page_no": 0,
+   "height": 2339,
+   "width": 1653,
+   "image_path": "page-573c437e-c309-4483-a038-ef2f440b104a.png",
+   "page_attribute": {
+    "data_source": "book",
+    "language": "english",
+    "layout": "single_column",
+    "special_issue": [],
+    "subset": "equation_hard"
+   }
+  },
+  "extra": {
+   "relation": []
+  }
+ },
+ {
+  "layout_dets": [
+   {
+    "category_type": "table",
+    "order": 5,
+    "ignore": false,
+    "html": "<table><tr><td>轻绳</td><td>沿绳收缩方向</td><td><br/></td><td rowspan=\"2\">轻绳、轻弹簧的弹力一定沿绳或弹簧方向,但注意弹簧可拉伸可压缩,绳只能拉伸,不能被压缩</td></tr><tr><td>轻质弹簧</td><td>沿弹簧形变的反方向</td><td><br/></td></tr><tr><td rowspan=\"2\">轻杆</td><td>可沿杆</td><td><br/></td><td rowspan=\"2\">轻杆弹力不一定沿杆方向,要依具体情形确定</td></tr><tr><td>可不沿杆</td><td><br/></td></tr></table>",
+    "anno_id": "box_id_0",
+    "poly": [
+     322.996,
+     254.015,
+     1328.02,
+     254.015,
+     1328.02,
+     1041.089,
+     322.996,
+     1041.089
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 6,
+    "ignore": false,
+    "text": "# 3．胡克定律",
+    "anno_id": "box_id_1",
+    "poly": [
+     249.934,
+     1075.94,
+     395.067,
+     1075.94,
+     395.067,
+     1111.961,
+     249.934,
+     1111.961
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 7,
+    "ignore": false,
+    "text": "(1)内容：在弹性限度内，弹簧弹力 $F$ 的大小与弹簧的形变量 $x$ 成正比(定律的成立是有条件的，也就是弹簧发生“弹性形变”，即必须在弹性限度内.",
+    "anno_id": "box_id_2",
+    "poly": [
+     250.925,
+     1132.076,
+     1406.042,
+     1132.076,
+     1406.042,
+     1224.934,
+     250.925,
+     1224.934
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 8,
+    "ignore": false,
+    "text": "(2)公式： $F = k x$ ，式中 $k$ 为弹簧的劲度系数，单位是牛顿每米，符号是 $\\textnormal { N } / \\textnormal { m }$.",
+    "anno_id": "box_id_3",
+    "poly": [
+     294.069,
+     1241.073,
+     1152.896,
+     1241.073,
+     1152.896,
+     1287.178,
+     294.069,
+     1287.178
+    ]
+   },
+   {
+    "category_type": "chart_mask",
+    "order": 10,
+    "ignore": false,
+    "text": "",
+    "anno_id": "box_id_4",
+    "poly": [
+     1186.028,
+     1230.08,
+     1405.05,
+     1230.08,
+     1405.05,
+     1426.088,
+     1186.028,
+     1426.088
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 11,
+    "ignore": false,
+    "text": "(4)利用 $F - x$ 图象，很容易得到胡克定律的另一种表达式 $\\Delta F = k \\cdot \\Delta x$ ， $\\Delta x$ 是弹簧长度的变化量， $\\Delta F$ 是弹力的变化量.",
+    "anno_id": "box_id_5",
+    "poly": [
+     255.058,
+     1451.029,
+     1395.216,
+     1451.029,
+     1395.216,
+     1547.015,
+     255.058,
+     1547.015
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 12,
+    "ignore": false,
+    "text": "说明：",
+    "anno_id": "box_id_6",
+    "poly": [
+     301.011,
+     1569.001,
+     365.974,
+     1569.001,
+     365.974,
+     1601.045,
+     301.011,
+     1601.045
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 13,
+    "ignore": false,
+    "text": "$\\textcircled{1} F { = } k x$ 中的 $x$ 是弹簧的形变最，是弹簧伸长(或缩短)的长度，而不是弹簧的总长度.",
+    "anno_id": "box_id_7",
+    "poly": [
+     297.044,
+     1623.032,
+     1215.947,
+     1623.032,
+     1215.947,
+     1659.988,
+     297.044,
+     1659.988
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 14,
+    "ignore": false,
+    "text": "$\\textcircled { 2 } F { = } k x$ 中的 $k$ 是弹簧的劲度系数，它反映了弹簧的“软”“硬”程度，大小仅由弹簧本身的性质决定.",
+    "anno_id": "box_id_8",
+    "poly": [
+     291.92,
+     1680.104,
+     1388.024,
+     1680.104,
+     1388.024,
+     1715.89,
+     291.92,
+     1715.89
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 15,
+    "ignore": false,
+    "text": "$\\textcircled{3}$ 在应用 $F { = } k x$ 时，要把各物理量的单位统一到国际单位制中.",
+    "anno_id": "box_id_9",
+    "poly": [
+     298.036,
+     1736.941,
+     983.039,
+     1736.941,
+     983.039,
+     1772.026,
+     298.036,
+     1772.026
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 16,
+    "ignore": false,
+    "text": "$\\textcircled{4}$ 胡克定律的表达式 $ { F } = { k } \\cdot  { x }$ ，仅表示弹簧的弹力与弹簧形变量之间的大小关系，若同时要表示弹力方向与弹簧形变方向相反，则表达式可写成 $F = - k \\cdot x$ .",
+    "anno_id": "box_id_10",
+    "poly": [
+     245.966,
+     1793.077,
+     1403.066,
+     1793.077,
+     1403.066,
+     1885.0,
+     245.966,
+     1885.0
+    ]
+   },
+   {
+    "category_type": "footer",
+    "order": 17,
+    "ignore": false,
+    "text": "10",
+    "anno_id": "box_id_11",
+    "poly": [
+     229.44,
+     2031.716,
+     267.285,
+     2031.716,
+     267.285,
+     2066.317,
+     229.44,
+     2066.317
+    ]
+   },
+   {
+    "category_type": "page_number",
+    "order": 19,
+    "ignore": false,
+    "text": "111/231",
+    "anno_id": "box_id_12",
+    "poly": [
+     1500.924,
+     2269.999,
+     1576.962,
+     2269.999,
+     1576.962,
+     2295.962,
+     1500.924,
+     2295.962
+    ]
+   },
+   {
+    "category_type": "header",
+    "order": 1,
+    "ignore": false,
+    "text": "备授课-备课页",
+    "anno_id": "box_id_13",
+    "poly": [
+     887.992,
+     39.997,
+     1035.935,
+     39.997,
+     1035.935,
+     71.106,
+     887.992,
+     71.106
+    ]
+   },
+   {
+    "category_type": "header",
+    "order": 0,
+    "ignore": false,
+    "text": "2023/2/2下午12:11",
+    "anno_id": "box_id_14",
+    "poly": [
+     67.938,
+     39.997,
+     264.976,
+     39.997,
+     264.976,
+     69.936,
+     67.938,
+     69.936
+    ]
+   },
+   {
+    "category_type": "abandon",
+    "order": 2,
+    "ignore": false,
+    "text": "",
+    "anno_id": "box_id_15",
+    "poly": [
+     190.614,
+     147.356,
+     263.785,
+     147.356,
+     263.785,
+     221.777,
+     190.614,
+     221.777
+    ]
+   },
+   {
+    "category_type": "header",
+    "order": 3,
+    "ignore": false,
+    "text": "元本物理",
+    "anno_id": "box-lor535yw",
+    "poly": [
+     265.809,
+     174.108,
+     388.673,
+     174.108,
+     388.673,
+     204.321,
+     265.809,
+     204.321
+    ]
+   },
+   {
+    "category_type": "header",
+    "order": 4,
+    "ignore": false,
+    "text": "aixuexi.com",
+    "anno_id": "box-312bjex4",
+    "poly": [
+     267.152,
+     204.992,
+     351.747,
+     204.992,
+     351.747,
+     221.777,
+     267.152,
+     221.777
+    ]
+   },
+   {
+    "category_type": "figure",
+    "order": null,
+    "ignore": false,
+    "text": "",
+    "anno_id": "box-jn6tn436",
+    "poly": [
+     788.171,
+     262.99,
+     952.525,
+     262.99,
+     952.525,
+     450.523,
+     788.171,
+     450.523
+    ]
+   },
+   {
+    "category_type": "figure",
+    "order": null,
+    "ignore": false,
+    "text": "",
+    "anno_id": "box-s0c38unl",
+    "poly": [
+     760.73,
+     461.808,
+     981.976,
+     461.808,
+     981.976,
+     653.555,
+     760.73,
+     653.555
+    ]
+   },
+   {
+    "category_type": "figure",
+    "order": null,
+    "ignore": false,
+    "text": "",
+    "anno_id": "box-9rh3xvyx",
+    "poly": [
+     745.981,
+     687.268,
+     990.405,
+     687.268,
+     990.405,
+     868.479,
+     745.981,
+     868.479
+    ]
+   },
+   {
+    "category_type": "figure",
+    "order": null,
+    "ignore": false,
+    "text": "",
+    "anno_id": "box-un4aqddd",
+    "poly": [
+     754.409,
+     885.336,
+     984.083,
+     885.336,
+     984.083,
+     1032.833,
+     754.409,
+     1032.833
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 9,
+    "ignore": false,
+    "text": "(3)图象：根据胡克定律，弹力与弹簧形变量的关系可用 $F - x$ 图象表示，如右图.这是一条通过原点的倾斜直线，其斜率 $\\tan \\alpha = { \\frac { F } { x } } = k$.",
+    "anno_id": "box-l8iqhoek",
+    "poly": [
+     290.898,
+     1304.592,
+     1182.5,
+     1304.592,
+     1182.5,
+     1431.715,
+     290.898,
+     1431.715
+    ]
+   },
+   {
+    "category_type": "footer",
+    "order": 18,
+    "ignore": false,
+    "text": "GRADE TEN",
+    "anno_id": "box-gl70bp1f",
+    "poly": [
+     319.186,
+     2032.797,
+     471.646,
+     2032.797,
+     471.646,
+     2060.91,
+     319.186,
+     2060.91
+    ]
+   },
+   {
+    "category_type": "list_group",
+    "order": null,
+    "ignore": false,
+    "text": "",
+    "anno_id": "box-1w4lffsn",
+    "poly": [
+     244.115,
+     1618.062,
+     1403.724,
+     1618.062,
+     1403.724,
+     1896.347,
+     244.115,
+     1896.347
+    ]
+   }
+  ],
+  "page_info": {
+   "page_no": 0,
+   "height": 2339,
+   "width": 1653,
+   "image_path": "page-d5f79be0-5d57-4849-9897-6106dd32117a.png",
+   "page_attribute": {
+    "data_source": "book",
+    "language": "simplified_chinese",
+    "layout": "other_layout",
+    "special_issue": [],
+    "subset": "layout_hard"
+   }
+  },
+  "extra": {
+   "relation": []
+  }
+ },
+ {
+  "layout_dets": [
+   {
+    "category_type": "title",
+    "order": 6,
+    "ignore": false,
+    "text": "# 白酒专题报告：",
+    "anno_id": "box_id_0",
+    "poly": [
+     152.995,
+     209.107,
+     472.052,
+     209.107,
+     472.052,
+     265.944,
+     152.995,
+     265.944
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 7,
+    "ignore": false,
+    "text": "## 国企改革视角看华润助力金种子酒破局",
+    "anno_id": "box_id_1",
+    "poly": [
+     374.962,
+     315.063,
+     1089.986,
+     315.063,
+     1089.986,
+     366.989,
+     374.962,
+     366.989
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 23,
+    "ignore": false,
+    "text": "投资建议：强于大市（维持评级）",
+    "anno_id": "box_id_2",
+    "poly": [
+     1153.003,
+     225.012,
+     1597.929,
+     225.012,
+     1597.929,
+     260.097,
+     1153.003,
+     260.097
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 8,
+    "ignore": false,
+    "text": "### 投资要点：",
+    "anno_id": "box_id_3",
+    "poly": [
+     161.927,
+     403.945,
+     295.074,
+     403.945,
+     295.074,
+     439.03,
+     161.927,
+     439.03
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 9,
+    "ignore": false,
+    "text": "- 巅峰时期曾是安徽第一阵营酒企，具备品牌与市场基础",
+    "anno_id": "box_id_4",
+    "poly": [
+     160.457,
+     453.064,
+     937.983,
+     453.064,
+     937.983,
+     490.956,
+     160.457,
+     490.956
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 10,
+    "ignore": false,
+    "text": "公司旗下具有金种子、种子、醉三秋等多个白酒品牌。96 年公司销售收入排名白酒行业全国第六、安徽第二，此后连续 4 年位居全国白酒利税前十。 05 年起凭借柔和系列与深度协销的差异化打法，在大众酒市场广受认可，逐步回归皖酒头部阵营。13-19 年在行业调整及结构升级中营收持续下降。 22 年华润入股创造全新破局机遇。",
+    "anno_id": "box_id_5",
+    "poly": [
+     159.942,
+     501.014,
+     1108.015,
+     501.014,
+     1108.015,
+     693.981,
+     159.942,
+     693.981
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 11,
+    "ignore": false,
+    "text": "- 知往鉴今： 从华润入驻汾酒看央企入局央地改革成果",
+    "anno_id": "box_id_6",
+    "poly": [
+     157.158,
+     707.08,
+     908.046,
+     707.08,
+     908.046,
+     743.1,
+     157.158,
+     743.1
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 12,
+    "ignore": false,
+    "text": "华润作为央企巨头,华润雪花啤酒为集团一级利润中心，兼具先进的经营管理能力、丰富的资本运作经验以及酒业运营特长和产业资源,正向白酒领域拓展，目前已投资汾酒、景芝、金种子、金沙。华润入股汾酒后，管理上，派驻高管、赋能团队、发布股权激励；经营上，青花引领升级，毛利率提升、费用率下降，经销商拓展、渠道模式革新、省外市场布局全面突破。 国企改革在相当程度上成就了汾酒速度。",
+    "anno_id": "box_id_7",
+    "poly": [
+     160.934,
+     754.094,
+     1107.022,
+     754.094,
+     1107.022,
+     987.058,
+     160.934,
+     987.058
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 13,
+    "ignore": false,
+    "text": "- 知往鉴今：从复星入驻舍得和金徽看大型民企入局改制",
+    "anno_id": "box_id_8",
+    "poly": [
+     162.591,
+     998.987,
+     936.991,
+     998.987,
+     936.991,
+     1035.008,
+     162.591,
+     1035.008
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 14,
+    "ignore": false,
+    "text": "复星定位为全球家庭消费产业集团，作为具备丰富混改经验的民营企业，于 2020 年 8 月和 12 月入股金徽酒和舍得酒业成为大股东。在复星带领下，舍得、金徽经营管理进一步提升，并积极融入复星生态圈。舍得开始大众酒与中高端并重，全面恢复大众酒市场影响力，中高端产品增速也高达 60%，21 年营收增速大幅提升至 84%。金徽酒结构升级、全国化进程均有起势，21 年高档产品占比升至 62%，省外营收占比升至 22%。",
+    "anno_id": "box_id_9",
+    "poly": [
+     160.934,
+     1046.936,
+     1103.053,
+     1046.936,
+     1103.053,
+     1279.901,
+     160.934,
+     1279.901
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 15,
+    "ignore": false,
+    "text": "- 华润入驻助力金种子破局，静候改革推进后切入快车道",
+    "anno_id": "box_id_10",
+    "poly": [
+     157.158,
+     1292.064,
+     935.999,
+     1292.064,
+     935.999,
+     1328.084,
+     157.158,
+     1328.084
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 16,
+    "ignore": false,
+    "text": "2022年2月，华润战略投资金种子成为二股东，主导国企改革；7月，管理层正式进驻，点燃了变革三把火，先是在渠道覆盖和价格体系上强基增效，对营销团队以战养兵；再又推进了营销组织和机制的重设，强化了团队人员能力与激励力度；最后是经营方面对产品、渠道、营销的全面梳理，充分结合华润自身管理禀赋、渠道资源和品牌背书来推进各项工作，从而形成内外部变革的更强势能。后续在管理升级、产品研发、渠道嫁接、消费者转化、股权激励、资本运作等方面均值得期待。",
+    "anno_id": "box_id_11",
+    "poly": [
+     160.934,
+     1337.908,
+     1100.075,
+     1337.908,
+     1100.075,
+     1611.103,
+     160.934,
+     1611.103
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 17,
+    "ignore": false,
+    "text": "- 盈利预测、估值与评级",
+    "anno_id": "box_id_12",
+    "poly": [
+     157.158,
+     1623.968,
+     517.04,
+     1623.968,
+     517.04,
+     1657.883,
+     157.158,
+     1657.883
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 18,
+    "ignore": false,
+    "text": "我们预计公司22-24年营收分别为12.66/20.27/31.52亿元，3年CAGR达 37.56%；归母净利分别为0.1/3.59/8.58亿元；EPS分别为0.02/0.55/1.30 元/股，对应23/24年当前股价为49/21x。考虑到公司原本体量较小且为亏损状态，虽然华润入驻后对其经营管理边际改善巨大，但整体改革节奏稳健，预计23年上半年仍处变革之中，因此选取24年公司EPS水平给予33倍 PE，目标价43.32元，维持买入评级。同时推荐青花引领升级、渠道精耕细作的山西汾酒，全国化初获进展、老股东二次创业的金徽酒。",
+    "anno_id": "box_id_13",
+    "poly": [
+     159.942,
+     1670.046,
+     1103.053,
+     1670.046,
+     1103.053,
+     1942.072,
+     159.942,
+     1942.072
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 19,
+    "ignore": false,
+    "text": "- 风险提示：",
+    "anno_id": "box_id_14",
+    "poly": [
+     164.359,
+     1956.106,
+     361.068,
+     1956.106,
+     361.068,
+     1989.086,
+     164.359,
+     1989.086
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 20,
+    "ignore": false,
+    "text": "经济不及预期；疫情冲击；政策影响；食品安全。",
+    "anno_id": "box_id_15",
+    "poly": [
+     161.723,
+     1999.186,
+     798.389,
+     1999.186,
+     798.389,
+     2038.98,
+     161.723,
+     2038.98
+    ]
+   },
+   {
+    "category_type": "table",
+    "order": 21,
+    "ignore": false,
+    "html": "<table><tr><td rowspan=\"2\">简称</td><td colspan=\"3\">EPS</td><td colspan=\"3\">PE</td><td rowspan=\"2\">CAGR–</td><td rowspan=\"2\">评级</td></tr><tr><td>2022E</td><td>2023E</td><td>2024E</td><td>2022E</td><td>2023E</td><td>2024E</td></tr><tr><td>金种子酒</td><td>0.02</td><td>0.55</td><td>1.30</td><td>1787.0</td><td>49.2</td><td>20.6</td><td>不适用</td><td>买入</td></tr><tr><td>山西汾酒</td><td>6. 24</td><td>7.95</td><td>10.12</td><td>41.5</td><td>32.6</td><td>25.6</td><td>32.40%</td><td>买入</td></tr><tr><td>金徽酒</td><td>0.75</td><td>1.10</td><td>1.50</td><td>31.8</td><td>21.6</td><td>15.9</td><td>32.83%</td><td>买入</td></tr></table>",
+    "anno_id": "box_id_16",
+    "poly": [
+     163.959,
+     2044.9,
+     1106.077,
+     2044.9,
+     1106.077,
+     2204.888,
+     163.959,
+     2204.888
+    ]
+   },
+   {
+    "category_type": "table_footnote",
+    "order": 22,
+    "ignore": false,
+    "text": "数据来源：公司公告，iFind，国联证券研究所预测，股价取 2022 年 12 月 2 日收盘价",
+    "anno_id": "box_id_17",
+    "poly": [
+     157.957,
+     2214.097,
+     947.08,
+     2214.097,
+     947.08,
+     2243.101,
+     157.957,
+     2243.101
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 24,
+    "ignore": false,
+    "text": "上次建议：    强于大市",
+    "anno_id": "box_id_18",
+    "poly": [
+     1155.981,
+     313.894,
+     1596.937,
+     313.894,
+     1596.937,
+     347.108,
+     1155.981,
+     347.108
+    ]
+   },
+   {
+    "category_type": "figure_caption",
+    "order": 25,
+    "ignore": false,
+    "text": "相对大盘走势",
+    "anno_id": "box_id_19",
+    "poly": [
+     1154.988,
+     432.013,
+     1333.951,
+     432.013,
+     1333.951,
+     468.034,
+     1154.988,
+     468.034
+    ]
+   },
+   {
+    "category_type": "chart_mask",
+    "order": 26,
+    "ignore": false,
+    "text": "",
+    "anno_id": "box_id_20",
+    "poly": [
+     1138.944,
+     496.102,
+     1582.051,
+     496.102,
+     1582.051,
+     755.029,
+     1138.944,
+     755.029
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 27,
+    "ignore": false,
+    "text": "分析师：陈梦瑶",
+    "anno_id": "box_id_21",
+    "poly": [
+     1153.25,
+     1097.056,
+     1343.115,
+     1097.056,
+     1343.115,
+     1129.828,
+     1153.25,
+     1129.828
+    ]
+   },
+   {
+    "category_type": "title",
+    "order": 30,
+    "ignore": false,
+    "text": "#### 相关报告",
+    "anno_id": "box_id_22",
+    "poly": [
+     1155.981,
+     1590.052,
+     1274.076,
+     1590.052,
+     1274.076,
+     1623.968,
+     1155.981,
+     1623.968
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 31,
+    "ignore": false,
+    "text": "- 1、《食饮农业周报 221121-221125 食饮坚守景气回归，猪企盈利修复可期食品饮料》2022. 11. 27",
+    "anno_id": "box_id_23",
+    "poly": [
+     1152.112,
+     1633.412,
+     1612.833,
+     1633.412,
+     1612.833,
+     1711.898,
+     1152.112,
+     1711.898
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 28,
+    "ignore": false,
+    "text": "执业证书编号：S0590521040005",
+    "anno_id": "box-0v51xw4c",
+    "poly": [
+     1152.112,
+     1135.859,
+     1513.798,
+     1135.859,
+     1513.798,
+     1158.21,
+     1152.112,
+     1158.21
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 29,
+    "ignore": false,
+    "text": "邮箱：cmy@glsc.com.cn",
+    "anno_id": "box-jr5dxw0h",
+    "poly": [
+     1150.08,
+     1168.37,
+     1426.424,
+     1168.37,
+     1426.424,
+     1209.009,
+     1150.08,
+     1209.009
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 32,
+    "ignore": false,
+    "text": "- 2、《白酒把握稳健大众品困境反转，猪肉消费旺季将至食品饮料》2022. 11. 20",
+    "anno_id": "box-q74bz9aa",
+    "poly": [
+     1154.96,
+     1724.462,
+     1600.967,
+     1724.462,
+     1600.967,
+     1792.863,
+     1154.96,
+     1792.863
+    ]
+   },
+   {
+    "category_type": "text_block",
+    "order": 33,
+    "ignore": false,
+    "text": "- 3、《糖酒会反馈：行业遇冷预期筑底，场景修复有望开启食品饮料》2022. 11. 15",
+    "anno_id": "box-8ve98w60",
+    "poly": [
+     1154.96,
+     1811.011,
+     1602.363,
+     1811.011,
+     1602.363,
+     1880.111,
+     1154.96,
+     1880.111
+    ]
+   },
+   {
+    "category_type": "list_group",
+    "order": null,
+    "ignore": false,
+    "text": "",
+    "anno_id": "box-ed52e44v",
+    "poly": [
+     1154.262,
+     1630.933,
+     1617.021,
+     1630.933,
+     1617.021,
+     1879.413,
+     1154.262,
+     1879.413
+    ]
+   },
+   {
+    "category_type": "header",
+    "order": 0,
+    "ignore": false,
+    "text": "行业报告 | 行业专题研究",
+    "anno_id": "box-7st16w90",
+    "poly": [
+     23.1,
+     89.58,
+     75.788,
+     89.58,
+     75.788,
+     467.695,
+     23.1,
+     467.695
+    ]
+   },
+   {
+    "category_type": "abandon",
+    "order": 1,
+    "ignore": false,
+    "text": "",
+    "anno_id": "box-cdjj57c9",
+    "poly": [
+     153.62,
+     53.715,
+     277.848,
+     53.715,
+     277.848,
+     168.979,
+     153.62,
+     168.979
+    ]
+   },
+   {
+    "category_type": "header",
+    "order": 2,
+    "ignore": false,
+    "text": "国联证券",
+    "anno_id": "box-5zirocsb",
+    "poly": [
+     295.778,
+     66.522,
+     595.463,
+     66.522,
+     595.463,
+     135.892,
+     295.778,
+     135.892
+    ]
+   },
+   {
+    "category_type": "header",
+    "order": 4,
+    "ignore": false,
+    "text": "证券研究报告",
+    "anno_id": "box-qpftg8o0",
+    "poly": [
+     1424.197,
+     53.733,
+     1598.307,
+     53.733,
+     1598.307,
+     85.134,
+     1424.197,
+     85.134
+    ]
+   },
+   {
+    "category_type": "page_number",
+    "order": 34,
+    "ignore": false,
+    "text": "1",
+    "anno_id": "box-jhdr1vs8",
+    "poly": [
+     815.511,
+     2276.285,
+     835.304,
+     2276.285,
+     835.304,
+     2303.063,
+     815.511,
+     2303.063
+    ]
+   },
+   {
+    "category_type": "footer",
+    "order": 35,
+    "ignore": false,
+    "text": "请务必阅读报告末页的重要声明",
+    "anno_id": "box-jt7euz2f",
+    "poly": [
+     1320.089,
+     2262.066,
+     1614.523,
+     2262.066,
+     1614.523,
+     2299.257,
+     1320.089,
+     2299.257
+    ]
+   },
+   {
+    "category_type": "header",
+    "order": 3,
+    "ignore": false,
+    "text": "GUOLIAN SECURITIES",
+    "anno_id": "box-u8ds41xm",
+    "poly": [
+     300.466,
+     140.847,
+     592.823,
+     140.847,
+     592.823,
+     162.792,
+     300.466,
+     162.792
+    ]
+   },
+   {
+    "category_type": "header",
+    "order": 5,
+    "ignore": false,
+    "text": "2022年12月5日",
+    "anno_id": "box-kgaa45l8",
+    "poly": [
+     1370.73,
+     121.128,
+     1593.042,
+     121.128,
+     1593.042,
+     149.678,
+     1370.73,
+     149.678
+    ]
+   }
+  ],
+  "page_info": {
+   "page_no": 0,
+   "height": 2339,
+   "width": 1654,
+   "image_path": "page-7bfad9a4-c5b7-40f3-8600-be513d1b1aaa.png",
+   "page_attribute": {
+    "data_source": "research_report",
+    "language": "simplified_chinese",
+    "layout": "double_column",
+    "special_issue": [
+     "with_watermark"
+    ],
+    "subset": "table_hard"
+   }
+  },
+  "extra": {
+   "relation": []
+  }
+ },
+ {
+  "layout_dets": [
+   {
+    "category_type": "title",
+    "order": 1,
+    "ignore": false,
+    "text": "PCB——全球产值",
+    "anno_id": 9,
+    "poly": [
+     20.925,
+     15.689,
+     536.634,
+     15.689,
+     536.634,
+     80.76,
+     20.925,
+     80.76
+    ]
+   },
+   {
+    "category_type": "figure_caption",
+    "order": 2,
+    "ignore": false,
+    "text": "全球PCB产值规模（亿美元）",
+    "anno_id": 10,
+    "poly": [
+     341.882,
+     127.696,
+     682.586,
+     127.696,
+     682.586,
+     155.917,
+     341.882,
+     155.917
+    ]
+   },
+   {
+    "category_type": "figure",
+    "order": 3,
+    "ignore": false,
+    "anno_id": 2,
+    "poly": [
+     132.256,
+     174.386,
+     981.316,
+     174.386,
+     981.316,
+     688.875,
+     132.256,
+     688.875
+    ]
+   },
+   {
+    "category_type": "table_caption",
+    "order": 4,
+    "ignore": false,
+    "text": "表：全球各类PCB市场规模预估（亿美元）",
+    "anno_id": 0,
+    "poly": [
+     1061.397,
+     121.062,
+     1582.791,
+     121.062,
+     1582.791,
+     157.31,
+     1061.397,
+     157.31
+    ]
+   },
+   {
+    "category_type": "table",
+    "order": 5,
+    "ignore": false,
+    "html": "<table border=\"1\"><tr><td></td><td>RPCB多层板</td><td>软板+模组</td><td>HDI</td><td>IC载板</td></tr><tr><td>2022(E)</td><td>387.21</td><td>138.42</td><td>117.63</td><td>174.15</td></tr><tr><td>2023(F)</td><td>373.40</td><td>134.27</td><td>115.28</td><td>160.73</td></tr><tr><td>2024(F)</td><td>381.79</td><td>141.31</td><td>122.25</td><td>174.41</td></tr><tr><td>2025(F)</td><td>419.39</td><td>148.72</td><td>129.65</td><td>189.26</td></tr><tr><td>2026(F)</td><td>444.30</td><td>156.52</td><td>137.49</td><td>205.38</td></tr><tr><td>2027(F)</td><td>450.48</td><td>164.73</td><td>145.81</td><td>222.86</td></tr><tr><td>2022-2027CAGR</td><td>3.1%</td><td>3.5%</td><td>4.4%</td><td>5.1%</td></tr></table>",
+    "anno_id": 5,
+    "poly": [
+     1045.323,
+     175.349,
+     1994.491,
+     175.349,
+     1994.491,
+     676.326,
+     1045.323,
+     676.326
+    ]
+   },
+   {
+    "category_type": "figure_caption",
+    "order": 6,
+    "ignore": false,
+    "text": "2022年全球PCB产品结构",
+    "anno_id": 12,
+    "poly": [
+     340.918,
+     720.554,
+     671.474,
+     720.554,
+     671.474,
+     752.429,
+     340.918,
+     752.429
+    ]
+   },
+   {
+    "category_type": "figure",
+    "order": 7,
+    "ignore": false,
+    "anno_id": 1,
+    "poly": [
+     151.883,
+     797.828,
+     889.033,
+     797.828,
+     889.033,
+     1228.709,
+     151.883,
+     1228.709
+    ]
+   },
+   {
+    "category_type": "figure_caption",
+    "order": 8,
+    "ignore": false,
+    "text": "2021年全球PCB以及细分行业产值（ % )",
+    "anno_id": 13,
+    "poly": [
+     1242.648,
+     718.643,
+     1744.998,
+     718.643,
+     1744.998,
+     754.76,
+     1242.648,
+     754.76
+    ]
+   },
+   {
+    "category_type": "figure",
+    "order": 9,
+    "ignore": false,
+    "anno_id": 4,
+    "poly": [
+     1055.455,
+     766.113,
+     1948.566,
+     766.113,
+     1948.566,
+     1238.087,
+     1055.455,
+     1238.087
+    ]
+   },
+   {
+    "category_type": "page_footnote",
+    "order": null,
+    "ignore": false,
+    "text": "资料来源：Prismark，前瞻产业研究院，PCB网城ISPCAIGPCA公众号，中时新闻网，诚领智慧助您成功公众号，天风证券研究所",
+    "anno_id": 3,
+    "poly": [
+     14.71,
+     1277.733,
+     1558.746,
+     1277.733,
+     1558.746,
+     1308.087,
+     14.71,
+     1308.087
+    ]
+   },
+   {
+    "category_type": "abandon",
+    "order": null,
+    "ignore": false,
+    "anno_id": 11,
+    "poly": [
+     1792.985,
+     1343.131,
+     1847.859,
+     1343.131,
+     1847.859,
+     1401.434,
+     1792.985,
+     1401.434
+    ]
+   },
+   {
+    "category_type": "footer",
+    "order": null,
+    "ignore": false,
+    "text": "请务必阅读正文之后的信息披露和免责申明",
+    "anno_id": 8,
+    "poly": [
+     168.497,
+     1348.775,
+     803.537,
+     1348.775,
+     803.537,
+     1385.224,
+     168.497,
+     1385.224
+    ]
+   },
+   {
+    "category_type": "page_number",
+    "order": null,
+    "ignore": false,
+    "text": "18",
+    "anno_id": 7,
+    "poly": [
+     2044.803,
+     1353.727,
+     2084.52,
+     1353.727,
+     2084.52,
+     1385.064,
+     2044.803,
+     1385.064
+    ]
+   },
+   {
+    "category_type": "footer",
+    "order": null,
+    "ignore": false,
+    "text": "天风证券 TF SECURITIES",
+    "anno_id": 6,
+    "poly": [
+     1849.068,
+     1358.237,
+     1941.969,
+     1358.237,
+     1941.969,
+     1399.056,
+     1849.068,
+     1399.056
+    ]
+   }
+  ],
+  "extra": {
+   "relation": [
+    {
+     "source_anno_id": 5,
+     "target_anno_id": 0,
+     "relation_type": "parent_son"
+    },
+    {
+     "source_anno_id": 2,
+     "target_anno_id": 10,
+     "relation_type": "parent_son"
+    },
+    {
+     "source_anno_id": 1,
+     "target_anno_id": 12,
+     "relation_type": "parent_son"
+    },
+    {
+     "source_anno_id": 4,
+     "target_anno_id": 13,
+     "relation_type": "parent_son"
+    }
+   ]
+  },
+  "page_info": {
+   "page_attribute": {
+    "data_source": "PPT2PDF",
+    "language": "simplified_chinese",
+    "layout": "double_column",
+    "special_issue": [
+     "colorful_backgroud",
+     "table_full_line",
+     "table_horizontal"
+    ],
+    "subset": "v1.5"
+   },
+   "page_no": 17,
+   "height": 1418,
+   "width": 2127,
+   "image_path": "eastmoney_d09a006aa02ddc09299bbb9a1b5efa0d77408191f0c1ff1fca8c80bd6150f806.pdf_17.jpg",
+   "sample_id": 2
+  }
+ }
+]
