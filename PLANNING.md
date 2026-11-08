@@ -7,7 +7,54 @@ Este documento detalla la hoja de ruta secuencial para la implementación del pa
 > Cada entrada lleva identificador, tarjeta del board (`pyocrust`), estado y criterio de aceptación.
 > Estados: `Pendiente` / `En curso` / `Hecho` / `Bloqueado` / `Descartado`. Todo cambio de estado va fechado.
 >
-> **Estado global (D1, 2026-10-25; actualizado en `D2` y `S2.0`):** las fases 0-5 están **Hechas**; `S1.2` (`b128566`), `S1.3`, `S1.4` (cerrada por `S2.0`) y `S1.5` (`c30a3a9`) quedaron **cerradas**, pero el sign-off `S1` sigue **RECHAZADO**, con `S1.6` parcial (§7). El proyecto **no** está aprobado: `D1`/`D2` reconcilian la documentación, no la implementación.
+> **Estado global (D1, 2026-10-25; actualizado en `D2`, `S2.0` y `D4`):** las fases 0-5 están **Hechas** y las **siete** condiciones de `S1` quedaron **cerradas** (`S1.1` `4502d1e`, `S1.2` `b128566`, `S1.3` y `S1.5` `c30a3a9`, `S1.4` por `S2.0`, `S1.6` `D3`, `S1.7` `D1`). El sign-off global `S1` sigue **RECHAZADO** y **sin reelevar** (tarjeta `t_e560fff3`). El proyecto **no** está aprobado: `D1`/`D2`/`D3`/`D4` reconcilian la documentación, no la implementación.
+
+### Actualización `D4` — auditoría de estado vs código (2026-11-08)
+
+* **Alcance:** contraste de las afirmaciones de **estado actual** de este documento con el
+  código, la suite y el board `pyocrust`. No reescribe recuentos medidos en su momento
+  (convención de `D3`); corrige lo que hoy afirma algo falso. No cambia estados del board
+  salvo crear las tarjetas de trabajo abierto.
+* **Medido:** `.pyd` debug `63fa7231…` (65 MB); `pytest tests/` **160 passed, 0 failed,
+  0 skipped**; `cargo test --lib` **65 passed**; `models_status()` → `pp_ocrv6_tiny` 3/3,
+  `pp_structurev3` **11/11**, `presets['indra']` 9/9. Board al auditar: 115 tarjetas, 114
+  `done` y 1 `running` ajena; este bloque añade las 7 de trabajo abierto que van abajo.
+
+**Afirmaciones corregidas:** decían «pendiente/parcial» y ya no lo están.
+
+| Dónde | Decía | Estado real (`D4`) |
+| :--- | :--- | :--- |
+| Cabecera (L10) | «con `S1.6` **parcial**» | Cerrada (`D3`); las siete `S1.x` lo están |
+| §3 `S2.2` | «antecedente de **24 fallos** de APIs `S3.x`» | Suite completa con **0 fallos** |
+| §3 `S2.3` | «pendiente: `models=dict`, shape alternativo, batch de las otras tareas» | `models=dict` ejercitado en `tests/test_tasks.py:202`; el batch de las seis tareas nuevas, en `test_new_task_defaults_and_batch_two` |
+| §3 `S2.4` y `S2.5`/`S2.6` | «cuatro tareas pendientes de inferencia **por caché/modelos ausentes**» | **Corren**: `[layout_detection]`, `[table_classification]`, `[table_structure_recognition]`, `[table_cell_detection]` **PASSED**. El bloqueo no era la caché —los artefactos están en disco desde el 2026-11-02— sino el vertido de `OAR_HOME` entre módulos de test |
+| §3 `S2.5` | «riesgo por lectura `formula.trim()` sobre `str`» | Corregido a `str.strip()` y fixture real en `L5` |
+| §S3.1 / §S3.2 | «1 **failed** — fallo ajeno `test_el_latex...`» | 0 fallos |
+| §I2 (L209) | «su variante `Formula` no existe, por eso el escenario LaTeX queda `skip`» | La variante existe (`src/core/types.rs:98-106`) y el test de LaTeX **1 passed** |
+| §6 | «Tarea `Formula` / LaTeX accesible desde Python — **No implementado**» | **Implementado**: ver la fila corregida de §6 |
+| §B8 | «seis defectos, **ninguno cerrado en código**» | Atacan `benchmarks/run_benchmarks.py`, **runner heredado retirado**; el banco vigente documenta `markdown_f1` como «order-sensitive … preserve LaTeX case» y lo fija en `benchmarks/common/metrics.py::_self_check` |
+
+> Los recuentos por fase de las actualizaciones `S2.x`/`S3`/`B9` (53/53, 138 passed,
+> 40 pass/4 skip…) se conservan como **históricos**: lo que este bloque supera son las
+> afirmaciones de estado actual, no la evidencia que midieron.
+
+**Trabajo abierto real, con tarjeta en el board `pyocrust`.** Todas creadas en `blocked`
+como backlog: el dispatcher no las toma hasta que se desbloqueen.
+
+| Tarjeta | Qué falta | Responsable |
+| :--- | :--- | :--- |
+| `t_457cd882` | Verificación SHA-256 de los artefactos ModelScope en el preflight (hoy solo compara tamaño; el hash ya lo da `Artifact::integrity()`) | `hefesto` |
+| `t_e560fff3` | Re-sign-off global `S1`: sigue `RECHAZADO` y sin reelevar con las siete condiciones cerradas | `arquitecto` |
+| `t_065205ea` | GPU real: `available_providers()` es `[]` en el wheel actual; validar el EP acelerador | `probador` |
+| `t_2766a41a` | `pp_ocrv6_small` y `pp_ocrv6_medium` nunca ejecutados (0/3 y 0/3 artefactos; ningún test los corre) | `probador` |
+| `t_052d7c9c` | Test de descarga **fría** por HuggingFace (indra): `test_models.py` solo cubre la caché fría de ModelScope | `probador` |
+| `t_a62cc581` | Fase 11 (L621) / `t_b304e350`: referencias externas que no están medidas sobre el mismo dataset/GT | `hefesto` |
+| `t_5366b7ce` | `OcrTask` sin uso en el pipeline (§I2) | `hefesto` |
+
+**Deuda registrada sin tarjeta:**
+
+* **Granularidad de commits de `E1`/`I1` (§8):** no se corrige — exigiría reescribir
+  historia, que §8 prohíbe explícitamente.
 
 ### Actualización `S2.2` — Indra (parcial)
 
@@ -651,7 +698,8 @@ Dependencias: `L1` → `L2` → `L3` → `L4` → `L5` → `L6`.
 | Preflight conectado al constructor | **Implementado (`b128566`)** | `VeloceOCR::new` invoca `preflight_paths(...).ensure_ready()` (`src/lib.rs:60`) | `DESIGN.md` §7.2; mitad preflight de `S1.4` resuelta en §7 |
 | Descargador HF conectado al pipeline | **Implementado (`S2.0`)** | `ensure_models` conecta el descargador nativo al pipeline (`src/storage/models.rs:224-242`) | `DESIGN.md` ADR-007 y §7.3 |
 | `rayon` en uso real | **Implementado (`S2.0`)** | `src/storage/models.rs:13,297` (pool de 4 hilos en `ensure_models`) | `DESIGN.md` ADR-008 y §9.1 |
-| Tarea `Formula` / LaTeX accesible desde Python | No implementado | `OcrTask` no tiene la variante y `recognize` devuelve `OcrResult` | `tests/test_recognize.py:144-155` (`skip` con motivo) |
+| Tarea `Formula` / LaTeX accesible desde Python | **Implementado (`S2.1`; verificado en `D4`, 2026-11-08)** | Lo cerró `S2.1`: `OARStructureBuilder::with_formula_recognition` (`src/engines/oar_structure.rs:158-163`) y `StructureResult.formulas` (`:243-254`) | `tests/test_recognize.py::test_el_latex_de_una_formula_es_accesible_desde_python` **1 passed**, con fixture real `tests/data/sample_formula.png` |
+| Descargador propio sin verificar integridad en ModelScope | **No implementado (`D4`)** | El preflight decide «presente» por tamaño para ModelScope aunque `Artifact::integrity()` ya devuelve el SHA-256 | Tarjeta `t_457cd882`; `src/storage/models.rs:173-180,200-208` |
 
 ## 7. Trabajo pendiente tras `S1` (RECHAZADO)
 
