@@ -1,18 +1,17 @@
 #!/usr/bin/env python
-"""Resumen de benchmarks de las 9 features: `medido` + `referencia` (separados).
+"""Resumen de benchmarks de las 9 features (solo motores `medido`).
 
 Genera `benchmarks/figures/SUMMARY.png` + `SUMMARY.svg` + `benchmarks/reports/SUMMARY.md`.
 
-Un panel por feature. En cada panel conviven dos orígenes, **siempre distinguidos**:
+Un panel por feature, con **una sola clase de dato**:
 
 * **`medido`** — números ejecutados en este repo (`reports/<feature>/REPORT.md`,
   sección `## Comparativa`). Barra sólida; `pyocrust` en verde.
-* **`referencia`** — valores publicados en papers (`features/<feature>/REFERENCES.md`,
-  o la sección `## Referencias externas` del REPORT). Barra gris rayada.
 
-Las features sin ningún dato salen como **`pendiente`** (sin barras): nunca se
-inventan cifras. Las métricas externas pueden diferir de las nuestras, por eso cada
-panel declara su métrica y las referencias van marcadas (no equivalencia 1:1).
+No se publican **referencias externas** (valores de papers sobre otro dataset/GT):
+una calidad medida sobre otro ground truth no es comparable y no entra en ninguna
+tabla ni gráfica. Las features sin datos medidos salen como **`pendiente`** (sin
+barras): nunca se inventan cifras.
 
 Uso:
     .venv/Scripts/python.exe benchmarks/features/summary.py
@@ -70,7 +69,7 @@ DATASET_TITLES = {
     "synthetic_seal": "sintético",
 }
 
-REF_URL = re.compile(r"\[ref:\s*(https?://[^\]]+)\]")
+# Solo la métrica titular por feature y el dataset real del REPORT (sin refs externas).
 DATASET_RE = re.compile(r"\*\*dataset\*\*:\s*`([^`]+)`")
 
 # Licencia de los motores de **comparación**, verificada en HuggingFace
@@ -84,10 +83,21 @@ EXTERNAL_LICENSE = {
     "lcnet_doc_ori (onnxruntime)": "Apache-2.0",
     "lcnet_textline_ori (onnxruntime)": "Apache-2.0",
     "uvdoc (onnxruntime)": "Apache-2.0",
+    "onnx_seal_det (onnxruntime)": "Apache-2.0",
     "docling_heron_101 (default)": "Apache-2.0",
     "docling_heron_101": "Apache-2.0",
     "tatr (default)": "MIT",
     "tatr": "MIT",
+    # El motor se etiqueta por su `model_name` (no por el id del backend).
+    "table-transformer-structure-recognition (default)": "MIT",
+    "table-transformer-structure-recognition": "MIT",
+    # Otras alternativas de `table`: SLANet (PaddleOCR) y TableFormer (docling).
+    "paddleocr_slanet (paddleocr)": "Apache-2.0",
+    "paddleocr_slanet": "Apache-2.0",
+    "SLANet_plus (paddleocr)": "Apache-2.0",
+    "docling_tableformer (docling)": "MIT",
+    "docling_tableformer": "MIT",
+    "tableformer (docling)": "MIT",
     "pix2tex (default)": "MIT",
     "paddle_latex_ocr (PP-FormulaNet_plus-M)": "Apache-2.0",
     "paddle_latex_ocr (PP-FormulaNet-S)": "Apache-2.0",
@@ -134,29 +144,33 @@ def _license_for(motor: str) -> str:
 
 
 def _collect_rows() -> dict[tuple[str, str, str], list[dict]]:
-    """{(feature, device, backend): filas} de la ultima corrida por motor."""
+    """{(feature, device, backend): filas} de **una sola** corrida de referencia por device.
+
+    Usa `report.latest_run(feature, root, device)` como fuente unica — **no** "el run
+    mas reciente de cada motor". Elegir por motor mezclaba corridas con distinto
+    numero de filas (p. ej. `pp-doclayoutv3` cpu `n=60` junto a docling `n=40` y
+    `pp_structurev3` `n=20`): una comparativa con distinto `n` **no es comparable**.
+    Los motores que no esten en la corrida de referencia no entran en la tabla, en
+    vez de colarse desde otra corrida.
+    """
+    from features.report import latest_run, run_csv  # perezoso: evita ciclo de import
+
     out: dict[tuple[str, str, str], list[dict]] = {}
     for feature, _titular in FEATURES:
-        roots = (RESULTS / feature, RESULTS / "_gpu" / feature)
-        runs = sorted({p for root in roots if root.is_dir()
-                       for p in root.iterdir() if p.is_dir() and any(p.glob("*.csv"))}, reverse=True)
-        seen: set[tuple[str, str, str]] = set()
-        for run in runs:
+        for device, root in (("cpu", RESULTS), ("gpu", RESULTS / "_gpu")):
+            run = latest_run(feature, root=root, device=device)
+            csv_path = run_csv(run) if run else None
+            if csv_path is None:
+                continue
             by_key: dict[tuple[str, str, str], list[dict]] = defaultdict(list)
-            for csv_path in sorted(run.glob("*.csv")):
-                for r in csv.DictReader(csv_path.read_text(encoding="utf-8").splitlines()):
-                    if r.get("status") != "ok" or not r.get("device_requested"):
-                        continue
-                    key = (feature, r["device_requested"], r["backend"])
-                    by_key[key].append(r)
-            for key, rows in by_key.items():
-                if key in seen:
+            for r in csv.DictReader(csv_path.read_text(encoding="utf-8").splitlines()):
+                if r.get("status") != "ok" or (r.get("device_requested") or device) != device:
                     continue
                 # `formula` no compara OCR de texto: no emiten LaTeX.
-                if key[0] == "formula" and key[2] in FORMULA_BACKENDS_EXCLUDED:
+                if feature == "formula" and r["backend"] in FORMULA_BACKENDS_EXCLUDED:
                     continue
-                seen.add(key)
-                out[key] = rows
+                by_key[(feature, device, r["backend"])].append(r)
+            out.update(by_key)
     return out
 
 
@@ -228,16 +242,14 @@ def summary_yolo_layout_backends(rows: dict[tuple[str, str, str], list[dict]] | 
                                  ) -> set[str]:
     """YOLO que sobreviven en los paneles resumen (`SUMMARY`, `SCOREBOARD`, `QUALITY_VS_TIME`).
 
-    Tres cortes, en orden:
+    Dos cortes, en orden:
 
-    1. **Un solo proveedor.** Gana el autor (hantian/omoured/armaggheddon) con el
-       mejor mAP@0.5 **que cubra todas las versiones** (v8/v10/v11/v12/y26). Un
-       autor pequeño como `armaggheddon` solo tiene v11/y26 y dejaría fuera
-       v8/v10/v12, rompiendo el corte 2; si ningún autor las cubre todas, manda
-       el mejor global.
-    2. **Uno por versión.** Dentro de ese proveedor, el mejor modelo de cada
-       versión de YOLO (v8, v10, v11, v12, y26).
-    3. **El de tamaño similar a `pyocrust`.** Se añade aunque repita versión.
+    1. **Uno por versión, cruzando autores.** De todas las variantes medidas de una
+       versión (v8/v10/v11/v12/y26), gana la de mejor mAP@0.5 **sin mirar el
+       autor**: si tres autores tienen un yolo10, en el resumen queda solo el
+       yolo10 del que mejor puntúa. No se arrastra un proveedor entero por su
+       mejor modelo, ni se exige que un autor cubra todas las versiones.
+    2. **El de tamaño similar a `pyocrust`.** Se añade aunque repita versión.
 
     Los informes **por feature** no pasan por aquí: `REPORT.md`,
     `benchmark_table.*` y `LAYOUT_ALL_MODELS` conservan los 39 modelos medidos.
@@ -251,20 +263,11 @@ def summary_yolo_layout_backends(rows: dict[tuple[str, str, str], list[dict]] | 
                 means[backend] = mean
     if not means:
         return set()
-    # El resumen lleva **un YOLO por versión** (v8/v10/v11/v12/y26), así que el
-    # proveedor se elige entre los que cubren **todas** las versiones; si ninguno
-    # las cubre, manda el mejor global.
-    authors = {backend.split("_", 1)[0] for backend in means}
-    covering = [author for author in authors
-                if all(any(b.startswith(f"{author}_") and b in models for b in means)
-                       for models in scores.values())]
-    provider = max(covering or authors,
-                   key=lambda author: (max(means[b] for b in means
-                                          if b.startswith(f"{author}_")), author))
+    # Un ganador por versión, elegido entre **todos** los autores (desempate por
+    # nombre para que el resultado sea determinista).
     winners: set[str] = set()
     for models in scores.values():
-        pool = {backend: means[backend] for backend in means
-                if backend.startswith(f"{provider}_") and backend in models}
+        pool = {backend: means[backend] for backend in models if backend in means}
         if pool:
             winners.add(max(pool, key=lambda backend: (pool[backend], backend)))
     size_matched = size_matched_yolo_layout_backend(rows)
@@ -370,18 +373,8 @@ def feature_title(feature: str) -> str:
     return f"{feature} — {DATASET_TITLES.get(ds, ds)}"
 
 
-# Features cuya tabla mezcla `medido` (nuestro GT) con `referencia` externa: el
-# panel lo avisa para que NUNCA se lea como una comparación 1:1. La referencia
-# usa otro dataset y/o otra métrica; se dice cuál. La nota entra en el título del
-# panel, así que se mantiene CORTA (<= ~45 car.) para no invadir el panel vecino.
-REF_NOTE = {
-    "rectification": "ref: UVDoc CER↓ (otra métrica y dataset)",
-    "layout": "ref: DocLayNet mAP (otro dataset/GT)",
-    "table": "ref: PubTabNet/ICDAR (otro dataset/GT)",
-    "orientation": "ref: PP-LCNet (otro conjunto de eval.)",
-    "text_line": "ref: PP-LCNet (otro conjunto de eval.)",
-    "full_page": "ref: OmniDocBench Overall (otra escala 0-100)",
-}
+# La calidad solo se publica sobre el dataset/GT propio de cada feature. No se
+# comparan cifras entre datasets distintos: no hay mapa de notas de referencia.
 
 
 def _clean(cell: str) -> str:
@@ -444,90 +437,39 @@ def parse_measured(feature: str, titular: str | None) -> dict[str, float]:
     return out
 
 
-def parse_references(feature: str) -> tuple[dict[str, float], str, str]:
-    """(valores, métrica, url). Prioriza `REFERENCES.md`; si no, la sección del REPORT."""
-    refs_md = BENCH / "features" / feature / "REFERENCES.md"
-    if refs_md.exists():
-        lines = refs_md.read_text(encoding="utf-8").splitlines()
-        header, rows = _rows_from(lines, 0)
-        url_m = REF_URL.search(refs_md.read_text(encoding="utf-8"))
-        url = url_m.group(1) if url_m else ""
-        if header and rows:
-            mi = next((i for i, h in enumerate(header) if h.lower().startswith("métrica")), None)
-            vi = next((i for i, h in enumerate(header) if h.lower().startswith("valor")), None)
-            if vi is None:  # tablas que nombran la métrica en la cabecera (p. ej. "Overall ↑")
-                vi = next((i for i, h in enumerate(header) if "↑" in h), None)
-            if vi is not None:
-                metric = header[mi] if mi is not None else header[vi]
-                ui = next((i for i, h in enumerate(header) if h.lower().startswith("fuente")), None)
-                out: dict[str, float] = {}
-                urls: dict[str, str] = {}
-                for cells in rows:
-                    if vi < len(cells):
-                        v = _num(cells[vi])
-                        if v is not None:
-                            out[cells[0]] = v
-                            if ui is not None and ui < len(cells):
-                                m2 = REF_URL.search(cells[ui])
-                                urls[cells[0]] = m2.group(1) if m2 else url
-                if out:
-                    return out, metric, urls
+def _one_row_per_motor(measured: dict[tuple[str, str], tuple[float, int, str]]
+                       ) -> dict[tuple[str, str], tuple[float, int, str]]:
+    """Una **sola** fila por motor (CPU manda; GPU solo si no hay medida de CPU).
 
-    # fallback: sección de referencias dentro del REPORT.md
-    rep = REPORTS / feature / "REPORT.md"
-    if not rep.exists():
-        return {}, "", {}
-    text = rep.read_text(encoding="utf-8")
-    m = REF_URL.search(text)
-    url = m.group(1) if m else ""
-    lines = text.splitlines()
-    i = next((i for i, ln in enumerate(lines)
-              if ln.strip().lower().startswith("## referencias externas")), None)
-    if i is None:
-        return {}, "", {}
-    header, rows = _rows_from(lines, i + 1)
-    if not header or not rows:
-        return {}, "", {}
-    col = next((k for k in header if "↑" in k), None)
-    if col is None:
-        return {}, "", {}
-    idx = header.index(col)
-    out = {}
-    for cells in rows:
-        if idx < len(cells):
-            v = _num(cells[idx])
-            if v is not None:
-                out[cells[0]] = v
-    return out, col, {n: url for n in out}
+    El SUMMARY es **solo calidad**: repetir el mismo modelo sobre el mismo dataset
+    dos veces (cpu y gpu) no aporta — el device se publica donde sí importa, en los
+    informes con tiempos (`CPU_VS_GPU`, `QUALITY_VS_TIME`).
+    """
+    chosen: dict[str, tuple[tuple[str, str], tuple[float, int, str]]] = {}
+    for key, value in measured.items():
+        motor, device = key
+        if motor not in chosen or device == "cpu":
+            chosen[motor] = (key, value)
+    return dict(chosen.values())
 
 
-def _panel(ax, measured, refs, title):
-    entries = []  # (nombre, valor, origen, n)
-    entries += [(f"{name} · {device}", v, "medido", cnt, backend)
-                for (name, device), (v, cnt, backend) in measured.items()]
-    entries += [(n, v, "referencia", None, "") for n, v in refs.items()]
+def _panel(ax, measured, title):
+    entries = []  # (nombre, valor, origen, n, backend)
+    entries += [(name, v, "medido", cnt, backend)
+                for (name, _device), (v, cnt, backend) in measured.items()]
     if not entries:
         ax.axis("off")
-        ax.set_title(f"{title}\n(pending: no data or references)", fontsize=9, color="#888")
+        ax.set_title(f"{title}\n(pending: no measured data)", fontsize=9, color="#888")
         return
     entries.sort(key=lambda e: e[1])
     names = [e[0] for e in entries]
     vals = [e[1] for e in entries]
     counts = [e[3] for e in entries]
-    colors, hatches = [], []
-    for n, _v, origin, _cnt, backend in entries:
-        if origin == "referencia":
-            colors.append("#b0bec5")   # gris azulado: referencia externa (no rayada)
-            hatches.append(None)
-        else:
-            colors.append("#2e7d32" if _is_pyocrust(n, backend) else "#607d8b")
-            hatches.append(None)
+    colors = ["#2e7d32" if _is_pyocrust(n, backend) else "#607d8b"
+              for n, _v, _origin, _cnt, backend in entries]
     bars = ax.barh(range(len(vals)), vals)
-    for bar, c, h in zip(bars, colors, hatches):
+    for bar, c in zip(bars, colors):
         bar.set_color(c)
-        if h:
-            bar.set_hatch(h)
-            bar.set_edgecolor("#78909c")
     for i, (v, cnt) in enumerate(zip(vals, counts)):
         label = f"{v:.3f} · n={cnt}" if cnt else f"{v:.3f}"
         ax.text(v + (max(vals) or 1) * 0.01, i, label, va="center", fontsize=7)
@@ -552,40 +494,30 @@ def main() -> int:
     fig, axes = plt.subplots(rows, cols, figsize=(16, 4.0 * rows))
     axes = axes.ravel()
 
-    md = ["# Resumen de benchmarks — 9 features (`medido` + `referencia`)", "",
-          "> `medido` = ejecutado en este repo · `referencia` = publicado en un paper (con URL),",
-          "> **no comparable 1:1** · `pendiente` = aún sin datos. Una barra rayada es referencia.",
-          "> Las filas medidas se separan por device y muestran `n`; si difiere entre motores, queda declarado por fila.",
+    md = ["# Resumen de benchmarks — 9 features (solo `medido`)", "",
+          "> `medido` = ejecutado en este repo · `pendiente` = aún sin datos.",
+          "> **No se publican referencias externas**: una calidad medida sobre otro",
+          "> dataset/GT no es comparable, así que no entra en ninguna tabla ni gráfica.",
+          "> Una fila por motor sobre **su mismo dataset** (el device solo se publica en los informes con tiempos). El `n` se declara por fila.",
           "> `license` es **informativa** (señala las no permisivas, p. ej. AGPL-3.0); la puerta solo aplica a los modelos de `pyocrust`.", ""]
 
     for k, (feature, titular) in enumerate(FEATURES):
-        measured = measured_from_rows(feature)
-        refs, metric, ref_urls = parse_references(feature)
+        measured = _one_row_per_motor(measured_from_rows(feature))
         ds = parse_dataset(feature)
         title = feature_title(feature)
-        nota = REF_NOTE.get(feature)
         plot_title = title.replace("sintético", "Synthetic")
-        plot_note = (nota.replace("otro dataset/GT", "different dataset/ground truth")
-                    .replace("otra métrica y dataset", "different metric and dataset")
-                    .replace("otro conjunto de eval.", "different evaluation set")
-                    .replace("otra escala 0-100", "different 0–100 scale") if nota else "")
-        _panel(axes[k], measured, refs, f"{plot_title}\n({plot_note})" if plot_note else plot_title)
-        status = "medido" if measured else ("referencia" if refs else "pendiente")
+        _panel(axes[k], measured, plot_title)
+        status = "medido" if measured else "pendiente"
         src = f" · **dataset medido**: `{ds}`" if ds else ""
         md += [f"## {title} — `{status}`{src}", ""]
-        if nota:
-            md += [f"> ⚠️ **{nota}**", ""]
-        if measured or refs:
-            md += ["| Motor | Device | Valor | n | Origen | license |",
-                   "| :--- | :--- | ---: | ---: | :--- | :--- |"]
-            for (nm, device), (v, cnt, backend) in sorted(measured.items(), key=lambda p: -p[1][0]):
+        if measured:
+            md += ["| Motor | Valor | n | Origen | license |",
+                   "| :--- | ---: | ---: | :--- | :--- |"]
+            for (nm, _device), (v, cnt, backend) in sorted(measured.items(), key=lambda p: -p[1][0]):
                 mark = "**" if _is_pyocrust(nm, backend) else ""
-                md.append(f"| {mark}{nm}{mark} | {device} | {v:.3f} | {cnt} | medido | {_license_for(nm)} |")
-            for nm, v in sorted(refs.items(), key=lambda p: -p[1]):
-                src = ref_urls.get(nm, "") or "ver REFERENCES.md"
-                md.append(f"| {nm} | — | {v:.3f} | — | referencia [ref: {src}] | {_license_for(nm)} |")
+                md.append(f"| {mark}{nm}{mark} | {v:.3f} | {cnt} | medido | {_license_for(nm)} |")
         else:
-            md.append("_Sin datos ni referencia todavía._")
+            md.append("_Sin datos medidos todavía._")
         md.append("")
 
     for ax in axes[n:]:
@@ -594,12 +526,11 @@ def main() -> int:
     fig.legend(handles=[
         Patch(facecolor="#2e7d32", label="pyocrust (measured)"),
         Patch(facecolor="#607d8b", label="alternative (measured)"),
-        Patch(facecolor="#b0bec5", label="external reference"),
-    ], loc="lower center", bbox_to_anchor=(0.5, 0.035), ncol=3, frameon=False, fontsize=10)
-    fig.suptitle("pyocrust — benchmark results by feature: measured vs. external reference", fontsize=14)
+    ], loc="lower center", bbox_to_anchor=(0.5, 0.035), ncol=2, frameon=False, fontsize=10)
+    fig.suptitle("pyocrust — benchmark results by feature (measured only)", fontsize=14)
     fig.text(0.5, 0.006,
-             "Solid bar = MEASURED (panel dataset) · gray bar = EXTERNAL REFERENCE "
-             "from a DIFFERENT dataset/metric (see panel note). Not directly comparable.",
+             "Every bar is a MEASUREMENT on the panel's own dataset/ground truth. "
+             "No external reference is published: quality is never compared across datasets.",
              ha="center", fontsize=8, color="#555555")
     fig.tight_layout(rect=(0, 0.075, 1, 0.96))
     FIGURES.mkdir(parents=True, exist_ok=True)
@@ -623,9 +554,6 @@ def _self_check() -> None:
         title = feature_title(feature)
         assert title.startswith(f"{feature} — "), title
         assert DATASET_TITLES[token] in title, title
-    # Toda feature con referencias externas avisa de que son otro dataset/métrica.
-    for feature in ("layout", "table", "rectification", "orientation", "text_line", "full_page"):
-        assert feature in REF_NOTE, f"falta REF_NOTE para {feature}"
     print("features.summary self-check OK")
 
 

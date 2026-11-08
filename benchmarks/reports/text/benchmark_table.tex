@@ -1,14 +1,14 @@
 \documentclass[border=2pt]{standalone}
 \usepackage{booktabs}
 \begin{document}
-\begin{tabular}{lrrrrrrrrl}
+\begin{tabular}{lrrrrrrrrr}
 \toprule
-Engine (variant/size) & n & Word F1 $\uparrow$ & Ordered WER $\downarrow$ & CER $\downarrow$ & WER $\downarrow$ & box recall $\uparrow$ & Mean IoU $\uparrow$ & ms/img $\downarrow$ & license \\
+Engine (variant/size) & n & F1 palabra $\uparrow$ & WER ord. $\downarrow$ & CER $\downarrow$ & WER $\downarrow$ & box recall $\uparrow$ & IoU medio $\uparrow$ & ms/img $\downarrow$ & license \\
 \midrule
 easyocr (default) & 20 & 0.401 & 0.693 & 0.527 & 0.798 & \textbf{0.068} & \textbf{0.156} & \underline{4600} & Apache-2.0 \\
 pp\_ocrv6 (tiny) & 20 & \textbf{0.717} & \textbf{0.360} & \underline{0.483} & \textbf{0.675} & \underline{0.047} & \underline{0.120} & \textbf{970} & Apache-2.0 \\
 rapidocr (default) & 20 & \underline{0.585} & \underline{0.512} & \textbf{0.476} & \underline{0.701} & 0.037 & 0.108 & 6748 & Apache-2.0 \\
 \bottomrule
 \end{tabular}
-\par\smallskip{\footnotesize Note: \texttt{N/A} = not evaluated, never \texttt{0.0}. Values and n match \texttt{REPORT.md}; licenses informational per \texttt{../QUALITY\_VS\_TIME.md}.}
+\par\smallskip{\footnotesize Note: N/A = not evaluated (no ground truth for that column, or the engine does not emit that structure, e.g. docling emits Markdown only); 0.000 = evaluated and the engine got it wrong, never an unmeasured 0.0. Values and n match REPORT.md (run 2026-11-06\_22-46-46, device cpu, n <= 20).}
 \end{document}

@@ -28,8 +28,85 @@ from PIL import Image
 
 BENCHMARKS_ROOT = Path(__file__).resolve().parent.parent
 DATA_CACHE = BENCHMARKS_ROOT / "data_cache"
+# Fixtures **versionadas** (no en `data_cache/`, que esta gitignored): permiten
+# que un checkout limpio o sin red ejecute las 9 features. Ver `fixtures/README.md`.
+FIXTURES = BENCHMARKS_ROOT / "fixtures"
 
 OMNIDOCBENCH_REPO = "opendatalab/OmniDocBench"
+# Revision **fijada** del dataset: sin `revision=`, cada maquina/fecha baja la
+# revision vigente y dos runs miden sobre datos distintos sin que nadie lo note.
+# Debe coincidir con la snapshot ya cacheada en `benchmarks/data_cache`.
+OMNIDOCBENCH_REVISION = "aa1ee96d106dbe53d0ae59474d75c6e6d9b53fec"
+# Manifiesto de checksums **versionado** (fuera de `data_cache/`, que esta
+# gitignored): pinnea el sha256 de los ficheros que definen el GT, para que dos
+# maquinas con la misma revision verifiquen los MISMOS bytes. Ver `datasets_manifest.json`.
+DATASETS_MANIFEST = BENCHMARKS_ROOT / "datasets_manifest.json"
+
+
+class DatasetUnavailable(RuntimeError):
+    """El dataset no se puede cargar en este entorno (falta una dependencia/cache)."""
+
+
+class DatasetOffline(DatasetUnavailable):
+    """No hay red y el cache no esta poblado: fallo **unico y accionable**.
+
+    Distinto de `DatasetUnavailable` (que cubre fichero corrupto, categoria que
+    falta, etc.): aqui el remedio es siempre el mismo — poblar el cache con
+    `--fetch` — y el mensaje lo dice, en vez de dejar N muestras en `skipped`.
+    """
+
+
+def load_manifest(path: Path | None = None) -> dict:
+    """Lee el manifiesto de checksums versionado (`datasets_manifest.json`)."""
+    path = path or DATASETS_MANIFEST
+    if not path.is_file():
+        raise DatasetUnavailable(f"falta el manifiesto de checksums {path}")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def verify_file(path: Path, expected_sha256: str, *, label: str = "") -> str:
+    """Verifica el sha256 de `path`; devuelve el hash real. Falla claro si no cuadra.
+
+    Es la comprobacion de integridad del criterio "mismo hash en dos maquinas":
+    la revision fija de que revision se baja, el checksum garantiza que los bytes
+    son los mismos.
+    """
+    import hashlib
+
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            digest.update(chunk)
+    actual = digest.hexdigest()
+    if actual != expected_sha256:
+        raise DatasetUnavailable(
+            f"checksum NO coincide para {label or path.name}: "
+            f"esperado {expected_sha256[:12]}..., obtenido {actual[:12]}... "
+            f"(el cache esta corrupto o es de otra revision; purga {path} y re-ejecuta --fetch)"
+        )
+    return actual
+
+# Origen del ultimo dataset cargado: `dataset` (muestra real) o `fixture`
+# (fallback minimo versionado). El runner lo propaga al `summary.json` para que
+# el informe declare cuando los numeros vienen de la fixture y no de la muestra
+# completa (regla de provenance del banco). El fallback es SILENCIOSO en consola
+# a proposito: el silencio no se permite en el INFORME, no en el log.
+PROVENANCE_DATASET = "dataset"
+PROVENANCE_FIXTURE = "fixture"
+_LAST_PROVENANCE: dict = {"source": PROVENANCE_DATASET, "detail": None, "revision": None}
+
+
+def _set_provenance(source: str, detail: str | None = None,
+                    revision: str | None = None) -> None:
+    _LAST_PROVENANCE["source"] = source
+    _LAST_PROVENANCE["detail"] = detail
+    # Revision HF fijada (None si el origen es la fixture o un set sintetico).
+    _LAST_PROVENANCE["revision"] = revision
+
+
+def fixture_provenance() -> dict:
+    """Origen del ultimo dataset cargado (`dataset` o `fixture`), para el informe."""
+    return dict(_LAST_PROVENANCE)
 
 
 @dataclass(frozen=True)
@@ -59,6 +136,12 @@ class Sample:
     # `page_attribute`: viaja con la muestra para que el informe pueda desglosar
     # la métrica *por estrato* sin volver a leer la anotación.
     stratum: str | None = None
+    # GT de **orden de lectura / títulos** (`full_page`): bloques de contenido en
+    # su `order` anotado, como `(caja, kind, texto)`. `kind` usa el vocabulario
+    # que emite el pipeline (`ODB_CATEGORY_TO_KIND`); `texto` va vacío en tablas
+    # y fórmulas (su contenido es HTML/LaTeX, ya presente en `gt_markdown`). De
+    # aquí salen la secuencia de bloques (Kendall tau) y la detección de títulos.
+    gt_ordered_blocks: tuple[tuple[tuple[float, float, float, float], str, str], ...] | None = None
 
 
 def load_local(manifest: Path, limit: int | None = None) -> list[Sample]:
@@ -77,19 +160,24 @@ def load_local(manifest: Path, limit: int | None = None) -> list[Sample]:
 
 
 def load_funsd(split: str = "train", limit: int | None = None) -> list[Sample]:
-    """Carga FUNSD desde Hugging Face, cacheado en `benchmarks/data_cache`."""
+    """Carga FUNSD desde Hugging Face, cacheado en `benchmarks/data_cache`.
+
+    Sin red (o sin el cache), cae a la fixture versionada `fixtures/funsd_mini/`
+    y lo declara en el provenance (`fixture_provenance()`).
+    """
     try:
         from datasets import load_dataset
     except ImportError as exc:  # pragma: no cover - entorno sin `datasets`
-        raise DatasetUnavailable(
-            "pip install datasets (y pyarrow) para descargar FUNSD"
-        ) from exc
+        return _load_funsd_fixture(limit, f"datasets no instalado ({exc.__class__.__name__})")
 
     cache = DATA_CACHE
     cache.mkdir(parents=True, exist_ok=True)
     marker = cache / f"funsd_{split}.ok"
 
-    ds = load_dataset("nielsr/funsd", split=split, cache_dir=str(cache))
+    try:
+        ds = load_dataset("nielsr/funsd", split=split, cache_dir=str(cache))
+    except Exception as exc:  # noqa: BLE001 - sin red / cache vacio: cae a la fixture
+        return _load_funsd_fixture(limit, f"{exc.__class__.__name__}: {exc}")
     if limit is not None:
         ds = ds.select(range(min(limit, len(ds))))
 
@@ -117,6 +205,33 @@ def load_funsd(split: str = "train", limit: int | None = None) -> list[Sample]:
             )
         )
     marker.write_text(f"{len(samples)} samples\n", encoding="utf-8")
+    _set_provenance(PROVENANCE_DATASET, "nielsr/funsd (HF)")
+    return samples
+
+
+def _load_funsd_fixture(limit: int | None, reason: str) -> list[Sample]:
+    """Carga FUNSD desde la fixture versionada (`fixtures/funsd_mini/`)."""
+    manifest = FIXTURES / "funsd_mini" / "manifest.json"
+    if not manifest.is_file():
+        raise DatasetUnavailable(
+            f"FUNSD no disponible ({reason}) y falta la fixture {manifest}")
+    rows = json.loads(manifest.read_text(encoding="utf-8"))
+    if limit is not None:
+        rows = rows[:limit]
+    samples: list[Sample] = []
+    for row in rows:
+        words, bboxes = [str(w) for w in row["words"]], row["bboxes"]
+        ordered = sorted(
+            zip(words, bboxes),
+            key=lambda wb: ((wb[1][1] + wb[1][3]) / 2.0, (wb[1][0] + wb[1][2]) / 2.0),
+        )
+        samples.append(Sample(
+            image_id=str(row["id"]),
+            image=Image.open(manifest.parent / "images" / row["image"]).convert("RGB"),
+            gt_text=" ".join(w for w, _ in ordered),
+            gt_boxes=tuple(tuple(float(v) for v in box) for box in bboxes),
+        ))
+    _set_provenance(PROVENANCE_FIXTURE, f"funsd_mini ({reason})")
     return samples
 
 
@@ -222,15 +337,60 @@ def _odb_stratified(pages: list, limit: int | None = None,
         round_index += 1
 
 
+def _odb_det_groups(pages: list, category: str, need: str, cap: int | None) -> list[tuple]:
+    """Grupos `(name, page, dets)` por pagina con anotaciones de `category` y `need`.
+
+    Solo las detecciones no `ignore` que traen el campo `need` (`latex` para
+    formulas, `html` para tablas). Se recorren en el orden recibido (ya
+    estratificado) y se cortan a `cap` grupos: cada pagina aporta como mucho una
+    deteccion por ronda en `_spread_dets_per_page`, asi que `cap` paginas bastan
+    para producir `limit` muestras.
+    """
+    groups: list[tuple] = []
+    for page in pages:
+        dets = [d for d in page["layout_dets"]
+                if d["category_type"] == category and not d.get("ignore") and d.get(need)]
+        if not dets:
+            continue
+        groups.append((str(page["page_info"]["image_path"]), page, dets))
+        if cap is not None and len(groups) >= cap:
+            break
+    return groups
+
+
+def _spread_dets_per_page(page_dets: list[tuple], limit: int | None) -> list[tuple]:
+    """Intercala **una** deteccion por pagina y ronda (round-robin).
+
+    Evita que la muestra se concentre en la primera pagina rica —el sesgo que
+    `_odb_rich_first` producia en `formula` (14 de 20 recortes de una sola pagina
+    `equation_hard`)— y le hace heredar la variedad de estratos del selector de
+    paginas. Devuelve `(name, page, det)` en el orden de extraccion.
+    """
+    picked: list[tuple] = []
+    round_index = 0
+    while True:
+        added = False
+        for name, page, dets in page_dets:
+            if round_index < len(dets):
+                picked.append((name, page, dets[round_index]))
+                added = True
+                if limit is not None and len(picked) >= limit:
+                    return picked
+        if not added:
+            return picked
+        round_index += 1
+
+
 def load_omnidocbench(limit: int | None = None, cache_dir: Path | None = None) -> list[Sample]:
     """Carga OmniDocBench (dataset documental con GT) desde Hugging Face.
 
     Descarga y cachea la anotacion y solo las imagenes de las paginas elegidas
-    en `benchmarks/data_cache` (gitignored). La seleccion prioriza paginas con
-    tabla o formula para cubrir las casuisticas de `pyocrust` (estructura,
-    formulas) sin dejar de lado las de texto.
+    en `benchmarks/data_cache` (gitignored). La seleccion es **estratificada**
+    por `page_attribute` (igual que `layout`: ver `_odb_stratified`), para que la
+    muestra represente la composicion real del dataset en vez de sesgarse hacia
+    las paginas ricas en tabla/formula.
     """
-    pages = _odb_rich_first(_load_omnidocbench_pages(cache_dir))
+    pages = _odb_stratified(_load_omnidocbench_pages(cache_dir))
     if limit is not None:
         pages = pages[:limit]
 
@@ -252,25 +412,78 @@ def load_omnidocbench(limit: int | None = None, cache_dir: Path | None = None) -
     return samples
 
 
+def _fixture_omnidocbench() -> Path:
+    """Directorio de la fixture versionada de OmniDocBench."""
+    return FIXTURES / "omnidocbench_mini"
+
+
 def _load_omnidocbench_pages(cache_dir: Path | None) -> list:
     try:
         from huggingface_hub import hf_hub_download
     except ImportError as exc:  # pragma: no cover - entorno sin huggingface_hub
-        raise DatasetUnavailable(
-            "pip install huggingface_hub para descargar OmniDocBench"
-        ) from exc
+        return _load_omnidocbench_fixture(
+            f"huggingface_hub no instalado ({exc.__class__.__name__})")
     cache = cache_dir or DATA_CACHE
     cache.mkdir(parents=True, exist_ok=True)
-    ann = hf_hub_download(OMNIDOCBENCH_REPO, "OmniDocBench.json",
-                          repo_type="dataset", cache_dir=str(cache))
-    return json.loads(Path(ann).read_text(encoding="utf-8"))
+    try:
+        ann = hf_hub_download(OMNIDOCBENCH_REPO, "OmniDocBench.json",
+                              repo_type="dataset", revision=OMNIDOCBENCH_REVISION,
+                              cache_dir=str(cache))
+        pages = json.loads(Path(ann).read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001 - sin red / cache vacio: cae a la fixture
+        return _load_omnidocbench_fixture(f"{exc.__class__.__name__}: {exc}")
+    _verify_manifest_file(Path(ann), "OmniDocBench.json")
+    _set_provenance(PROVENANCE_DATASET, _omnidocbench_source_detail(),
+                    revision=OMNIDOCBENCH_REVISION)
+    return pages
+
+
+def _omnidocbench_source_detail() -> str:
+    """Origen del dataset real **con la revision fijada** (provenance del informe)."""
+    return f"{OMNIDOCBENCH_REPO}@{OMNIDOCBENCH_REVISION} (HF)"
+
+
+def _verify_manifest_file(path: Path, repo_path: str) -> None:
+    """Verifica el sha256 del fichero contra el manifiesto versionado.
+
+    Si el manifiesto no lista el fichero (p. ej. una imagen que el banco descarga
+    a demanda), no se verifica: la **revision** immutable ya garantiza sus bytes.
+    """
+    entry = (load_manifest().get("files") or {}).get(repo_path)
+    if entry and entry.get("sha256"):
+        verify_file(path, entry["sha256"], label=repo_path)
+
+
+def _load_omnidocbench_fixture(reason: str) -> list:
+    """Carga la anotacion de la fixture versionada y declara el origen."""
+    ann = _fixture_omnidocbench() / "OmniDocBench.json"
+    if not ann.is_file():
+        raise DatasetUnavailable(
+            f"dataset real no disponible ({reason}) y falta la fixture {ann}")
+    _set_provenance(PROVENANCE_FIXTURE, f"omnidocbench_mini ({reason})")
+    return json.loads(ann.read_text(encoding="utf-8"))
 
 
 def _odb_image(name: str, cache: Path) -> Image.Image:
-    from huggingface_hub import hf_hub_download
+    try:
+        from huggingface_hub import hf_hub_download
+    except ImportError:  # pragma: no cover - ya se aviso en las paginas
+        return _odb_fixture_image(name)
+    try:
+        path = hf_hub_download(OMNIDOCBENCH_REPO, f"images/{name}",
+                               repo_type="dataset", revision=OMNIDOCBENCH_REVISION,
+                               cache_dir=str(cache))
+        return Image.open(path).convert("RGB")
+    except Exception:  # noqa: BLE001 - sin red: la fixture cubre las paginas que sirve
+        return _odb_fixture_image(name)
 
-    path = hf_hub_download(OMNIDOCBENCH_REPO, f"images/{name}",
-                           repo_type="dataset", cache_dir=str(cache))
+
+def _odb_fixture_image(name: str) -> Image.Image:
+    """Imagen de la fixture versionada (mismo `images/<name>` que la release)."""
+    path = _fixture_omnidocbench() / "images" / name
+    if not path.is_file():
+        raise DatasetUnavailable(
+            f"imagen {name} no esta ni en la cache HF ni en la fixture {path}")
     return Image.open(path).convert("RGB")
 
 
@@ -315,21 +528,31 @@ def _crop_poly(image: Image.Image, poly: Sequence[float], pad: int = 4) -> Image
 
 
 def load_omnidocbench_formulas(limit: int | None = None, cache_dir: Path | None = None) -> list[Sample]:
-    """Una muestra por formula: recorte de la imagen + su LaTeX anotado como GT."""
-    pages = _load_omnidocbench_pages(cache_dir)
-    cache = cache_dir or DATA_CACHE
+    """Una muestra por formula: recorte de la imagen + su LaTeX anotado como GT.
 
+    Las paginas se recorren en orden **estratificado** (`_odb_stratified`) y los
+    recortes se **reparten entre paginas** (`_spread_dets_per_page`): sin el
+    reparto la muestra se concentraba en la primera pagina rica y salia 20/20
+    `equation_hard`, aunque el orden de paginas ya fuera estratificado.
+    """
+    pages = _odb_stratified(_load_omnidocbench_pages(cache_dir))
+    cache = cache_dir or DATA_CACHE
+    groups = _odb_det_groups(pages, "equation_isolated", "latex",
+                             None if limit is None else limit)
+
+    images: dict[str, Image.Image] = {}
     samples: list[Sample] = []
-    for name, _page, dets in _odb_formula_pages(pages, limit):
-        image = _odb_image(name, cache)
-        for det in dets:
-            # GT sin delimitadores `$`: el motor de formulas emite LaTeX "desnudo".
-            gt = " ".join(str(det["latex"]).replace("$", "").split())
-            samples.append(Sample(
-                image_id=f"{Path(name).stem}::{det.get('anno_id', 'eq')}",
-                image=_crop_poly(image, det["poly"]),
-                gt_text=gt,
-            ))
+    for name, page, det in _spread_dets_per_page(groups, limit):
+        if name not in images:
+            images[name] = _odb_image(name, cache)
+        # GT sin delimitadores `$`: el motor de formulas emite LaTeX "desnudo".
+        gt = " ".join(str(det["latex"]).replace("$", "").split())
+        samples.append(Sample(
+            image_id=f"{Path(name).stem}::{det.get('anno_id', 'eq')}",
+            image=_crop_poly(images[name], det["poly"]),
+            gt_text=gt,
+            stratum=_odb_stratum(page),
+        ))
     (cache / "omnidocbench_formulas.ok").write_text(f"{len(samples)} samples\n", encoding="utf-8")
     return samples
 
@@ -436,6 +659,33 @@ ODB_CATEGORY_TO_KIND = {
     "figure": "image",
 }
 
+# Vocabulario del **pipeline completo** (`pp_structurev3`, oar-ocr
+# `LayoutElementType::as_str`) -> categorias anotadas de OmniDocBench. Es el
+# mapa que necesita `full_page` para puntuar el layout de las cajas que emite el
+# propio pipeline: su vocabulario no es el de `pp_doclayoutv3` (dice `formula`,
+# no `display_formula`; anade `list`, `abstract`, `region`...), asi que reusar
+# `LAYOUT_MODEL_TO_GT` dejaria `formula` sin puntuar. Solo se evaluan las
+# categorias destino de este mapa; el resto de etiquetas del pipeline se ignoran.
+STRUCTURE_KIND_TO_GT = {
+    "text": "text_block",
+    "doc_title": "title",
+    "paragraph_title": "title",
+    "formula": "equation_isolated",
+    "table": "table",
+    "image": "figure",
+    "figure_title": "figure_caption",
+    "table_title": "figure_caption",
+    "chart_title": "figure_caption",
+    "figure_table_chart_title": "figure_caption",
+    "header": "header",
+    "footer": "footer",
+    "number": "page_number",
+    "footnote": "page_footnote",
+    "reference": "reference",
+    "reference_content": "reference",
+    "list": "list_group",
+}
+
 # Categorias que NO aportan contenido legible (mascaras de region).
 _NON_CONTENT_SUFFIX = "_mask"
 
@@ -482,6 +732,37 @@ def _odb_page_blocks(page: dict) -> tuple[str, ...]:
     return tuple(kind for kind in kinds if kind)
 
 
+def _odb_ordered_blocks(page: dict) -> tuple[tuple[tuple[float, float, float, float], str, str], ...]:
+    """Bloques de contenido en su `order` anotado: `(caja, kind, texto)`.
+
+    Es el GT de **orden de lectura** y de **títulos** de `full_page`. El `kind`
+    (vocabulario del pipeline) permite aislar los títulos (`paragraph_title`); el
+    texto solo se rellena para bloques de prosa (tablas/fórmulas lo llevan en
+    `gt_markdown`). Un bloque anotado cuya categoría no tiene equivalencia en el
+    vocabulario del pipeline se **omite** (no se inventa un `kind`).
+    """
+    out: list[tuple[tuple[float, float, float, float], str, str]] = []
+    for det in _odb_content_blocks(page):
+        kind = ODB_CATEGORY_TO_KIND.get(det["category_type"])
+        if kind is None or not det.get("poly"):
+            continue
+        out.append((_odb_poly_bbox(det["poly"]), kind, str(det.get("text") or "")))
+    return tuple(out)
+
+
+def _odb_page_tables(page: dict) -> str:
+    """HTML anotado de **todas** las tablas de la pagina, en orden de lectura.
+
+    `full_page` recibe el pipeline completo, que emite el HTML de cada tabla
+    dentro de su Markdown; para puntuar *estructura de tabla* a nivel de pagina
+    se concatenan los `html` anotados y se comparan contra los que aparecen en la
+    salida. Vacio (`""`) si la pagina no anota ninguna tabla -> la metrica no se
+    evalua, nunca un `0.0`.
+    """
+    blocks = [d for d in _odb_content_blocks(page) if d["category_type"] == "table" and d.get("html")]
+    return "\n".join(str(d["html"]) for d in blocks)
+
+
 def _odb_page_layout(page: dict) -> dict[str, tuple[tuple[float, float, float, float], ...]]:
     """GT de layout: categoria de bloque -> cajas, solo categorias mapeadas."""
     mapped = set(LAYOUT_MODEL_TO_GT.values())
@@ -520,42 +801,60 @@ def load_omnidocbench_layout(limit: int | None = None, cache_dir: Path | None = 
 
 
 def load_omnidocbench_tables(limit: int | None = None, cache_dir: Path | None = None) -> list[Sample]:
-    """Una muestra por tabla anotada: recorte del `poly` + su `html` como GT."""
+    """Una muestra por tabla anotada: recorte del `poly` + su `html` como GT.
+
+    Orden **estratificado** de paginas (`_odb_stratified`) y recortes **repartidos
+    entre paginas** (`_spread_dets_per_page`), igual que `formula`: sin el reparto
+    las tablas se agolpaban en las primeras paginas ricas.
+    """
     cache = cache_dir or DATA_CACHE
-    pages = _odb_rich_first(_load_omnidocbench_pages(cache_dir))
+    pages = _odb_stratified(_load_omnidocbench_pages(cache_dir))
+    groups = _odb_det_groups(pages, "table", "html", None if limit is None else limit)
+
+    images: dict[str, Image.Image] = {}
     samples: list[Sample] = []
-    for page in pages:
-        dets = [d for d in page["layout_dets"]
-                if d["category_type"] == "table" and not d.get("ignore") and d.get("html")]
-        if not dets:
-            continue
-        name = str(page["page_info"]["image_path"])
-        image = _odb_image(name, cache)
-        for det in dets:
-            samples.append(Sample(
-                image_id=f"{Path(name).stem}::{det.get('anno_id', 'tbl')}",
-                image=_crop_poly(image, det["poly"]),
-                gt_text="", gt_html=str(det["html"]),
-            ))
-            if limit is not None and len(samples) >= limit:
-                return samples
+    for name, page, det in _spread_dets_per_page(groups, limit):
+        if name not in images:
+            images[name] = _odb_image(name, cache)
+        samples.append(Sample(
+            image_id=f"{Path(name).stem}::{det.get('anno_id', 'tbl')}",
+            image=_crop_poly(images[name], det["poly"]),
+            gt_text="", gt_html=str(det["html"]),
+            stratum=_odb_stratum(page),
+        ))
     return samples
 
 
 def load_omnidocbench_full_page(limit: int | None = None, cache_dir: Path | None = None) -> list[Sample]:
-    """Paginas con GT de **documento** completo (Markdown + bloques en orden)."""
+    """Paginas con GT de **documento** completo (Markdown + bloques en orden).
+
+    Orden **estratificado** (`_odb_stratified`), igual que `layout`: la muestra
+    cubre la composicion del dataset en vez de sesgarse a `equation_hard`.
+    """
     cache = cache_dir or DATA_CACHE
-    pages = _odb_rich_first(_load_omnidocbench_pages(cache_dir))
+    pages = _odb_stratified(_load_omnidocbench_pages(cache_dir))
     samples: list[Sample] = []
     for page in pages:
         markdown = _odb_page_markdown(page)
         if not markdown:
             continue
         name = str(page["page_info"]["image_path"])
+        # Ademas del documento (markdown/bloques), la **misma** pagina lleva su
+        # GT desgranado para que `full_page` puntue layout (mAP de las cajas),
+        # estructura de tabla (TEDS del HTML) y formula (similitud LaTeX) en la
+        # misma pasada: son las mismas anotaciones que usan los bancos de
+        # `layout`/`table`/`formula`, no un GT nuevo.
+        tables_html = _odb_page_tables(page)
+        formulas = _odb_page_formulas(page)
         samples.append(Sample(
             image_id=name, image=_odb_image(name, cache),
             gt_text=_odb_page_text(page), gt_markdown=markdown,
             gt_blocks=_odb_page_blocks(page),
+            gt_layout=_odb_page_layout(page),
+            gt_html=tables_html or None,
+            gt_by_task={"formula": formulas} if formulas else None,
+            stratum=_odb_stratum(page),
+            gt_ordered_blocks=_odb_ordered_blocks(page),
         ))
         if limit is not None and len(samples) >= limit:
             break
@@ -568,9 +867,11 @@ def load_omnidocbench_full_page(limit: int | None = None, cache_dir: Path | None
 #
 # Estas tres features no tienen un dataset con GT publico, pero su GT es **barato
 # de generar y determinista**: se transforma una imagen limpia con una operacion
-# conocida y el GT es esa operacion. Las imagenes base son las paginas de
-# OmniDocBench **ya presentes en `benchmarks/data_cache`**, asi que no se
-# descarga nada al ejecutar el banco.
+# conocida y el GT es esa operacion. La pagina base es la de OmniDocBench **si
+# esta en `benchmarks/data_cache`** (comportamiento historico) y, si no
+# (checkout limpio o sin red), una pagina sintetica determinista dibujada con PIL
+# (mismo enfoque que `_draw_seal_stamp`), de modo que estas features **no dependen
+# de la red**.
 
 ORIENTATION_ANGLES = (0, 90, 180, 270)
 TEXT_LINE_ANGLES = (0, 180)
@@ -579,15 +880,25 @@ PERSPECTIVE_OFFSETS = ((0.06, 0.03), (0.96, 0.08), (0.93, 0.96), (0.08, 0.94))
 
 
 def _cached_page_images(cache_dir: Path | None = None) -> list[Path]:
-    """Paginas de OmniDocBench ya presentes en la cache local (sin red)."""
+    """Paginas de OmniDocBench presentes en la cache local o en la fixture (sin red)."""
     root = (cache_dir or DATA_CACHE) / "datasets--opendatalab--OmniDocBench"
-    return sorted(root.glob("snapshots/*/images/*.png"))
+    paths = sorted(root.glob("snapshots/*/images/*.png"))
+    if paths:
+        return paths
+    # Sin cache: la fixture versionada (mismo esquema `images/<name>`).
+    fixture = FIXTURES / "omnidocbench_mini" / "images"
+    paths = sorted(p for p in fixture.glob("*") if p.suffix.lower() in {".png", ".jpg", ".jpeg"})
+    if paths:
+        _set_provenance(PROVENANCE_FIXTURE, "omnidocbench_mini (paginas de la fixture)")
+    return paths
 
 
 def _cached_page_annotation(cache_dir: Path | None = None) -> list:
-    """Anotacion de OmniDocBench ya descargada (lista vacia si no esta)."""
+    """Anotacion de OmniDocBench de la cache local o de la fixture (sin red)."""
     root = (cache_dir or DATA_CACHE) / "datasets--opendatalab--OmniDocBench"
     files = sorted(root.glob("snapshots/*/OmniDocBench.json"))
+    if not files:
+        files = sorted((FIXTURES / "omnidocbench_mini").glob("OmniDocBench.json"))
     return json.loads(files[0].read_text(encoding="utf-8")) if files else []
 
 
@@ -610,6 +921,55 @@ def _cached_text_lines(cache_dir: Path | None = None) -> list[tuple[str, Image.I
     return lines
 
 
+# Fallback offline: sin cache de OmniDocBench, las features sinteticas generan su
+# propia pagina fuente con PIL (determinista), en vez de depender de la red.
+SYNTHETIC_PAGE_COUNT = 40
+SYNTHETIC_PAGE_SIZE = (1000, 1400)
+
+
+def _synthetic_page(index: int) -> Image.Image:
+    """Pagina sintetica determinista (texto dibujado con PIL, misma idea que el sello)."""
+    from PIL import ImageDraw
+
+    width, height = SYNTHETIC_PAGE_SIZE
+    page = Image.new("RGB", (width, height), "white")
+    draw = ImageDraw.Draw(page)
+    draw.text((70, 70), f"Documento sintetico {index + 1}", fill=(0, 0, 0),
+              font=_seal_font(34))
+    font = _seal_font(22)
+    y = 150
+    for line in range(index % 7 + 6):
+        text = f"Linea {line + 1} de relleno determinista numero {(index + 1) * (line + 3)}"
+        draw.text((70, y), text, fill=(0, 0, 0), font=font)
+        y += 42
+    return page
+
+
+def _page_sources(cache_dir: Path | None, count: int | None) -> list[tuple[str, Image.Image]]:
+    """Fuentes `(name, image)` del GT sintetico: paginas cacheadas o sinteticas.
+
+    Con la cache de OmniDocBench presente usa esas paginas (comportamiento previo);
+    sin ella genera paginas sinteticas deterministas, asi que ninguna de las tres
+    features necesita red.
+    """
+    paths = _cached_page_images(cache_dir)
+    if paths:
+        paths = paths if count is None else paths[:count]
+        return [(path.stem, Image.open(path).convert("RGB")) for path in paths]
+    total = SYNTHETIC_PAGE_COUNT if count is None else count
+    return [(f"synthetic_{i:03d}", _synthetic_page(i)) for i in range(total)]
+
+
+def _synthetic_text_lines(count: int) -> list[tuple[str, Image.Image]]:
+    """Lineas de texto recortadas de paginas sinteticas (fallback de `_cached_text_lines`)."""
+    lines: list[tuple[str, Image.Image]] = []
+    for i in range(count):
+        page = _synthetic_page(i)
+        y = 150 + (i % 5) * 42
+        lines.append((f"synthetic_{i:03d}::line", page.crop((60, y - 4, 760, y + 34))))
+    return lines
+
+
 def load_synthetic_orientation(limit: int | None = None, cache_dir: Path | None = None) -> list[Sample]:
     """Paginas rotadas 0/90/180/270; GT = la etiqueta de **correccion** esperada.
 
@@ -619,30 +979,31 @@ def load_synthetic_orientation(limit: int | None = None, cache_dir: Path | None 
     (comprobado con las cuatro clases en una pagina real antes de escribir el
     banco). El GT sintetico es exactamente esa etiqueta.
     """
-    paths = _cached_page_images(cache_dir)
-    if not paths:
-        raise DatasetUnavailable(
-            "no hay paginas de OmniDocBench en benchmarks/data_cache para el GT sintetico"
-        )
+    sources = _page_sources(cache_dir, limit)
     samples: list[Sample] = []
-    for i, path in enumerate(paths if limit is None else paths[:limit]):
+    for i, (name, image) in enumerate(sources):
         angle = ORIENTATION_ANGLES[i % len(ORIENTATION_ANGLES)]
-        image = Image.open(path).convert("RGB")
         samples.append(Sample(
-            image_id=f"{path.stem}::rot{angle}",
+            image_id=f"{name}::rot{angle}",
             image=image.rotate(angle, expand=True) if angle else image,
             gt_text="", gt_label=str((360 - angle) % 360),
         ))
     return samples
 
 
+def _text_line_sources(cache_dir: Path | None, count: int | None) -> list[tuple[str, Image.Image]]:
+    """Lineas de texto de la cache si las hay; si no, recortes de paginas sinteticas."""
+    lines = _cached_text_lines(cache_dir)
+    if lines:
+        return lines
+    # Sin cache (o cache sin bloques de texto): lineas de paginas sinteticas.
+    # ponytail: recorta una linea por pagina sintetica; subir si hacen falta mas.
+    return _synthetic_text_lines(SYNTHETIC_PAGE_COUNT if count is None else count)
+
+
 def load_synthetic_text_line(limit: int | None = None, cache_dir: Path | None = None) -> list[Sample]:
     """Lineas de texto giradas 0/180; GT = la etiqueta de orientacion aplicada."""
-    lines = _cached_text_lines(cache_dir)
-    if not lines:
-        raise DatasetUnavailable(
-            "no hay paginas de OmniDocBench en benchmarks/data_cache para cortar lineas"
-        )
+    lines = _text_line_sources(cache_dir, limit)
     samples: list[Sample] = []
     for i, (name, image) in enumerate(lines if limit is None else lines[:limit]):
         angle = TEXT_LINE_ANGLES[i % len(TEXT_LINE_ANGLES)]
@@ -659,15 +1020,11 @@ def load_synthetic_rectification(limit: int | None = None, cache_dir: Path | Non
     (deformada, limpia) es reproducible sin descargar ningun dataset: el motor
     debe devolver una imagen rectificada que se compara con la original.
     """
-    paths = _cached_page_images(cache_dir)
-    if not paths:
-        raise DatasetUnavailable(
-            "no hay paginas de OmniDocBench en benchmarks/data_cache para el GT sintetico"
-        )
+    sources = _page_sources(cache_dir, limit)
     samples: list[Sample] = []
-    for path in (paths if limit is None else paths[:limit]):
-        clean = _resize_max(Image.open(path).convert("RGB"), 1000)
-        samples.append(Sample(image_id=f"{path.stem}::persp",
+    for name, image in sources:
+        clean = _resize_max(image, 1000)
+        samples.append(Sample(image_id=f"{name}::persp",
                               image=_perspective_warp(clean),
                               gt_text="", gt_image=clean))
     return samples
@@ -779,6 +1136,68 @@ def load_synthetic_seal(limit: int | None = None, cache_dir: Path | None = None)
 
 
 # ---------------------------------------------------------------------------
+# Paso explicito de preparacion (`--fetch`): poblar el cache UNA vez, con un
+# unico error claro si no hay red y el cache no esta.
+# ---------------------------------------------------------------------------
+# Sin esto, sin red las N muestras caen una a una al fallback de fixture y el
+# log queda lleno de `skipped` silenciosos. Aqui se comprueba **de golpe**: si la
+# anotacion no esta en cache y no se puede descargar, se lanza UN `DatasetOffline`
+# con la instruccion exacta para poblarlo.
+
+FETCH_HELP = (
+    "pobla benchmarks/data_cache una vez (~545 MB, solo la anotacion + imagenes "
+    "usadas). Requiere red la primera vez."
+)
+
+# Fichero que SIEMPRE se usa y define el GT: si su descarga falla, no hay dataset.
+_FETCH_ANNOTATION = "OmniDocBench.json"
+
+
+def prepare_datasets(cache_dir: Path | None = None) -> dict:
+    """Descarga + verifica la anotacion de OmniDocBench. Falla rapido y claro.
+
+    Devuelve `{"annotation": <ruta>, "sha256": ..., "revision": ...}`. Si no hay
+    red y el cache no esta poblado, lanza **un solo** `DatasetOffline` con la
+    instruccion de como poblarlo (nada de N `skipped`).
+    """
+    try:
+        from huggingface_hub import hf_hub_download
+    except ImportError as exc:
+        raise DatasetUnavailable(
+            "pip install huggingface_hub para descargar OmniDocBench "
+            "(o usa la fixture versionada: benchmarks/fixtures/)"
+        ) from exc
+
+    cache = cache_dir or DATA_CACHE
+    cache.mkdir(parents=True, exist_ok=True)
+    manifest = load_manifest()
+    revision = manifest.get("revision") or OMNIDOCBENCH_REVISION
+    try:
+        ann = hf_hub_download(OMNIDOCBENCH_REPO, _FETCH_ANNOTATION,
+                              repo_type="dataset", revision=revision,
+                              cache_dir=str(cache))
+    except Exception as exc:  # noqa: BLE001 - se traduce a UN error accionable
+        raise DatasetOffline(
+            f"no se pudo preparar el dataset {OMNIDOCBENCH_REPO}@{revision[:12]} "
+            f"({exc.__class__.__name__}: {exc}).\n"
+            f"  -> Sin red y con el cache vacio no hay dataset real. Opciones:\n"
+            f"     1) con red:   python benchmarks/prepare_datasets.py --fetch\n"
+            f"     2) sin red:   usa la fixture versionada (benchmarks/fixtures/), "
+            f"el banco la sirve sola con HF_HUB_OFFLINE=1\n"
+            f"  (cache esperada en: {cache})"
+        ) from exc
+
+    entry = (manifest.get("files") or {}).get(_FETCH_ANNOTATION, {})
+    if entry.get("sha256"):
+        verify_file(Path(ann), entry["sha256"], label=_FETCH_ANNOTATION)
+
+    import hashlib
+
+    digest = hashlib.sha256(Path(ann).read_bytes()).hexdigest()
+    return {"annotation": str(ann), "sha256": digest, "revision": revision}
+
+
+# ---------------------------------------------------------------------------
 # Registro de datasets por nombre (cada feature declara el suyo)
 # ---------------------------------------------------------------------------
 
@@ -797,10 +1216,6 @@ DATASETS = {
     # Sello sintetico determinista (tampon pegado en documento blanco; GT = caja).
     "synthetic_seal": lambda limit, split, cache: load_synthetic_seal(limit=limit, cache_dir=cache),
 }
-
-
-class DatasetUnavailable(RuntimeError):
-    """El dataset no se puede cargar en este entorno (falta una dependencia/cache)."""
 
 
 def load_dataset(name: str, limit: int | None = None, split: str = "train",
@@ -842,6 +1257,27 @@ def _self_check() -> None:
     assert _odb_page_markdown(annotated) == "hola\n\n<table><tr><td>x</td></tr></table>\n\n$$x$$"
     # `text_mask` (mascara) y el bloque `ignore` no son contenido ni bloques.
     assert _odb_page_blocks(annotated) == ("text", "table", "formula")
+    # Orden de lectura / titulos: bloques de contenido en su `order`, con `kind`
+    # del pipeline y texto (vacio en tabla/formula); el `header` ignorado y la
+    # mascara quedan fuera.
+    assert _odb_ordered_blocks(annotated) == (
+        ((0.0, 0.0, 10.0, 5.0), "text", "hola"),
+        ((0.0, 5.0, 10.0, 9.0), "table", ""),
+        ((0.0, 9.0, 10.0, 12.0), "formula", ""),
+    )
+    titled = {
+        "layout_dets": [
+            {"category_type": "title", "ignore": False, "order": 1,
+             "poly": [0, 0, 10, 0, 10, 3, 0, 3], "text": "Introduccion"},
+            {"category_type": "text_block", "ignore": False, "order": 2,
+             "poly": [0, 3, 10, 3, 10, 8, 0, 8], "text": "cuerpo"},
+        ],
+        "page_info": {"image_path": "t.png"},
+    }
+    assert _odb_ordered_blocks(titled) == (
+        ((0.0, 0.0, 10.0, 3.0), "paragraph_title", "Introduccion"),
+        ((0.0, 3.0, 10.0, 8.0), "text", "cuerpo"),
+    )
     # Solo las categorias con equivalencia en el vocabulario del modelo cuentan.
     assert _odb_page_layout(annotated) == {
         "text_block": ((0.0, 0.0, 10.0, 5.0),),

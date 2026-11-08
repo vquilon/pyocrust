@@ -18,7 +18,7 @@
 | pp_ocrv6 (tiny) | 20 | **0.717** | **0.360** | 0.483 | **0.675** | 0.047 | 0.120 | **970** |
 | rapidocr (default) | 20 | 0.585 | 0.512 | **0.476** | 0.701 | 0.037 | 0.108 | 6748 |
 
-> Bold values mark the best result for each metric among the **measured** engines in `text`. `N/A` = not evaluated (no ground truth for that column), never an invented `0.0`.
+> Bold values mark the best result for each metric among the **measured** engines in `text`. `N/A` = not evaluated (no ground truth for that column **or** the engine does not emit that structure), never an invented `0.0`.
 
 ## Skipped — not counted as executed
 

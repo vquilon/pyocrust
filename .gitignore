@@ -8,6 +8,7 @@ __pycache__/
 
 # Build de maturin y venv local
 .venv/
+.venv*/
 venv/
 dist/
 *.egg-info/
@@ -30,3 +31,12 @@ dist/
 
 # Laboratorio local (comparativas y exploraciones): no se versiona
 /laboratories/
+licenses-report.pdf
+
+# Sondas y scratch locales del equipo (no versionar)
+/benchmarks/.probe/
+/benchmarks/.scratch/
+/benchmarks/.certs/
+/benchmarks/_probe_*.py
+/.probe_*.py
+*.pyd.debug.bak

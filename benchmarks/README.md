@@ -47,7 +47,7 @@ Tabla consolidada generada por `features/summary.py`: [`reports/SUMMARY.md`](rep
 | `rectification` | SSIM | 0.707 | uvdoc 0.707 | [rectification/2026-11-06_23-06-42](results/rectification/2026-11-06_23-06-42) | medido |
 | `text_line` | accuracy | 1.000 | lcnet_textline_ori 1.000 | [text_line/2026-11-06_23-07-36](results/text_line/2026-11-06_23-07-36) | medido |
 | `seal` | recall@IoU 0.5 | 0.750 | — | [seal/2026-11-06_23-08-24](results/seal/2026-11-06_23-08-24) | medido |
-| `table` | TEDS | 0.854 | tatr 0.699 | [table/2026-11-06_23-09-19](results/table/2026-11-06_23-09-19) | medido |
+| `table` | TEDS | 0.780 | paddleocr_slanet 0.828 | [table/2026-11-08_18-43-55](results/table/2026-11-08_18-43-55) | medido |
 | `full_page` | Markdown F1 | 0.231 | — | [full_page/2026-11-06_23-31-43](results/full_page/2026-11-06_23-31-43) | medido |
 
 

@@ -26,16 +26,19 @@ reproducible entre ejecuciones.
 
 ## Alternativas Python reales (a comparar)
 
-| Alternativa | Módulo / `pip install` |
-| :--- | :--- |
-| paddleocr | `paddleocr paddlepaddle` |
-| docling | `docling` |
+| Alternativa | Módulo / `pip install` | Relación |
+| :--- | :--- | :--- |
+| uvdoc (`onnxruntime`) | `onnxruntime` | **mismo peso, distinta vía** (el MISMO UVDoc de PaddleOCR) |
+| opencv_perspective | `opencv-python` | **independiente**: línea base geométrica clásica, **sin pesos** |
+| paddleocr | `paddleocr paddlepaddle` | envuelve el mismo UVDoc |
 
 ## Estado
 
-**Implementado**: ejecuta `pyocrust` (`pyocrust_rectify`) sobre las páginas
-deformadas y publica el SSIM contra la referencia limpia. Las alternativas están
-**documentadas** (se integran como backends cuando se instalen).
+**Implementado**: ejecuta `pyocrust` (`pyocrust_rectify`) y las alternativas
+`uvdoc` (mismo peso, otra vía) y `opencv_perspective` (baseline clásico sin pesos)
+sobre las páginas deformadas y publica el SSIM contra la referencia limpia. El
+informe declara la **procedencia** de cada alternativa (independiente vs mismo peso
+por otra vía vs línea base).
 
 ## Provenance
 

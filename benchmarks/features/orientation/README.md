@@ -24,17 +24,18 @@ cuatro clases en una página real** antes de escribir el banco.
 
 ## Alternativas Python reales (a comparar)
 
-| Alternativa | Módulo / `pip install` |
-| :--- | :--- |
-| paddleocr | `paddleocr paddlepaddle` |
-| docling | `docling` |
-| surya | `surya-ocr` (requiere torch) |
+| Alternativa | Módulo / `pip install` | Relación |
+| :--- | :--- | :--- |
+| easyocr_rotation | `easyocr` | **independiente**: recognizer de EasyOCR en 4 rotaciones (no un clasificador dedicado) |
+| lcnet_doc_ori (`onnxruntime`) | `onnxruntime` | **mismo peso, distinta vía** (el MISMO PP-LCNet de PaddleOCR) |
+| paddleocr | `paddleocr paddlepaddle` | envuelve el mismo PP-LCNet |
 
 ## Estado
 
-**Implementado**: ejecuta `pyocrust` (`pyocrust_orientation`) sobre las páginas
-rotadas y publica la accuracy de las 4 clases. Las alternativas están
-**documentadas** (se integran como backends cuando se instalen).
+**Implementado**: ejecuta `pyocrust` (`pyocrust_orientation`) y las alternativas
+`lcnet_doc_ori` (mismo peso, otra vía) y `easyocr_rotation` (independiente) sobre
+las páginas rotadas y publica la accuracy de las 4 clases. El informe declara la
+**procedencia** de cada alternativa (independiente vs mismo peso por otra vía).
 
 ## Provenance
 

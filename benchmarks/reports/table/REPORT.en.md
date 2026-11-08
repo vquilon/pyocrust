@@ -4,24 +4,35 @@
 
 ## Provenance
 
-- **command**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/table/bank.py --limit 20 --device cpu --backends pyocrust_table,tatr`
+- **command**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/table/bank.py --backends pyocrust_table,paddleocr_slanet,docling_tableformer,tatr --limit 20 --device cpu --output-dir benchmarks/results`
 - **dataset**: `omnidocbench_table` · **n** (per engine): `20` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
+- **revision HF (fijada)**: `aa1ee96d106dbe53d0ae59474d75c6e6d9b53fec` — misma revision en cualquier maquina; los bytes se verifican contra `benchmarks/datasets_manifest.json`
 - **seed**: not applicable (deterministic benchmark, no randomness)
-- **run**: `benchmarks/results/table/2026-11-06_23-57-06` · **date**: `2026-11-06_23-57-06`
+- **run**: `benchmarks/results/table/2026-11-08_18-43-55` · **date**: `2026-11-08_18-43-55`
 - **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': []}
 
 ## Comparison (mean by engine)
 
 | Engine (variant) | n | Structural TEDS ↑ | ms/table ↓ |
 | :--- | ---: | ---: | ---: |
-| slanet_plus (default) | 20 | **0.854** | 749 |
-| table-transformer-structure-recognition (default) | 20 | 0.699 | **140** |
+| SLANet_plus (paddleocr) | 20 | **0.828** | **71** |
+| slanet_plus (default) | 20 | 0.780 | 796 |
+| table-transformer-structure-recognition (default) | 20 | 0.698 | 760 |
+| tableformer (docling) | 20 | 0.807 | 32806 |
 
-> Bold values mark the best result for each metric among the **measured** engines in `table`. `N/A` = not evaluated (no ground truth for that column), never an invented `0.0`.
+> Bold values mark the best result for each metric among the **measured** engines in `table`. `N/A` = not evaluated (no ground truth for that column **or** the engine does not emit that structure), never an invented `0.0`.
 
 ## Skipped — not counted as executed
 
 - (none)
+
+## Provenance of the alternatives
+
+- `SLANet_plus (paddleocr)` — an **independent** model (different project/checkpoint)
+- `table-transformer-structure-recognition (default)` — an **independent** model (different project/checkpoint)
+- `tableformer (docling)` — an **independent** model (different project/checkpoint)
+
+> The reference engine (`pyocrust`) is not listed: it defines the base result. An alternative with **same weights, a different path** measures the same model through another runtime; it does **not** add an independent competitor, and it is stated as such.
 
 ## Reporting notes
 
@@ -35,8 +46,10 @@
 
 | Engine (variant) | Structural TEDS ↑ (CPU) | Structural TEDS ↑ (GPU) | ms CPU | ms GPU | GPU provider |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| slanet_plus (default) | 0.854 | 0.854 | 749 | 668 | directml |
-| table-transformer-structure-recognition (default) | 0.699 | N/A | 140 | N/A | n/a (does not run on GPU) |
+| SLANet_plus (paddleocr) | 0.828 | N/A | 71 | N/A | n/a (does not run on GPU) |
+| slanet_plus (default) | 0.780 | 0.854 | 796 | 668 | directml |
+| table-transformer-structure-recognition (default) | 0.698 | N/A | 760 | N/A | n/a (does not run on GPU) |
+| tableformer (docling) | 0.807 | N/A | 32806 | N/A | n/a (does not run on GPU) |
 
 > The GPU provider comes from the actual `provider_effective` value in the GPU `summary.json` (`n/a` = the engine does not expose GPU execution in this benchmark). No GPU rows are invented: engines that did not run on an accelerator appear as `N/A`.
 

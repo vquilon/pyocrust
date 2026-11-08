@@ -17,11 +17,17 @@
 | pp-lcnet_x1_0_textline_ori (6.8M) | 20 | 100.0% | 26 |
 | pp-lcnet_x1_0_textline_ori (onnxruntime) | 20 | 100.0% | **5** |
 
-> En negrita, el mejor de cada métrica entre los motores **medidos** de `text_line`. `N/A` = no evaluada (sin GT de esa columna), nunca un `0.0` inventado.
+> En negrita, el mejor de cada métrica entre los motores **medidos** de `text_line`. `N/A` = no evaluada (sin GT de esa columna **o** el motor no emite esa estructura), nunca un `0.0` inventado.
 
 ## Saltados (`skipped`) — no cuentan como ejecutados
 
 - (ninguno)
+
+## Procedencia de las alternativas
+
+- `pp-lcnet_x1_0_textline_ori (onnxruntime)` — **mismo peso, distinta vía** (el MISMO `.onnx` de PaddleOCR por otro runtime — NO es un modelo distinto)
+
+> El motor de referencia (`pyocrust`) no se lista: es el que define el resultado base. Una alternativa con **mismo peso, distinta vía** mide el mismo modelo con otro runtime; **no** aporta un competidor independiente y así queda declarado.
 
 ## Nota de honestidad
 

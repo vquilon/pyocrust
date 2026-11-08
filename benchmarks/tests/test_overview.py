@@ -74,7 +74,7 @@ def test_overview_md_enumera_cobertura_y_autogestion():
                "det.onnx": {"task": "indra", "size_bytes": None}}
     md = overview.render_markdown(_statuses(), catalog, list(overview.CAPABILITY_ORDER))
     for needle in ("Autogestión", "ensure_models", "feature × capacidad", "medido",
-                   "esqueleto", "referencia"):
+                   "esqueleto"):
         assert needle in md, f"falta {needle!r} en FEATURES_OVERVIEW.md"
     for feature in overview.FEATURE_ORDER:
         assert f"**{feature}**" in md

@@ -24,16 +24,18 @@ espera una línea, no una página completa).
 
 ## Alternativas Python reales (a comparar)
 
-| Alternativa | Módulo / `pip install` |
-| :--- | :--- |
-| paddleocr | `paddleocr paddlepaddle` |
-| surya | `surya-ocr` (requiere torch) |
+| Alternativa | Módulo / `pip install` | Relación |
+| :--- | :--- | :--- |
+| rapidocr_mobile_cls | `rapidocr` | **independiente**: red mobile cls de PP-OCRv2 (proyecto RapidAI), NO el PP-LCNet |
+| lcnet_textline_ori (`onnxruntime`) | `onnxruntime` | **mismo peso, distinta vía** (el MISMO PP-LCNet de PaddleOCR) |
+| paddleocr | `paddleocr paddlepaddle` | envuelve el mismo PP-LCNet |
 
 ## Estado
 
-**Implementado**: ejecuta `pyocrust` (`pyocrust_textline`) sobre las líneas giradas
-y publica la accuracy 0/180. Las alternativas están **documentadas** (se integran
-como backends cuando se instalen).
+**Implementado**: ejecuta `pyocrust` (`pyocrust_textline`) y las alternativas
+`lcnet_textline_ori` (mismo peso, otra vía) y `rapidocr_mobile_cls` (independiente)
+sobre las líneas giradas y publica la accuracy 0/180. El informe declara la
+**procedencia** de cada alternativa (independiente vs mismo peso por otra vía).
 
 ## Provenance
 

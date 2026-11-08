@@ -3,7 +3,8 @@
 Cada feature tiene su carpeta con:
 
 * `README.md` — qué mide, su tarea en `pyocrust`, sus **alternativas Python
-  reales**, su métrica y su **provenance** (`medido` vs `referencia`).
+  reales**, su métrica y su **provenance** (`medido`; las referencias externas no
+  entran en ningún informe, ver `REFERENCES.md` de cada feature).
 * `bank.py`   — el banco. Expone `SPEC` (un `FeatureSpec`) y `main(argv)`.
 
 Los bancos ya implementados (`text`, `formula`, `layout`, `table`, `full_page`,

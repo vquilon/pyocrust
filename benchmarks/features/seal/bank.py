@@ -34,6 +34,7 @@ if __package__ in (None, ""):
 from datetime import datetime
 
 from common import load_dataset, run_backends
+from common.runner import _onnx_seal_det_backend
 from features._base import FeatureSpec, common_argparser, feature_out_dir, unavailable_factory
 
 SPEC = FeatureSpec(
@@ -43,8 +44,8 @@ SPEC = FeatureSpec(
     metric="recall@IoU 0.5 / IoU medio de las cajas de sello (box_recall, box_iou_mean)",
     dataset="synthetic_seal: tampón sintético pegado en documento blanco, posición/caja conocidas (GT SINTÉTICO determinista)",
     alternatives={
+        "onnx_seal_det (onnxruntime)": ("onnxruntime", "pip install onnxruntime"),
         "paddleocr (seal)": ("paddleocr", "paddleocr paddlepaddle"),
-        "doctrl": ("doctrl", "doctrl"),
     },
     status="implemented",
     note=(
@@ -57,12 +58,17 @@ SPEC = FeatureSpec(
     ),
 )
 
-# Alternativas aún no integradas: quedan `skipped` con motivo honesto (nunca `ok`).
+# Alternativas: `onnx_seal_det` es REAL (mismos pesos que `pyocrust_seal`, runtime
+# `onnxruntime`); `paddleocr` sigue sin adaptador y queda `skipped`. `doctrl` se
+# retiró: no existe paquete publicado con ese nombre (era un typo).
 EXTRA_FACTORIES = {
+    "onnx_seal_det": _onnx_seal_det_backend,
     "paddleocr": unavailable_factory("paddleocr", "paddleocr paddlepaddle"),
-    "doctrl": unavailable_factory("doctrl", "doctrl"),
 }
-EXTRA_MODELS = {name: (name, "default") for name in EXTRA_FACTORIES}
+EXTRA_MODELS = {
+    "onnx_seal_det": ("pp-ocrv4_mobile_seal_det", "onnxruntime"),
+    **{name: (name, "default") for name in ("paddleocr",)},
+}
 
 
 def main(argv: Sequence[str] | None = None) -> int:

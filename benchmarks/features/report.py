@@ -30,7 +30,8 @@ from typing import Any, Sequence
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from common import BENCHMARKS_ROOT, applicable_rows, module_available, select_device_rows
+from common import (BENCHMARKS_ROOT, applicable_rows, module_available,
+                    not_evaluable_metrics, select_device_rows)
 from features._localization import english_markdown
 
 RESULTS_DIR = BENCHMARKS_ROOT / "results"
@@ -74,8 +75,29 @@ FEATURE_COLUMNS: dict[str, list[tuple[str, str, str, bool | None]]] = {
     ],
     "full_page": [
         ("n", "n", "{}", None),
+        # Contenido (lo que ya se publicaba: comparable con las series previas).
         ("markdown_f1", "Markdown F1 ↑", "{:.3f}", True),
         ("block_f1", "F1 bloques ↑", "{:.3f}", True),
+        # Estructura/posición (desgranado: una tabla mal estructurada con texto
+        # correcto baja estas, no solo markdown_f1).
+        ("layout_map", "layout mAP ↑", "{:.3f}", True),
+        ("table_teds", "TEDS tabla ↑", "{:.3f}", True),
+        ("latex_sim", "LaTeX sim ↑", "{:.3f}", True),
+        # Títulos/índice (detección + texto) y **orden de lectura** como secuencia
+        # (Kendall tau): lo que el LCS de tokens de `markdown_f1` no separa.
+        ("title_recall", "títulos recall ↑", "{:.3f}", True),
+        ("title_precision", "títulos prec. ↑", "{:.3f}", True),
+        ("title_text_f1", "F1 texto títulos ↑", "{:.3f}", True),
+        ("title_seq_tau", "secuencia títulos τ ↑", "{:.3f}", True),
+        ("read_order_tau", "orden lectura τ ↑", "{:.3f}", True),
+        # Figuras (detección + asociación figura↔caption): lo que `markdown_f1`
+        # sólo cuenta como texto y `block_f1` como tipo sin posición.
+        ("figure_recall", "figuras recall ↑", "{:.3f}", True),
+        ("figure_precision", "figuras prec. ↑", "{:.3f}", True),
+        ("figure_caption_recall", "captions recall ↑", "{:.3f}", True),
+        ("figure_caption_precision", "captions prec. ↑", "{:.3f}", True),
+        ("figure_caption_pair_f1", "asoc. fig↔caption ↑", "{:.3f}", True),
+        ("figure_caption_text_f1", "F1 texto captions ↑", "{:.3f}", True),
         ("cer", "CER ↓", "{:.3f}", False),
         ("mean_ms", "ms/página ↓", "{:.0f}", False),
     ],
@@ -102,6 +124,13 @@ FEATURE_COLUMNS: dict[str, list[tuple[str, str, str, bool | None]]] = {
     ],
 }
 
+# Claves de las métricas **propias de figuras** de `full_page` (detección de
+# `figure`, detección de sus captions y asociación figura↔caption). Se agregan
+# como el resto: media por motor, `None` = no evaluada (nunca `0.0`).
+_FIGURE_KEYS = ("figure_recall", "figure_precision",
+                "figure_caption_recall", "figure_caption_precision",
+                "figure_caption_pair_f1", "figure_caption_text_f1")
+
 # Métrica **titular** de cada feature (la que encabeza su REPORT.md): clave,
 # etiqueta y si "más es mejor". Solo entran features con banco implementado y
 # con datos; el resto no tiene gráfica (un esqueleto no publica cifras).
@@ -118,6 +147,29 @@ TITULAR_METRIC: dict[str, tuple[str, str, bool]] = {
 }
 
 
+def run_csv(run: Path) -> Path | None:
+    """CSV propio de una run: exactamente **uno**, sin adivinar entre varios.
+
+    Un dir de run puede haberse contaminado con el CSV de otra corrida (copia
+    manual); leerlos todos sumaba filas y publicaba `n` mezclados (p. ej.
+    `pp-doclayoutv3` con `n=40+20=60`). Se acepta el CSV que casa con
+    `summary.json['timestamp']`, o `<dir>.csv`, o el unico que haya. Si hay varios
+    y ninguno casa se devuelve `None` (esa run no se publica) en vez de inventar.
+    """
+    summary_path = run / "summary.json"
+    try:
+        stamp = (json.loads(summary_path.read_text(encoding="utf-8")).get("timestamp")
+                 if summary_path.exists() else None)
+    except (OSError, json.JSONDecodeError):
+        stamp = None
+    candidates = ([run / f"{stamp}.csv"] if stamp else []) + [run / f"{run.name}.csv"]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    csvs = sorted(run.glob("*.csv"))
+    return csvs[0] if len(csvs) == 1 else None
+
+
 def latest_run(feature: str, root: Path = RESULTS_DIR, device: str = "cpu") -> Path | None:
     """Run de referencia para `device`: más muestras por motor, luego más motores.
 
@@ -125,11 +177,14 @@ def latest_run(feature: str, root: Path = RESULTS_DIR, device: str = "cpu") -> P
     comparativa CPU de referencia. Los empates se resuelven por nombre de run.
     """
     base = root / feature
-    runs = sorted((p for p in base.glob("*/") if any(p.glob("*.csv"))), reverse=True) if base.is_dir() else []
+    runs = sorted((p for p in base.glob("*") if any(p.glob("*.csv"))), reverse=True) if base.is_dir() else []
     if not runs:
         return None
 
     def stats_of(run: Path) -> tuple[int, int]:
+        csv_path = run_csv(run)
+        if csv_path is None:
+            return (0, 0)
         summary_path = run / "summary.json"
         try:
             summary = json.loads(summary_path.read_text(encoding="utf-8")) if summary_path.exists() else {}
@@ -137,11 +192,10 @@ def latest_run(feature: str, root: Path = RESULTS_DIR, device: str = "cpu") -> P
             summary = {}
         run_device = summary.get("device_requested")
         per_backend: dict[str, int] = defaultdict(int)
-        for csv_path in run.glob("*.csv"):
-            for row in csv.DictReader(csv_path.read_text(encoding="utf-8").splitlines()):
-                row_device = row.get("device_requested") or run_device
-                if row.get("status") == "ok" and row_device == device:
-                    per_backend[row["backend"]] += 1
+        for row in csv.DictReader(csv_path.read_text(encoding="utf-8").splitlines()):
+            row_device = row.get("device_requested") or run_device
+            if row.get("status") == "ok" and row_device == device:
+                per_backend[row["backend"]] += 1
         return (max(per_backend.values(), default=0), len(per_backend))
 
     eligible = [run for run in runs if stats_of(run) != (0, 0)]
@@ -315,6 +369,164 @@ def render_strata(feature: str, rows: Sequence[dict]) -> list[str]:
     return lines
 
 
+def render_content_vs_structure(feature: str) -> list[str]:
+    """Sección que separa **contenido** de **estructura/posición** (solo `full_page`).
+
+    Explica por qué las columnas del informe no son redundantes: `markdown_f1` mide
+    el **contenido** (tokens en orden de lectura, conservando el LaTeX) y
+    `block_f1` el multiconjunto de **tipos** de bloque; ninguno ve la **estructura
+    interna** de una tabla ni la **posición** de los bloques. `layout mAP`, `TEDS
+    tabla` y `LaTeX sim` sí. Una tabla con las celdas correctas pero mal
+    estructurada (filas/columnas fusionadas o repartidas) mantiene alto
+    `markdown_f1` y baja `TEDS tabla`: sin esta columna el fallo quedaría tapado.
+    """
+    if feature != "full_page":
+        return []
+    return [
+        "## Contenido vs estructura/posición",
+        "",
+        "> Las columnas del informe **no son redundantes**: miden fallos distintos y "
+        "por eso se publican juntas.",
+        "",
+        "> **Contenido** (lo que ya se publicaba, comparable con las series previas): "
+        "`Markdown F1` = LCS de tokens en orden de lectura (conserva el LaTeX); "
+        "`F1 bloques` = multiconjunto de **tipos** de bloque (ignora posición y "
+        "contenido); `CER` = reconocimiento sobre texto plano. Un `Markdown F1` alto "
+        "**no** garantiza que la tabla esté bien armada: si el texto de las celdas es "
+        "correcto, el LCS lo da por bueno aunque la estructura esté mal.",
+        "",
+        "> **Estructura/posición** (desgranado nuevo): `layout mAP` = posición de las "
+        "cajas contra el `poly` anotado; `TEDS tabla` = estructura HTML de tabla "
+        "(filas/columnas/fusiones, **sin** el texto de celda); `LaTeX sim` = similitud "
+        "del LaTeX de fórmula. Una tabla **mal estructurada con el texto correcto** "
+        "baja `TEDS tabla` y **no** `Markdown F1`: por eso se distinguen.",
+        "",
+        "> **Figuras** (desgranado propio): `figuras recall/prec.` = detección de las "
+        "cajas `figure` (IoU@0.5, como `layout`); `captions recall/prec.` = detección "
+        "de las cajas de caption; `asoc. fig↔caption` = fracción de figuras "
+        "detectadas cuya caption compañera también se localizó; `F1 texto captions` = "
+        "F1 del texto de la caption. `Markdown F1`/`F1 bloques` sólo ven el **texto** "
+        "y el **tipo** de la figura, nunca su posición ni si la caption quedó ligada: "
+        "una página con las figuras detectadas pero **sin** sus captions baja "
+        "`asoc. fig↔caption` sin que `Markdown F1` lo note.",
+        "",
+        "> `N/A` = la página/el motor no aporta GT o no emite esa modalidad (p. ej. un "
+        "motor sin fórmulas separadas), nunca un `0.0`.",
+        "",
+    ]
+
+
+def render_title_coverage(feature: str, rows: Sequence[dict]) -> list[str]:
+    """Cobertura de títulos y aviso de jerarquía NO medible (solo `full_page`).
+
+    Declara **sobre cuántas páginas** se midió la métrica de títulos (las que
+    anotan `title`), sin disolverlo en la media global, y deja constancia de que
+    la **jerarquía** (h1/h2/h3) **no es medible**: OmniDocBench deja `attribute`
+    siempre vacío, así que no se emite `0.0` por profundidad ni se finge un índice
+    anidado. Solo se miden presencia, posición, texto y secuencia.
+    """
+    if feature != "full_page":
+        return []
+    # Presencia de GT de títulos = propiedad de la PÁGINA (del dataset), no del
+    # motor: una pagina tiene GT de titulos si CUALQUIER motor capaz de emitirlos la
+    # puntuo. Contarlo por la metrica de un solo motor marcaria `0%` para un motor
+    # que no emite titulos (docling), mintiendo sobre la cobertura del dataset.
+    titled_ids = {r["image_id"] for r in rows if r.get("title_recall") is not None}
+    if not titled_ids:
+        return []
+    by_engine: dict[str, list[int]] = {}
+    for row in rows:
+        motor = row.get("model_name") or row["backend"]
+        variant = row.get("model_variant")
+        name = f"{motor} ({variant})" if variant else motor
+        total, titled = by_engine.setdefault(name, [0, 0])
+        by_engine[name] = [total + 1, titled + (1 if row.get("image_id") in titled_ids else 0)]
+    lines = [
+        "## Cobertura de títulos y jerarquía (no medible)",
+        "",
+        "> La métrica de **títulos/índice** solo se evalúa en las páginas que la "
+        "anotación marca con `category_type=title`; en el resto queda `N/A` y **no** "
+        "entra en la media (no se diluye en un promedio global). El dataset "
+        "`OmniDocBench` (v1.6, 1651 páginas) anota `title` en **1179** páginas "
+        "(el **71.4 %**); el resto no tiene GT de títulos.",
+        "",
+        "> **La jerarquía de títulos (h1/h2/h3) NO es medible con esta anotación**: "
+        "el campo `attribute` está **siempre vacío** en OmniDocBench, no hay nivel "
+        "jerárquico anotado. Por eso esta tarjeta mide **presencia, posición, texto y "
+        "secuencia**, y **no** emite un `0.0` por profundidad ni finge un índice "
+        "anidado: donde el dataset no anota, el informe lo dice.",
+        "",
+        "| Motor (variante) | páginas medidas | páginas con GT de títulos | "
+        "cobertura títulos |",
+        "| :--- | ---: | ---: | ---: |",
+    ]
+    for name in sorted(by_engine):
+        total, titled = by_engine[name]
+        lines.append(f"| {name} | {total} | {titled} | {titled / total:.0%} |")
+    lines.append("")
+    return lines
+
+
+def render_figure_coverage(feature: str, rows: Sequence[dict]) -> list[str]:
+    """Cobertura de **figuras** y nota de lo **no emitible** (solo `full_page`).
+
+    Declara **sobre cuántas páginas** se midió la métrica de figuras/captions
+    (las que anotan `figure`), sin disolver ese subconjunto en la media global, y
+    deja constancia de que las **máscaras** (`*_mask`, `chart_mask`, `table_mask`,
+    `algorithm_mask`, `organic_chemical_formula_mask`, `text_mask`, `need_mask`,
+    `abandon`, `unknown_mask`) **no son emitibles por el pipeline**: se ignoran al
+    puntuar y **nunca** cuentan como `0.0` por no emitirlas, igual que
+    `page_number`/`reference` en `layout`.
+    """
+    if feature != "full_page":
+        return []
+    # Presencia de GT de figuras = propiedad de la PÁGINA, no del motor (ver
+    # `render_title_coverage`): un motor que no emite cajas (docling) no debe
+    # rebajar a `0%` la cobertura de figuras del dataset.
+    figure_ids = {r["image_id"] for r in rows if r.get("figure_recall") is not None}
+    if not figure_ids:
+        return []
+    by_engine: dict[str, list[int]] = {}
+    for row in rows:
+        motor = row.get("model_name") or row["backend"]
+        variant = row.get("model_variant")
+        name = f"{motor} ({variant})" if variant else motor
+        total, with_fig = by_engine.setdefault(name, [0, 0])
+        by_engine[name] = [total + 1, with_fig + (1 if row.get("image_id") in figure_ids else 0)]
+    lines = [
+        "## Cobertura de figuras y lo no emitible (máscaras)",
+        "",
+        "> La métrica de **figuras/captions** solo se evalúa en las páginas que la "
+        "anotación marca con `category_type=figure`; en el resto queda `N/A` y **no** "
+        "entra en la media (no se diluye en un promedio global). El dataset "
+        "`OmniDocBench` (v1.6, 1651 páginas) anota `figure` en **613** páginas "
+        "(el **37.1 %**; 1385 instancias de `figure` en total); el resto no tiene GT "
+        "de figuras.",
+        "",
+        "> **Las máscaras (`*_mask`) NO son emitibles por el pipeline** y por eso "
+        "**no se puntúan**: `chart_mask`, `table_mask`, `algorithm_mask`, "
+        "`organic_chemical_formula_mask`, `text_mask`, `need_mask`, `abandon`, "
+        "`unknown_mask` se **ignoran** al puntuar (quedan fuera del GT de bloques, "
+        "ver `_odb_content_blocks`); **nunca** cuentan como `0.0` por no emitirlas, "
+        "igual que `page_number`/`reference` en `layout`. Un motor que no las emite "
+        "no se penaliza.",
+        "",
+        "> La **asociación figura↔caption** (`asoc. fig↔caption`) exige que, además "
+        "de detectar la figura, se localice su caption compañera: una página con las "
+        "figuras detectadas pero **sin** sus captions baja esa columna aunque su "
+        "`figuras recall` sea `1.0`, así que no puede puntuar igual que una completa.",
+        "",
+        "| Motor (variante) | páginas medidas | páginas con GT de figuras | "
+        "cobertura figuras |",
+        "| :--- | ---: | ---: | ---: |",
+    ]
+    for name in sorted(by_engine):
+        total, with_fig = by_engine[name]
+        lines.append(f"| {name} | {total} | {with_fig} | {with_fig / total:.0%} |")
+    lines.append("")
+    return lines
+
+
 def load_run(run: Path) -> tuple[list[dict], dict]:
     rows: list[dict] = []
     for csv_path in sorted(run.glob("*.csv")):
@@ -326,11 +538,27 @@ def load_run(run: Path) -> tuple[list[dict], dict]:
                             "elapsed_ms", "markdown_f1", "block_f1",
                             "latex_exact", "latex_sim", "latex_token_f1",
                             "box_recall", "box_iou_mean",
-                            "layout_map", "layout_recall", "table_teds", "ori_acc", "rect_sim"):
+                            "layout_map", "layout_recall", "table_teds", "ori_acc", "rect_sim",
+                            "title_recall", "title_precision", "title_text_f1",
+                            "title_seq_tau", "read_order_tau", *_FIGURE_KEYS):
                     try:
                         row[key] = float(row[key])
                     except (KeyError, TypeError, ValueError):
                         # CSV antiguo sin esa columna, o celda vacia: N/A (nunca 0).
+                        row[key] = None
+                # Un motor que no emite una estructura (docling solo Markdown; indra
+                # sin el vocabulario del banco) NO la mide: la celda guardada como
+                # `0.0` es en realidad **no evaluada** -> `None` (se pinta `N/A` y no
+                # entra en la media). La senal la declara el adaptador
+                # (`common.runner.STRUCTURE_CHANNELS`); el propio runner ya escribe
+                # `""` en runs nuevas, esto interpreta tambien las runs previas.
+                # El mapa `FULL_PAGE_METRIC_CHANNEL` es **especifico de `full_page`**:
+                # no se aplica a otras features. En `formula`, `latex_sim`/
+                # `latex_token_f1` se calculan desde el **texto** del motor
+                # (`formula/bank.py::_formula_latex`), no desde un canal `formulas`,
+                # asi que ahi SI estan evaluadas y no se enmascaran.
+                if row.get("feature") == "full_page":
+                    for key in not_evaluable_metrics(row.get("backend", "")):
                         row[key] = None
                 rows.append(row)
     summary_path = run / "summary.json"
@@ -365,7 +593,9 @@ def summarize(rows: Sequence[dict]) -> dict[str, dict[str, Any]]:
         for key in ("word_f1", "wer_ord", "cer", "wer", "markdown_f1", "block_f1",
                     "box_recall", "box_iou_mean",
                     "latex_exact", "latex_sim", "latex_token_f1",
-                    "layout_map", "layout_recall", "table_teds", "ori_acc", "rect_sim"):
+                    "layout_map", "layout_recall", "table_teds", "ori_acc", "rect_sim",
+                    "title_recall", "title_precision", "title_text_f1",
+                    "title_seq_tau", "read_order_tau", *_FIGURE_KEYS):
             values = [r[key] for r in group if r.get(key) is not None]
             entry[key] = statistics.fmean(values) if values else None
         report[name] = entry
@@ -397,6 +627,45 @@ def analyze(feature: str, run: Path) -> tuple[dict[str, dict[str, Any]], dict]:
     return report, summary
 
 
+def _provenance_notes(feature: str, report: dict[str, dict[str, Any]]) -> list[str]:
+    """Declara si cada motor medido es un modelo INDEPENDIENTE o el mismo peso.
+
+    Evita presentar como "modelo alternativo" lo que solo cambia de runtime: el
+    `pyocrust` propio es la referencia; para cada alternativa se dice si es
+    `independiente` (otro modelo) o `mismo_peso_otra_via` (el MISMO `.onnx` de
+    PaddleOCR por otro runtime).
+    """
+    from common import MODEL_NAMES, alternative_provenance
+
+    # El informe etiqueta por `model_name (variante)`. Se resuelve backend por
+    # (model_name, variante) para no confundir el motor de referencia con su
+    # alternativa homonima (`pyocrust_orientation` y `lcnet_doc_ori` comparten
+    # modelo pero distinta variante: `6.8M` vs `onnxruntime`).
+    by_label = {f"{model} ({variant})": backend
+                for backend, (model, variant) in MODEL_NAMES.items()}
+    labels = {
+        "independiente": "modelo **independiente** (otro proyecto/checkpoint)",
+        "mismo_peso_otra_via": "**mismo peso, distinta vía** (el MISMO `.onnx` de PaddleOCR por otro runtime — NO es un modelo distinto)",
+        "mismo_tronco_otro_checkpoint": "mismo tronco PP-LCNet, **checkpoint distinto**",
+        "baseline_clasico": "**línea base clásica** sin pesos (no es un modelo aprendido ni un SOTA: suelo de comparación)",
+    }
+    lines: list[str] = []
+    for name in sorted(report):
+        backend = by_label.get(name, "")
+        if not backend or backend.startswith("pyocrust"):
+            continue  # el motor de referencia no es una "alternativa"
+        line = f"- `{name}` — {labels.get(alternative_provenance(backend), 'modelo **independiente**')}"
+        lines.append(line)
+    if not lines:
+        return []
+    return lines + [
+        "",
+        "> El motor de referencia (`pyocrust`) no se lista: es el que define el resultado "
+        "base. Una alternativa con **mismo peso, distinta vía** mide el mismo modelo con "
+        "otro runtime; **no** aporta un competidor independiente y así queda declarado.",
+    ]
+
+
 def render_md(feature: str, report: dict[str, dict[str, Any]], summary: dict, run: Path,
               gpu: tuple[dict, dict] | None = None) -> str:
     """Markdown del reporte por feature (provenance + comparativa + skipped)."""
@@ -418,6 +687,13 @@ def render_md(feature: str, report: dict[str, dict[str, Any]], summary: dict, ru
                    f"--device {summary.get('device_requested', '?')}")
     skipped = {b: m.get("reason", "") for b, m in (summary.get("backends") or {}).items()
                if m.get("status") == "skipped"}
+    # Origen del dataset: si los numeros vienen de la fixture versionada (sin red)
+    # y NO de la muestra completa, se declara de forma visible (regla de provenance).
+    ds_info = summary.get("dataset_source") or {}
+    ds_source = ds_info.get("source", "dataset")
+    # Revision HF fijada (criterio de la tarjeta): aparece SIEMPRE en el informe
+    # cuando los numeros vienen del dataset real, para poder reproducir la muestra.
+    ds_revision = ds_info.get("revision")
 
     labels = [label for _k, label, _f, _h in columns]
     lines = [
@@ -426,12 +702,29 @@ def render_md(feature: str, report: dict[str, dict[str, Any]], summary: dict, ru
         "> **Origen: `medido`** — ejecutado por nosotros en este repo. No hay filas de "
         "`referencia` (externas) en esta tabla.",
         "",
+    ]
+    if ds_source == "fixture":
+        detail = (summary.get("dataset_source") or {}).get("detail", "")
+        lines += [
+            f"> **AVISO — muestra: `fixture` (NO la muestra completa).** Los numeros de "
+            "esta tabla se midieron sobre la **fixture minima versionada** porque el "
+            f"dataset real no estaba disponible (`{detail}`). **No son comparables** con "
+            "los del set completo.",
+            "",
+        ]
+    lines += [
         "## Provenance",
         "",
         f"- **comando**: `{command}`",
         f"- **dataset**: `{summary.get('dataset', '?')}` · **n** (por motor): "
         f"`{summary.get('n_samples', '?')}` · **warmup**: `{summary.get('warmup', '?')}` · "
         f"**repeats**: `{summary.get('repeats', '?')}` · **device**: `{summary.get('device_requested', '?')}`",
+    ]
+    if ds_source != "fixture" and ds_revision:
+        lines.append(
+            f"- **revision HF (fijada)**: `{ds_revision}` — misma revision en cualquier "
+            "maquina; los bytes se verifican contra `benchmarks/datasets_manifest.json`")
+    lines += [
         f"- **seed**: no aplica (banco determinista, sin aleatoriedad)",
         f"- **run**: `benchmarks/results/{feature}/{run.name}` · **fecha**: `{summary.get('timestamp', run.name)}`",
         f"- **runtime**: {summary.get('runtime', {})}",
@@ -453,12 +746,17 @@ def render_md(feature: str, report: dict[str, dict[str, Any]], summary: dict, ru
     lines += [
         "",
         f"> En negrita, el mejor de cada métrica entre los motores **medidos** de `{feature}`. "
-        "`N/A` = no evaluada (sin GT de esa columna), nunca un `0.0` inventado.",
+        "`N/A` = no evaluada (sin GT de esa columna **o** el motor no emite esa estructura), nunca un `0.0` inventado.",
         "",
         "## Saltados (`skipped`) — no cuentan como ejecutados",
         "",
     ]
     lines += [f"- `{b}` — {reason}" for b, reason in sorted(skipped.items())] or ["- (ninguno)"]
+    # Procedencia de cada alternativa: declara cuando un motor es el MISMO peso que
+    # `pyocrust` por otra via, en vez de presentarlo como modelo independiente.
+    prov_lines = _provenance_notes(feature, report)
+    if prov_lines:
+        lines += ["", "## Procedencia de las alternativas", ""] + prov_lines
     lines += [
         "",
         "## Nota de honestidad",
@@ -474,16 +772,129 @@ def render_md(feature: str, report: dict[str, dict[str, Any]], summary: dict, ru
     if gpu is not None:
         gpu_rep, gpu_sum = gpu
         lines += render_cpu_gpu(feature, report, summary, gpu_rep, gpu_sum)
+    # Desglose contenido vs estructura/posición (solo `full_page`).
+    lines += render_content_vs_structure(feature)
     # Desglose por estrato al final (fuera del bloque `## Comparativa`/`## CPU vs
     # GPU`, para no alterar el orden que esperan los informes consolidados).
     rows, _ = load_run(run)
     lines += render_strata(feature, rows)
+    # Cobertura de títulos + aviso de jerarquía no medible (solo `full_page`).
+    lines += render_title_coverage(feature, rows)
+    # Cobertura de figuras + nota de máscaras no emitibles (solo `full_page`).
+    lines += render_figure_coverage(feature, rows)
     return "\n".join(lines)
 
 
 def build(feature: str, run: Path) -> str:
     """Markdown del reporte por feature (compatibilidad; = `render_md(analyze(...))`)."""
     return render_md(feature, *analyze(feature, run), run)
+
+
+# Columnas de la tabla publicable: las mismas del REPORT.md (fuente única) + la
+# licencia informativa. La tabla se genera desde el MISMO `report` agregado que el
+# REPORT, así las celdas MD/TeX/REPORT no pueden divergir.
+_TABLE_TEX_ESCAPES = (("\\", r"\textbackslash{}"), ("&", r"\&"), ("%", r"\%"),
+                      ("$", r"\$"), ("#", r"\#"), ("_", r"\_"), ("{", r"\{"), ("}", r"\}"),
+                      ("↑", r"$\uparrow$"), ("↓", r"$\downarrow$"))
+
+
+def _tex_escape(text: str) -> str:
+    for source, target in _TABLE_TEX_ESCAPES:
+        text = text.replace(source, target)
+    return text
+
+
+def render_table(feature: str, report: dict[str, dict[str, Any]], summary: dict) -> tuple[str, str]:
+    """`(markdown_es, latex_en)` de `benchmark_table.{md,tex}` de una feature.
+
+    Reutiliza `FEATURE_COLUMNS[feature]` (las mismas columnas y etiquetas del
+    `REPORT.md`) sobre el agregado `report` que ya calculó `analyze`: la tabla
+    publicable y el informe salen de un único origen, así no hay celda que
+    diverja. Las cifras son las del `report` (media por motor del device pedido);
+    `N/A` = no evaluada, nunca un `0.0`.
+    """
+    from features.summary import _license_for  # import perezoso (evita matplotlib)
+
+    columns = FEATURE_COLUMNS[feature]
+    labels = [label for _k, label, _f, _h in columns] + ["license"]
+    # Mejor/segundo por métrica (mismo criterio que `render_md`).
+    best: dict[str, tuple[str, str]] = {}
+    for key, _label, _fmt, higher in columns:
+        if higher is None:
+            continue
+        values = [(d.get(key), name) for name, d in report.items() if d.get(key) is not None]
+        if len(values) > 1 and len({v for v, _ in values}) > 1:
+            ordered = sorted(values, key=lambda p: p[0], reverse=higher)
+            best[key] = (ordered[0][1], ordered[1][1] if len(ordered) > 1 else "")
+
+    md_rows, tex_rows = [], []
+    keys = [key for key, _l, _f, _h in columns]
+    for name in sorted(report):
+        data = report[name]
+        cells = [("N/A" if data.get(key) is None else fmt.format(data[key]))
+                 for key, _label, fmt, _higher in columns]
+        # La licencia es la 6ª celda, fuera de las columnas de métrica (el `zip`
+        # se detenía en 5 y la descartaba: columna `license` siempre vacía).
+        cells.append(_license_for(name))
+        md_cells = []
+        for idx, text in enumerate(cells):
+            if idx < len(keys):
+                if best.get(keys[idx], ("", ""))[0] == name:
+                    text = f"**{text}**"
+                elif best.get(keys[idx], ("", ""))[1] == name:
+                    text = f"<u>{text}</u>"
+            md_cells.append(text)
+        md_rows.append("| " + " | ".join([name, *md_cells]) + " |")
+        tex_cells = []
+        for idx, text in enumerate(cells):
+            esc = _tex_escape(text)
+            if idx < len(keys):
+                if best.get(keys[idx], ("", ""))[0] == name:
+                    esc = rf"\textbf{{{esc}}}"
+                elif best.get(keys[idx], ("", ""))[1] == name:
+                    esc = rf"\underline{{{esc}}}"
+            tex_cells.append(esc)
+        tex_rows.append(_tex_escape(name) + " & " + " & ".join(tex_cells) + r" \\")
+
+    run_name = summary.get("timestamp", "?")
+    device = summary.get("device_requested", "?")
+    n_total = summary.get("n_samples", "?")
+    note = ("> Nota: `N/A` = **no evaluada** — sin GT de esa columna, o el motor no "
+            "emite esa estructura (p. ej. `docling`, que solo emite Markdown); "
+            "`0.000` = **evaluada** y el motor no acertó, nunca un `0.0` sin medir. "
+            f"Cifras y n reproducen `REPORT.md` (run `{run_name}`, device `{device}`, "
+            f"n ≤ {n_total}); licencias informativas según `../QUALITY_VS_TIME.md`.")
+    md = "\n".join([
+        f"# Benchmark: {feature}",
+        "",
+        "| Motor (variante/tamaño) | " + " | ".join(labels) + " |",
+        "| :--- | " + " | ".join("---:" for _ in labels) + " |",
+        *md_rows,
+        "",
+        note,
+    ]) + "\n"
+
+    tex_labels = [lbl.replace("(variante/tamaño)", "(variant/size)") for lbl in labels]
+    tex = "\n".join([
+        r"\documentclass[border=2pt]{standalone}",
+        r"\usepackage{booktabs}",
+        r"\begin{document}",
+        r"\begin{tabular}{l" + "r" * len(labels) + "}",
+        r"\toprule",
+        "Engine (variant/size) & " + " & ".join(_tex_escape(l) for l in tex_labels) + r" \\",
+        r"\midrule",
+        *tex_rows,
+        r"\bottomrule",
+        r"\end{tabular}",
+        r"\par\smallskip{\footnotesize " + _tex_escape(
+            "Note: N/A = not evaluated (no ground truth for that column, or the "
+            "engine does not emit that structure, e.g. docling emits Markdown "
+            "only); 0.000 = evaluated and the engine got it wrong, never an "
+            f"unmeasured 0.0. Values and n match REPORT.md (run {run_name}, "
+            f"device {device}, n <= {n_total}).") + "}",
+        r"\end{document}",
+    ]) + "\n"
+    return md, tex
 
 
 def _wrap_engine(label: str) -> str:
@@ -740,16 +1151,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             (REPORTS_DIR / feature / "REPORT.en.md").write_text(
                 english_markdown(md) + "\n", encoding="utf-8"
             )
-            table_md = REPORTS_DIR / feature / "benchmark_table.md"
-            if table_md.exists():
+            # Tabla publicable MD/TeX desde el MISMO agregado que el REPORT: una
+            # única fuente, así las celdas de las tres no divergen. `layout` tiene
+            # su propio generador estratificado (`features.layout.table`), que
+            # manda: no se pisa desde aquí.
+            if feature != "layout":
+                table_md, table_tex = render_table(feature, report, summary)
+                (REPORTS_DIR / feature / "benchmark_table.md").write_text(table_md, encoding="utf-8")
                 (REPORTS_DIR / feature / "benchmark_table.en.md").write_text(
-                    english_markdown(table_md.read_text(encoding="utf-8")), encoding="utf-8"
+                    english_markdown(table_md), encoding="utf-8"
                 )
-            table_tex = REPORTS_DIR / feature / "benchmark_table.tex"
-            if table_tex.exists():
-                table_tex.write_text(
-                    english_markdown(table_tex.read_text(encoding="utf-8")), encoding="utf-8"
-                )
+                (REPORTS_DIR / feature / "benchmark_table.tex").write_text(table_tex, encoding="utf-8")
             print(f"\n[report] {feature} -> {out} (+ .en.md)")
         if feature in TITULAR_METRIC:
             out = FIGURES_DIR / feature / "REPORT"
