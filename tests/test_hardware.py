@@ -80,18 +80,19 @@ def test_hardware_profile_acepta_override_explicito():
     assert perfil.ram_bytes == 8 * GIB, f"ram_bytes={perfil.ram_bytes}, se pidió {8 * GIB}"
 
 
-def test_detect_hardware_acepta_override_si_lo_expone():
-    """Si `detect_hardware` acepta overrides, también deben mandar sobre la detección."""
+def test_detect_hardware_no_expone_overrides():
+    """Contrato: los overrides van por `HardwareProfile(...)`, no por la detección.
+
+    Es una decisión de diseño, no una carencia (`pyocrust/hardware.py:116`:
+    "Use HardwareProfile directly for overrides"). Se fija aquí para que añadir
+    `cpu_count`/`ram_bytes` a `detect_hardware()` sin actualizar el contrato
+    rompa el test en vez de pasar inadvertido.
+    """
     parametros = set(inspect.signature(pyocrust.detect_hardware).parameters)
-    soportados = {"cpu_count", "ram_bytes"} & parametros
-    if not soportados:
-        pytest.skip(
-            "detect_hardware() no expone overrides; el override explícito se hace por "
-            "HardwareProfile(...), cubierto por test_hardware_profile_acepta_override_explicito"
-        )
-    perfil = pyocrust.detect_hardware(cpu_count=3, ram_bytes=8 * GIB)
-    assert perfil.cpu_count == 3, f"el override de cpu_count no se aplicó: {perfil.cpu_count}"
-    assert perfil.ram_bytes == 8 * GIB, f"el override de ram_bytes no se aplicó: {perfil.ram_bytes}"
+    assert not parametros & {"cpu_count", "ram_bytes"}, (
+        "detect_hardware() expone overrides: actualiza el contrato de "
+        "`HardwareProfile(...)` y este test"
+    )
 
 
 def test_ram_desconocida_se_conserva(monkeypatch):
