@@ -616,11 +616,17 @@ def plot_feature(feature: str, report: dict, summary: dict, out: Path,
 GPU_PROVIDERS = frozenset({"cuda", "directml", "tensorrt", "coreml", "openvino", "webgpu", "rocm", "mps"})
 
 
-def load_gpu(feature: str) -> tuple[dict, dict] | None:
+def load_gpu(feature: str, n_samples: int | None = None) -> tuple[dict, dict] | None:
     """Agrega la última run GPU real de cada motor, no una sola run global.
 
     Escanea la jerarquía designada (`results/_gpu/<feature>/`) y también la ruta
     CPU (`results/<feature>/`): hay runs GPU escritas sin `--output-dir`.
+
+    Con `n_samples` solo se consideran runs GPU del **mismo tamaño de muestra**
+    que la run CPU de referencia: al cambiar la muestra (p. ej. la estratificada
+    de `layout`, n=40) las runs GPU viejas (n=20) miden otro conjunto de páginas
+    y su calidad no sería comparable — mezclarlas rompería el «misma calidad CPU
+    vs GPU» de la tabla consolidada.
     """
     roots = (GPU_RESULTS_DIR / feature, RESULTS_DIR / feature)
     runs = sorted({p for root in roots if root.is_dir() for p in root.iterdir()
@@ -639,6 +645,8 @@ def load_gpu(feature: str) -> tuple[dict, dict] | None:
         except (OSError, json.JSONDecodeError):
             continue
         if summary.get("device_requested") != "gpu":
+            continue
+        if n_samples is not None and summary.get("n_samples") != n_samples:
             continue
         rows, _ = load_run(run)
         rows = applicable_rows(feature, rows)
@@ -684,7 +692,7 @@ def consolidated_table(features: Sequence[str]) -> str:
         if run is None:
             continue
         cpu_rep, cpu_sum = analyze(feature, run)
-        gpu = load_gpu(feature)
+        gpu = load_gpu(feature, cpu_sum.get("n_samples"))
         gpu_rep, gpu_sum = gpu if gpu else ({}, {})
         if gpu and cpu_sum.get("dataset") != gpu_sum.get("dataset"):
             gpu_rep = {}
@@ -722,7 +730,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             rc = 1
             continue
         report, summary = analyze(feature, run)
-        gpu = None if args.no_gpu else load_gpu(feature)
+        gpu = None if args.no_gpu else load_gpu(feature, summary.get("n_samples"))
         md = render_md(feature, report, summary, run, gpu=gpu)
         print(md)
         if not args.no_md:

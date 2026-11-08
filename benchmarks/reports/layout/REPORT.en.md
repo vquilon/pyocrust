@@ -114,10 +114,7 @@
 | omoured/v11-n | 0.381 | 0.381 | 144 | 55 | cuda |
 | omoured/v11-s | 0.389 | 0.389 | 194 | 56 | cuda |
 | omoured/v11-x | 0.287 | 0.287 | 984 | 70 | cuda |
-| pp-doclayoutv3 (130M) | 0.669 | 0.827 | 528 | 434 | directml |
-| yolo26m (doc-layout) (21.8M) | N/A | 0.467 | N/A | 44 | cuda |
-| yolov10b (DocLayNet) (20.5M) | N/A | 0.344 | N/A | 33 | cuda |
-| yolov10x (DocLayNet) (31.7M) | N/A | 0.381 | N/A | 44 | cuda |
+| pp-doclayoutv3 (130M) | 0.669 | N/A | 528 | N/A | n/a (does not run on GPU) |
 
 > The GPU provider comes from the actual `provider_effective` value in the GPU `summary.json` (`n/a` = the engine does not expose GPU execution in this benchmark). No GPU rows are invented: engines that did not run on an accelerator appear as `N/A`.
 

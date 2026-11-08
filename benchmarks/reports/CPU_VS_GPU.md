@@ -51,10 +51,7 @@
 | `layout` | omoured/v11-n | 0.381 | 144 | 55 | cuda |
 | `layout` | omoured/v11-s | 0.389 | 194 | 56 | cuda |
 | `layout` | omoured/v11-x | 0.287 | 984 | 70 | cuda |
-| `layout` | pp-doclayoutv3 (130M) | 0.669 | 528 | 434 | directml |
-| `layout` | yolo26m (doc-layout) (21.8M) | 0.467 | N/A | 44 | cuda |
-| `layout` | yolov10b (DocLayNet) (20.5M) | 0.344 | N/A | 33 | cuda |
-| `layout` | yolov10x (DocLayNet) (31.7M) | 0.381 | N/A | 44 | cuda |
+| `layout` | pp-doclayoutv3 (130M) | 0.669 | 528 | N/A | n/a (no corre en GPU) |
 | `orientation` | pp-lcnet_x1_0_doc_ori (6.8M) | 0.950 | 1124 | 55 | directml |
 | `orientation` | pp-lcnet_x1_0_doc_ori (onnxruntime) | 0.950 | 2 | N/A | n/a (no corre en GPU) |
 | `rectification` | uvdoc (31.7M) | 0.707 | 261 | 53 | directml |
