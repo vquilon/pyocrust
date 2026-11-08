@@ -43,7 +43,7 @@ como backlog: el dispatcher no las toma hasta que se desbloqueen.
 
 | Tarjeta | Qué falta | Responsable |
 | :--- | :--- | :--- |
-| `t_457cd882` | Verificación SHA-256 de los artefactos ModelScope en el preflight (hoy solo compara tamaño; el hash ya lo da `Artifact::integrity()`) | `hefesto` |
+| ~~`t_457cd882`~~ | **Cerrada (2026-11-08)**: el preflight exige tamaño **y** SHA-256 para todo preset (sidecar primero; re-hash solo si falta). Verificado con 67 tests Rust y 161 Python | `hefesto` |
 | `t_e560fff3` | Re-sign-off global `S1`: sigue `RECHAZADO` y sin reelevar con las siete condiciones cerradas | `arquitecto` |
 | `t_065205ea` | GPU real: `available_providers()` es `[]` en el wheel actual; validar el EP acelerador | `probador` |
 | `t_2766a41a` | `pp_ocrv6_small` y `pp_ocrv6_medium` nunca ejecutados (0/3 y 0/3 artefactos; ningún test los corre) | `probador` |
@@ -699,7 +699,7 @@ Dependencias: `L1` → `L2` → `L3` → `L4` → `L5` → `L6`.
 | Descargador HF conectado al pipeline | **Implementado (`S2.0`)** | `ensure_models` conecta el descargador nativo al pipeline (`src/storage/models.rs:224-242`) | `DESIGN.md` ADR-007 y §7.3 |
 | `rayon` en uso real | **Implementado (`S2.0`)** | `src/storage/models.rs:13,297` (pool de 4 hilos en `ensure_models`) | `DESIGN.md` ADR-008 y §9.1 |
 | Tarea `Formula` / LaTeX accesible desde Python | **Implementado (`S2.1`; verificado en `D4`, 2026-11-08)** | Lo cerró `S2.1`: `OARStructureBuilder::with_formula_recognition` (`src/engines/oar_structure.rs:158-163`) y `StructureResult.formulas` (`:243-254`) | `tests/test_recognize.py::test_el_latex_de_una_formula_es_accesible_desde_python` **1 passed**, con fixture real `tests/data/sample_formula.png` |
-| Descargador propio sin verificar integridad en ModelScope | **No implementado (`D4`)** | El preflight decide «presente» por tamaño para ModelScope aunque `Artifact::integrity()` ya devuelve el SHA-256 | Tarjeta `t_457cd882`; `src/storage/models.rs:173-180,200-208` |
+| Verificación SHA-256 de los artefactos ModelScope en el preflight | **Implementado (`t_457cd882`, 2026-11-08)** | Lo cerró esa tarjeta: `hash_matches` (sidecar primero, re-hash solo si falta) exige tamaño **y** hash para todo preset | `src/storage/models.rs`; 67 tests Rust y 161 Python en verde |
 
 ## 7. Trabajo pendiente tras `S1` (RECHAZADO)
 
