@@ -803,10 +803,18 @@ Interfaz implementada: `fn fetch(url: &str, dest: &Path, sha256_hex: &str) -> Re
 > así que el bypass offline y la verificación de `Content-Length`/SHA-256 protegen descargas
 > reales para los artefactos servidos por HuggingFace. ADR-007 **cumplido**.
 >
-> **Límite vigente (`D4`, 2026-11-08).** El preflight decide «presente» por **tamaño** para
-> los artefactos ModelScope (`src/storage/models.rs:173-180,200-208`), así que una alteración
-> que conserve la longitud no se detecta; el hash está disponible en
-> `Artifact::integrity()` (`src/storage/registry.rs:79-89`). Tarjeta `t_457cd882`.
+> **Ampliado y cerrado (2026-11-08, tarjeta `t_457cd882`).** El preflight exige ahora
+> **tamaño y SHA-256** para todo preset, ModelScope incluido: `hash_matches`
+> (`src/storage/models.rs:211-221`) consulta primero el sidecar `.<name>.sha256` —el que deja
+> `download::fetch` tras verificar— y solo hashea si falta, así que el camino caliente no
+> re-hashea (medido: 4 ms con sidecar frente a 195 ms por 6,4 MB sin él). Un artefacto
+> alterado que conserve el tamaño se marca `present=false` y dispara la descarga verificadora.
+> Verificado: 67 tests Rust, 161 Python.
+>
+> **Límite restante.** Los 9 artefactos de `indra` en disco **no** tienen sidecar, así que se
+> hashean en cada preflight (~28 MB, duplicados por las dos enumeraciones: `presets['indra']`
+> y `['indra']`); `models_status()` tarda ≈1,2 s en build debug. Es **previo** a este cambio
+> —el preflight ya hasheaba Indra— y no una regresión.
 
 ## 8. Notas de Evolución
 
