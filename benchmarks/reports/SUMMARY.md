@@ -36,21 +36,21 @@
 
 | Motor | Device | Valor | n | Origen | license |
 | :--- | :--- | ---: | ---: | :--- | :--- |
-| docling-layout-heron-101 | cpu | 0.843 | 20 | medido |  |
-| **pp-doclayoutv3 (130M)** | cpu | 0.827 | 20 | medido | Apache-2.0 |
 | **pp-doclayoutv3 (130M)** | gpu | 0.827 | 20 | medido | Apache-2.0 |
-| hantian/v8-n | gpu | 0.508 | 20 | medido | AGPL-3.0 |
-| hantian/v8-n | cpu | 0.508 | 20 | medido | AGPL-3.0 |
-| hantian/v10-m | cpu | 0.499 | 20 | medido | AGPL-3.0 |
-| hantian/v10-m | gpu | 0.499 | 20 | medido | AGPL-3.0 |
-| hantian/v8-x | gpu | 0.497 | 20 | medido | AGPL-3.0 |
-| hantian/v8-x | cpu | 0.497 | 20 | medido | AGPL-3.0 |
-| hantian/v12-s | cpu | 0.494 | 20 | medido | AGPL-3.0 |
-| hantian/v12-s | gpu | 0.494 | 20 | medido | AGPL-3.0 |
-| hantian/y26-s | gpu | 0.471 | 20 | medido | AGPL-3.0 |
-| hantian/y26-s | cpu | 0.471 | 20 | medido | AGPL-3.0 |
-| hantian/v11-s | cpu | 0.429 | 20 | medido | AGPL-3.0 |
-| hantian/v11-s | gpu | 0.429 | 20 | medido | AGPL-3.0 |
+| docling-layout-heron-101 | cpu | 0.747 | 40 | medido |  |
+| **pp-doclayoutv3 (130M)** | cpu | 0.669 | 40 | medido | Apache-2.0 |
+| hantian/v10-m | cpu | 0.497 | 40 | medido | AGPL-3.0 |
+| hantian/v10-m | gpu | 0.495 | 40 | medido | AGPL-3.0 |
+| hantian/v12-n | gpu | 0.489 | 40 | medido | AGPL-3.0 |
+| hantian/v12-n | cpu | 0.489 | 40 | medido | AGPL-3.0 |
+| hantian/v8-n | cpu | 0.473 | 40 | medido | AGPL-3.0 |
+| hantian/v8-n | gpu | 0.473 | 40 | medido | AGPL-3.0 |
+| hantian/v11-l | cpu | 0.468 | 40 | medido | AGPL-3.0 |
+| hantian/v11-l | gpu | 0.468 | 40 | medido | AGPL-3.0 |
+| hantian/y26-m | gpu | 0.449 | 40 | medido | AGPL-3.0 |
+| hantian/y26-m | cpu | 0.449 | 40 | medido | AGPL-3.0 |
+| hantian/v8-x | gpu | 0.426 | 40 | medido | AGPL-3.0 |
+| hantian/v8-x | cpu | 0.426 | 40 | medido | AGPL-3.0 |
 
 ## orientation — sintético — `medido` · **dataset medido**: `synthetic_orientation`
 

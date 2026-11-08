@@ -20,21 +20,21 @@
 | formula | pp-formulanet-s (direct) | Apache-2.0 | formula | gpu | 20 | 0.497 | 2514 | directml | omnidocbench_formula |
 | formula | paddle_latex_ocr | Apache-2.0 | formula | cpu | 20 | 0.694 | 4453 | cpu | omnidocbench_formula |
 | formula | paddle_latex_ocr | Apache-2.0 | formula | gpu | 20 | 0.694 | 1187 | cuda | omnidocbench_formula |
-| layout | hantian/v11-s | AGPL-3.0 | layout | cpu | 20 | 0.429 | 145 | cpu | omnidocbench_layout |
-| layout | hantian/v11-s | AGPL-3.0 | layout | gpu | 20 | 0.429 | 32 | cuda | omnidocbench_layout |
-| layout | hantian/y26-s | AGPL-3.0 | layout | cpu | 20 | 0.471 | 128 | cpu | omnidocbench_layout |
-| layout | hantian/y26-s | AGPL-3.0 | layout | gpu | 20 | 0.471 | 30 | cuda | omnidocbench_layout |
-| layout | hantian/v12-s | AGPL-3.0 | layout | cpu | 20 | 0.494 | 197 | cpu | omnidocbench_layout |
-| layout | hantian/v12-s | AGPL-3.0 | layout | gpu | 20 | 0.494 | 39 | cuda | omnidocbench_layout |
-| layout | hantian/v8-x | AGPL-3.0 | layout | cpu | 20 | 0.497 | 1147 | cpu | omnidocbench_layout |
-| layout | hantian/v8-x | AGPL-3.0 | layout | gpu | 20 | 0.497 | 52 | cuda | omnidocbench_layout |
-| layout | hantian/v10-m | AGPL-3.0 | layout | cpu | 20 | 0.499 | 274 | cpu | omnidocbench_layout |
-| layout | hantian/v10-m | AGPL-3.0 | layout | gpu | 20 | 0.499 | 43 | cuda | omnidocbench_layout |
-| layout | hantian/v8-n | AGPL-3.0 | layout | cpu | 20 | 0.508 | 84 | cpu | omnidocbench_layout |
-| layout | hantian/v8-n | AGPL-3.0 | layout | gpu | 20 | 0.508 | 29 | cuda | omnidocbench_layout |
-| layout | pp-doclayoutv3 (130M) | Apache-2.0 | layout | cpu | 20 | 0.827 | 776 | cpu | omnidocbench_layout |
+| layout | hantian/v8-x | AGPL-3.0 | layout | cpu | 40 | 0.426 | 1289 | cpu | omnidocbench_layout |
+| layout | hantian/v8-x | AGPL-3.0 | layout | gpu | 40 | 0.426 | 81 | cuda | omnidocbench_layout |
+| layout | hantian/y26-m | AGPL-3.0 | layout | cpu | 40 | 0.449 | 431 | cpu | omnidocbench_layout |
+| layout | hantian/y26-m | AGPL-3.0 | layout | gpu | 40 | 0.449 | 69 | cuda | omnidocbench_layout |
+| layout | hantian/v11-l | AGPL-3.0 | layout | cpu | 40 | 0.468 | 509 | cpu | omnidocbench_layout |
+| layout | hantian/v11-l | AGPL-3.0 | layout | gpu | 40 | 0.468 | 71 | cuda | omnidocbench_layout |
+| layout | hantian/v8-n | AGPL-3.0 | layout | cpu | 40 | 0.473 | 138 | cpu | omnidocbench_layout |
+| layout | hantian/v8-n | AGPL-3.0 | layout | gpu | 40 | 0.473 | 55 | cuda | omnidocbench_layout |
+| layout | hantian/v12-n | AGPL-3.0 | layout | cpu | 40 | 0.489 | 137 | cpu | omnidocbench_layout |
+| layout | hantian/v12-n | AGPL-3.0 | layout | gpu | 40 | 0.489 | 67 | cuda | omnidocbench_layout |
+| layout | hantian/v10-m | AGPL-3.0 | layout | gpu | 40 | 0.495 | 68 | cuda | omnidocbench_layout |
+| layout | hantian/v10-m | AGPL-3.0 | layout | cpu | 40 | 0.497 | 342 | cpu | omnidocbench_layout |
+| layout | pp-doclayoutv3 (130M) | Apache-2.0 | layout | cpu | 40 | 0.669 | 528 | cpu | omnidocbench_layout |
+| layout | docling-layout-heron-101 |  | layout | cpu | 40 | 0.747 | 985 | cpu | omnidocbench_layout |
 | layout | pp-doclayoutv3 (130M) | Apache-2.0 | layout | gpu | 20 | 0.827 | 434 | directml | omnidocbench_layout |
-| layout | docling-layout-heron-101 |  | layout | cpu | 20 | 0.843 | 1575 | cpu | omnidocbench_layout |
 | orientation | pp-lcnet_x1_0_doc_ori (onnxruntime) | Apache-2.0 | orientation | cpu | 20 | 0.950 | 2 | cpu | synthetic_orientation |
 | orientation | pp-lcnet_x1_0_doc_ori (6.8M) | Apache-2.0 | orientation | cpu | 20 | 0.950 | 1124 | cpu | synthetic_orientation |
 | orientation | pp-lcnet_x1_0_doc_ori (6.8M) | Apache-2.0 | orientation | gpu | 20 | 0.950 | 55 | directml | synthetic_orientation |

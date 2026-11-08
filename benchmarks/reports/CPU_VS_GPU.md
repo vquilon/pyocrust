@@ -11,47 +11,47 @@
 | `formula` | pp_structurev3 (pp-formulanet-s) | 0.196 | 1512 | 4470 | directml |
 | `full_page` | indra (math) | 0.231 | 1547 | 10503 | directml |
 | `full_page` | pp_structurev3 (default) | 0.211 | 10033 | 17198 | directml |
-| `layout` | armaggheddon/y11-m | 0.479 | 433 | 40 | cuda |
-| `layout` | armaggheddon/y11-n | 0.426 | 69 | 35 | cuda |
-| `layout` | armaggheddon/y11-s | 0.422 | 126 | 33 | cuda |
-| `layout` | armaggheddon/y26-m (21.8M) | 0.467 | 329 | 38 | cuda |
-| `layout` | armaggheddon/y26-n (2.6M) | 0.460 | 89 | 31 | cuda |
-| `layout` | armaggheddon/y26-s | 0.400 | 139 | 33 | cuda |
-| `layout` | docling-layout-heron-101 (default) | 0.843 | 1575 | N/A | n/a (no corre en GPU) |
-| `layout` | hantian/v10-b | 0.459 | 433 | 40 | cuda |
-| `layout` | hantian/v10-l | 0.407 | 604 | 44 | cuda |
-| `layout` | hantian/v10-m | 0.499 | 274 | 43 | cuda |
-| `layout` | hantian/v10-n | 0.405 | 67 | 38 | cuda |
-| `layout` | hantian/v10-s | 0.385 | 154 | 36 | cuda |
-| `layout` | hantian/v11-l | 0.420 | 375 | 42 | cuda |
-| `layout` | hantian/v11-m (21.8M) | 0.427 | 411 | 38 | cuda |
-| `layout` | hantian/v11-n (2.6M) | 0.402 | 68 | 31 | cuda |
-| `layout` | hantian/v11-s | 0.429 | 145 | 32 | cuda |
-| `layout` | hantian/v12-l | 0.487 | 600 | 56 | cuda |
-| `layout` | hantian/v12-m | 0.458 | 412 | 42 | cuda |
-| `layout` | hantian/v12-n | 0.477 | 107 | 36 | cuda |
-| `layout` | hantian/v12-s | 0.494 | 197 | 39 | cuda |
-| `layout` | hantian/v8-l | 0.414 | 763 | 40 | cuda |
-| `layout` | hantian/v8-m | 0.385 | 390 | 35 | cuda |
-| `layout` | hantian/v8-n | 0.508 | 84 | 29 | cuda |
-| `layout` | hantian/v8-s | 0.415 | 160 | 31 | cuda |
-| `layout` | hantian/v8-x | 0.497 | 1147 | 52 | cuda |
-| `layout` | hantian/y26-l | 0.410 | 431 | 42 | cuda |
-| `layout` | hantian/y26-m | 0.394 | 411 | 35 | cuda |
-| `layout` | hantian/y26-n | 0.445 | 81 | 35 | cuda |
-| `layout` | hantian/y26-s | 0.471 | 128 | 30 | cuda |
-| `layout` | omoured/v10-b (20.5M) | 0.344 | 472 | 39 | cuda |
-| `layout` | omoured/v10-l | 0.325 | 576 | 38 | cuda |
-| `layout` | omoured/v10-m | 0.354 | 285 | 32 | cuda |
-| `layout` | omoured/v10-n | 0.437 | 70 | 29 | cuda |
-| `layout` | omoured/v10-s | 0.315 | 266 | 37 | cuda |
-| `layout` | omoured/v10-x (31.7M) | 0.381 | 741 | 50 | cuda |
-| `layout` | omoured/v11-l | 0.231 | 477 | 39 | cuda |
-| `layout` | omoured/v11-m | 0.288 | 325 | 35 | cuda |
-| `layout` | omoured/v11-n | 0.411 | 66 | 30 | cuda |
-| `layout` | omoured/v11-s | 0.379 | 179 | 31 | cuda |
-| `layout` | omoured/v11-x | 0.252 | 1000 | 56 | cuda |
-| `layout` | pp-doclayoutv3 (130M) | 0.827 | 776 | 434 | directml |
+| `layout` | armaggheddon/y11-m | 0.472 | 380 | 64 | cuda |
+| `layout` | armaggheddon/y11-n | 0.461 | 89 | 57 | cuda |
+| `layout` | armaggheddon/y11-s | 0.459 | 162 | 60 | cuda |
+| `layout` | armaggheddon/y26-m (21.8M) | 0.494 | 401 | 65 | cuda |
+| `layout` | armaggheddon/y26-n (2.6M) | 0.521 | 93 | 64 | cuda |
+| `layout` | armaggheddon/y26-s | 0.418 | 169 | 62 | cuda |
+| `layout` | docling-layout-heron-101 (default) | 0.747 | 985 | N/A | n/a (no corre en GPU) |
+| `layout` | hantian/v10-b | 0.446 | 520 | 66 | cuda |
+| `layout` | hantian/v10-l | 0.466 | 598 | 73 | cuda |
+| `layout` | hantian/v10-m | 0.497 | 342 | 68 | cuda |
+| `layout` | hantian/v10-n | 0.443 | 88 | 60 | cuda |
+| `layout` | hantian/v10-s | 0.455 | 175 | 63 | cuda |
+| `layout` | hantian/v11-l | 0.468 | 509 | 71 | cuda |
+| `layout` | hantian/v11-m (21.8M) | 0.442 | 410 | 69 | cuda |
+| `layout` | hantian/v11-n (2.6M) | 0.457 | 98 | 63 | cuda |
+| `layout` | hantian/v11-s | 0.438 | 180 | 63 | cuda |
+| `layout` | hantian/v12-l | 0.483 | 685 | 82 | cuda |
+| `layout` | hantian/v12-m | 0.459 | 541 | 73 | cuda |
+| `layout` | hantian/v12-n | 0.489 | 137 | 67 | cuda |
+| `layout` | hantian/v12-s | 0.473 | 239 | 66 | cuda |
+| `layout` | hantian/v8-l | 0.449 | 864 | 71 | cuda |
+| `layout` | hantian/v8-m | 0.461 | 442 | 60 | cuda |
+| `layout` | hantian/v8-n | 0.473 | 138 | 55 | cuda |
+| `layout` | hantian/v8-s | 0.451 | 213 | 61 | cuda |
+| `layout` | hantian/v8-x | 0.426 | 1289 | 81 | cuda |
+| `layout` | hantian/y26-l | 0.443 | 693 | 76 | cuda |
+| `layout` | hantian/y26-m | 0.449 | 431 | 69 | cuda |
+| `layout` | hantian/y26-n | 0.440 | 99 | 65 | cuda |
+| `layout` | hantian/y26-s | 0.431 | 183 | 69 | cuda |
+| `layout` | omoured/v10-b (20.5M) | 0.353 | 561 | 74 | cuda |
+| `layout` | omoured/v10-l | 0.322 | 783 | 79 | cuda |
+| `layout` | omoured/v10-m | 0.359 | 377 | 66 | cuda |
+| `layout` | omoured/v10-n | 0.410 | 95 | 58 | cuda |
+| `layout` | omoured/v10-s | 0.381 | 178 | 59 | cuda |
+| `layout` | omoured/v10-x (31.7M) | 0.421 | 896 | 72 | cuda |
+| `layout` | omoured/v11-l | 0.292 | 533 | 72 | cuda |
+| `layout` | omoured/v11-m | 0.318 | 492 | 59 | cuda |
+| `layout` | omoured/v11-n | 0.381 | 144 | 55 | cuda |
+| `layout` | omoured/v11-s | 0.389 | 194 | 56 | cuda |
+| `layout` | omoured/v11-x | 0.287 | 984 | 70 | cuda |
+| `layout` | pp-doclayoutv3 (130M) | 0.669 | 528 | 434 | directml |
 | `layout` | yolo26m (doc-layout) (21.8M) | 0.467 | N/A | 44 | cuda |
 | `layout` | yolov10b (DocLayNet) (20.5M) | 0.344 | N/A | 33 | cuda |
 | `layout` | yolov10x (DocLayNet) (31.7M) | 0.381 | N/A | 44 | cuda |

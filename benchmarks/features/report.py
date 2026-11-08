@@ -232,6 +232,89 @@ def render_cpu_gpu(feature: str, cpu_rep: dict, cpu_sum: dict, gpu_rep: dict | N
     return lines
 
 
+def _short_stratum(stratum: str) -> str:
+    """`book × single_column` -> etiqueta compacta para la cabecera del pivote."""
+    return stratum.replace(" × ", "×")
+
+
+def strata_summary(rows: Sequence[dict]) -> dict[tuple[str, str], dict[str, Any]]:
+    """`(motor, estrato) -> {layout_map, layout_recall, n}` desde las filas de layout.
+
+    El `stratum` (columna aditiva del CSV, `data_source × layout`) viaja con cada
+    fila; los motores y estratos se etiquetan como en la comparativa
+    (`model_name (variant)`) para que el pivote cuadre con la tabla global.
+    """
+    grouped: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in rows:
+        stratum = str(row.get("stratum") or "").strip()
+        if not stratum:
+            continue
+        motor = row.get("model_name") or row["backend"]
+        variant = row.get("model_variant")
+        name = f"{motor} ({variant})" if variant else motor
+        entry = grouped.setdefault(
+            (name, stratum), {"layout_map": [], "layout_recall": [], "n": 0})
+        for key in ("layout_map", "layout_recall"):
+            value = row.get(key)
+            if isinstance(value, float):
+                entry[key].append(value)
+        entry["n"] += 1
+    return grouped
+
+
+def _strata_pivot(motors: Sequence[str], strata: Sequence[str],
+                  grouped: dict[tuple[str, str], dict[str, Any]], key: str) -> list[str]:
+    """Pivote motor × estrato de una métrica (`key`); `—` = sin medición."""
+    lines = [
+        "| Motor (variante) | " + " | ".join(_short_stratum(s) for s in strata) + " |",
+        "| :--- | " + " | ".join("---:" for _ in strata) + " |",
+    ]
+    for motor in motors:
+        cells = []
+        for stratum in strata:
+            values = (grouped.get((motor, stratum)) or {}).get(key) or []
+            cells.append(f"{statistics.fmean(values):.3f}" if values else "—")
+        lines.append(f"| {motor} | " + " | ".join(cells) + " |")
+    return lines
+
+
+def render_strata(feature: str, rows: Sequence[dict]) -> list[str]:
+    """Sección "Por estrato": mAP/recall@IoU 0.5 por motor y estrato anotado.
+
+    Desglosa la media global por el estrato (`data_source × layout`) de cada
+    página para medir la **heterogeneidad real** de los motores: un mismo motor
+    puede rendir muy distinto en `book × single_column` y en
+    `newspaper × other_layout`. Sin `stratum` en las filas (features cuyo dataset
+    no anota `page_attribute`) no se emite sección.
+    """
+    if feature != "layout":
+        return []
+    grouped = strata_summary(rows)
+    if not grouped:
+        return []
+    strata = sorted({stratum for _motor, stratum in grouped})
+    motors = sorted({motor for motor, _stratum in grouped})
+    counts = {stratum: (grouped.get((motors[0], stratum)) or {}).get("n", 0) for stratum in strata}
+    lines = [
+        "## Por estrato (`data_source × layout`)",
+        "",
+        f"> mAP/recall@IoU 0.5 **por motor y estrato** de la página (muestra estratificada, "
+        f"`page_info.page_attribute`). Motores medidos: {len(motors)} · estratos cubiertos: "
+        f"{len(strata)}. `—` = ese motor no tiene medición en ese estrato.",
+        "",
+        "> **Estratos (n de páginas en la muestra)**: "
+        + ", ".join(f"`{_short_stratum(s)}` ({counts[s]})" for s in strata) + ".",
+        "",
+        "### mAP@IoU 0.5 por estrato",
+        "",
+    ]
+    lines += _strata_pivot(motors, strata, grouped, "layout_map")
+    lines += ["", "### recall@IoU 0.5 por estrato", ""]
+    lines += _strata_pivot(motors, strata, grouped, "layout_recall")
+    lines.append("")
+    return lines
+
+
 def load_run(run: Path) -> tuple[list[dict], dict]:
     rows: list[dict] = []
     for csv_path in sorted(run.glob("*.csv")):
@@ -391,6 +474,10 @@ def render_md(feature: str, report: dict[str, dict[str, Any]], summary: dict, ru
     if gpu is not None:
         gpu_rep, gpu_sum = gpu
         lines += render_cpu_gpu(feature, report, summary, gpu_rep, gpu_sum)
+    # Desglose por estrato al final (fuera del bloque `## Comparativa`/`## CPU vs
+    # GPU`, para no alterar el orden que esperan los informes consolidados).
+    rows, _ = load_run(run)
+    lines += render_strata(feature, rows)
     return "\n".join(lines)
 
 
