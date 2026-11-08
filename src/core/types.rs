@@ -2,7 +2,7 @@
 //!
 //! `TextRegion`, `OcrResult`, `LayoutRegion` y `StructureResult` son
 //! `#[pyclass]`: son la salida del pipeline que cruza el límite Rust→Python.
-//! `OcrTask`, `OcrSize`, `ModelSpec` y `ModelPaths` son tipos **Rust** a
+//! `OcrSize`, `ModelSpec` y `ModelPaths` son tipos **Rust** a
 //! propósito: `DESIGN.md` §2 los lista como enums, separados de los
 //! `Pyclasses`, así que la selección de preset llega a Python como
 //! cadena desde la fachada (tarjeta `I4`).
@@ -24,7 +24,7 @@ use pyo3::prelude::*;
 
 /// Registra las clases del core en el módulo nativo.
 ///
-/// `OcrTask`, `OcrSize`, `ModelSpec` y `ModelPaths` no se registran: no son
+/// `OcrSize`, `ModelSpec` y `ModelPaths` no se registran: no son
 /// `#[pyclass]` (ver el doc del módulo).
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<BoundingBox>()?;
@@ -87,22 +87,6 @@ impl OcrSize {
             Self::Small | Self::Medium => "ppocrv6_dict.txt",
         }
     }
-}
-
-/// Tarea de inferencia que se pide al backend.
-///
-/// No forma parte del trait `OcrEngineBackend`: el contrato adoptado en
-/// `DESIGN.md` §3.1 no lleva parámetro de tarea. Es el discriminador que la
-/// fachada de Python (`I4`) usa para elegir preset y backend.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
-pub enum OcrTask {
-    /// OCR de texto: `OcrResult` con `TextRegion` (texto, confianza y caja).
-    #[default]
-    Text,
-    /// PP-StructureV3: layout, tablas y fórmulas. ADR-003.
-    Structure,
-    /// Reconocimiento de fórmulas (LaTeX).
-    Formula,
 }
 
 /// Preset de pipeline (ADR-002, `DESIGN.md` §3.1).

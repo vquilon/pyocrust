@@ -18,7 +18,7 @@ pub use image_processor::{
     Tile, DEFAULT_MAX_SIDE, DEFAULT_OVERLAP, DEFAULT_TILE_SIZE,
 };
 pub use types::{
-    BoundingBox, LayoutRegion, ModelPaths, ModelSpec, OcrOutput, OcrResult, OcrSize, OcrTask,
+    BoundingBox, LayoutRegion, ModelPaths, ModelSpec, OcrOutput, OcrResult, OcrSize,
     StructureResult, TextRegion,
 };
 

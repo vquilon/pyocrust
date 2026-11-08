@@ -70,7 +70,7 @@ pyocrust/
 │   ├── core/
 │   │   ├── mod.rs              # Re-exports y trait OcrEngineBackend (ADR-002, ADR-006)
 │   │   ├── types.rs            # Pyclasses BoundingBox, TextRegion, OcrResult, LayoutRegion, StructureResult;
-│   │   │                       # enums OcrTask, OcrSize, ModelSpec y el enum Rust OcrOutput; struct ModelPaths
+│   │   │                       # enums OcrSize, ModelSpec y el enum Rust OcrOutput; struct ModelPaths
 │   │   ├── error.rs            # OcrError y su traducción a excepciones Python
 │   │   └── image_processor.rs  # ScaleDown y FullPageTiling: funciones puras sobre RgbImage,
 │   │                           # sin I/O y sin conocer oar-ocr (ADR-009). Adaptador PyO3
