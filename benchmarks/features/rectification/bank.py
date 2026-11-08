@@ -6,8 +6,9 @@ estructural (SSIM)** entre la imagen rectificada por el motor y la imagen limpia
 de la que se partió.
 
 Dataset por defecto: `synthetic_rectification` — **GT sintético determinista**. Se
-toman las páginas de OmniDocBench ya presentes en `benchmarks/data_cache` (sin
-descargar nada), se reescalan a un tamaño fijo y se les aplica una homografía
+toman las páginas de OmniDocBench si están en `benchmarks/data_cache` y, si no
+(checkout limpio o sin red), páginas sintéticas deterministas generadas con PIL;
+en ambos casos se reescalan a un tamaño fijo y se les aplica una homografía
 conocida; el GT es la imagen limpia original. El par (deformada, limpia) es
 reproducible entre ejecuciones.
 
@@ -42,15 +43,21 @@ SPEC = FeatureSpec(
     summary="Rectificación de documentos deformados (páginas curvadas/inclinadas) antes de OCR.",
     pyocrust_task="document_rectification (TaskPredictor; UVDoc, devuelve el PNG rectificado)",
     metric="similitud estructural (SSIM) con la imagen limpia de referencia",
-    dataset="synthetic_rectification: páginas cacheadas con una homografía conocida; GT = la imagen limpia",
+    dataset="synthetic_rectification: páginas (OmniDocBench o sintéticas sin caché) con una homografía conocida; GT = la imagen limpia",
     alternatives={
-        "paddleocr": ("paddleocr", "paddleocr paddlepaddle"),
-        "docling": ("docling", "docling"),
+        "paddleocr (mismo peso, otra via)": ("paddleocr", "paddleocr paddlepaddle"),
+        "opencv_perspective (baseline clasico)": ("cv2", "opencv-python (sin pesos)"),
+        "docling": ("docling", "docling (sin etapa de dewarping)"),
     },
     status="implemented",
     note="El GT es la imagen limpia original (par reproducible deformada/limpia); SSIM se mide en gris y acotado a [0,1].",
     provenance="valores MEDIDOS por este banco (SSIM contra la referencia limpia, GT sintético determinista)",
 )
+
+# `uvdoc` (onnxruntime) es el MISMO peso del banco por otro runtime; `opencv_perspective`
+# es una linea base geometrica CLASICA sin pesos (no un modelo): no comparte nada con
+# PaddleOCR y es la unica alternativa offline que no es el mismo UVDoc.
+DEFAULT_BACKENDS = "pyocrust_rectify,uvdoc,opencv_perspective"
 
 
 def score_rectification(sample: Sample, output: OcrOutput) -> dict:
@@ -74,7 +81,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     out_dir = feature_out_dir(args.output_dir, SPEC) / timestamp
     run_backends(
         samples,
-        [b.strip() for b in (args.backends or "pyocrust_rectify").split(",") if b.strip()],
+        [b.strip() for b in (args.backends or DEFAULT_BACKENDS).split(",") if b.strip()],
         dataset, out_dir, timestamp,
         warmup=args.warmup, repeats=args.repeats, device=args.device,
         feature=SPEC.feature, scorer=score_rectification,

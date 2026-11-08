@@ -1,13 +1,13 @@
 \documentclass[border=2pt]{standalone}
 \usepackage{booktabs}
 \begin{document}
-\begin{tabular}{lrrrl}
+\begin{tabular}{lrrrr}
 \toprule
-Engine (variant/size) & n & accuracy $\uparrow$ & ms/line $\downarrow$ & license \\
+Engine (variant/size) & n & accuracy $\uparrow$ & ms/línea $\downarrow$ & license \\
 \midrule
-pp-lcnet\_x1\_0\_textline\_ori (6.8M) & 20 & \textbf{100.0\%} & \underline{26} & Apache-2.0 \\
-pp-lcnet\_x1\_0\_textline\_ori (onnxruntime) & 20 & \textbf{100.0\%} & \textbf{5} & Apache-2.0 \\
+pp-lcnet\_x1\_0\_textline\_ori (6.8M) & 20 & 100.0\% & \underline{26} & Apache-2.0 \\
+pp-lcnet\_x1\_0\_textline\_ori (onnxruntime) & 20 & 100.0\% & \textbf{5} & Apache-2.0 \\
 \bottomrule
 \end{tabular}
-\par\smallskip{\footnotesize Note: \texttt{N/A} = not evaluated, never \texttt{0.0}. Values and n match \texttt{REPORT.md}; licenses informational per \texttt{../QUALITY\_VS\_TIME.md}.}
+\par\smallskip{\footnotesize Note: N/A = not evaluated (no ground truth for that column, or the engine does not emit that structure, e.g. docling emits Markdown only); 0.000 = evaluated and the engine got it wrong, never an unmeasured 0.0. Values and n match REPORT.md (run 2026-11-06\_23-57-00, device cpu, n <= 20).}
 \end{document}

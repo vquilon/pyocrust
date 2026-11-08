@@ -51,6 +51,7 @@ ni como fallo, porque el dataset no las anota de forma separable.
 | yolov10b (DocLayNet) | `ultralytics` | sí (`yolov10b`, 20.5M) |
 | yolov10x (DocLayNet) | `ultralytics` | sí (`yolov10x`, 31.7M) |
 | deformable-detr-DocLayNet | `transformers` | `skipped` (sin `preprocessor_config.json` en caché) |
+| **pipeline completo** (`pp_structurev3`) | propio (`pyocrust_structure`) | sí (`pyocrust_structure`, Apache-2.0) — compara cruzada: layout **mAP 0.677** vs 0.689 de `pyocrust_layout` (n=20, CPU) |
 | layoutparser | `layoutparser` | no integrada |
 | docling | `docling` | no integrada |
 | unstructured | `unstructured` | no integrada |

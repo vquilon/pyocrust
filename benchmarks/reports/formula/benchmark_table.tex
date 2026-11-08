@@ -1,16 +1,17 @@
 \documentclass[border=2pt]{standalone}
 \usepackage{booktabs}
 \begin{document}
-\begin{tabular}{lrrrrrrl}
+\begin{tabular}{lrrrrrrr}
 \toprule
-Engine (variant/size) & n & Exact LaTeX $\uparrow$ & Similarity $\uparrow$ & Token F1 $\uparrow$ & Outputs with LaTeX $\uparrow$ & ms/formula $\downarrow$ & license \\
+Engine (variant/size) & n & LaTeX exacto $\uparrow$ & Similitud $\uparrow$ & F1 tokens $\uparrow$ & Salidas con LaTeX $\uparrow$ & ms/fórmula $\downarrow$ & license \\
 \midrule
-indra (math) & 20 & \underline{0.000} & 0.243 & 0.505 & N/A & \textbf{103} & OpenRAIL-M-Mod \\
-paddle\_latex\_ocr (default) & 20 & \textbf{0.050} & \textbf{0.694} & \textbf{0.839} & N/A & 4453 & Apache-2.0 \\
-pix2tex (default) & 20 & \underline{0.000} & 0.460 & \underline{0.669} & N/A & 5971 & MIT \\
-pp-formulanet-s (direct) & 20 & \underline{0.000} & \underline{0.497} & 0.622 & N/A & \underline{842} & Apache-2.0 \\
-pp\_structurev3 (pp-formulanet-s) & 20 & \underline{0.000} & 0.196 & 0.295 & N/A & 1512 & Apache-2.0 \\
+indra (math) & 20 & 0.000 & 0.211 & 0.437 & N/A & \textbf{147} & OpenRAIL-M-Mod \\
+paddle\_latex\_ocr (default) & 20 & \textbf{0.050} & \textbf{0.715} & \textbf{0.829} & N/A & 7397 & Apache-2.0 \\
+pix2tex (default) & 20 & 0.000 & 0.585 & \underline{0.759} & N/A & 11452 & MIT \\
+pp-formulanet-s (direct) & 20 & \underline{0.000} & 0.576 & 0.701 & N/A & \underline{874} & Apache-2.0 \\
+pp\_structurev3 (default) & 20 & 0.000 & 0.399 & 0.560 & N/A & 2336 & Apache-2.0 \\
+pp\_structurev3 (pp-formulanet-s) & 20 & 0.000 & \underline{0.607} & 0.746 & N/A & 2191 & Apache-2.0 \\
 \bottomrule
 \end{tabular}
-\par\smallskip{\footnotesize Note: \texttt{N/A} = not evaluated, never \texttt{0.0}. Values and n match \texttt{REPORT.md}; licenses informational per \texttt{../QUALITY\_VS\_TIME.md}.}
+\par\smallskip{\footnotesize Note: N/A = not evaluated (no ground truth for that column, or the engine does not emit that structure, e.g. docling emits Markdown only); 0.000 = evaluated and the engine got it wrong, never an unmeasured 0.0. Values and n match REPORT.md (run 2026-11-08\_16-01-52, device cpu, n <= 20).}
 \end{document}

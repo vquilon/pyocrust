@@ -58,7 +58,9 @@ import io
 import json
 import platform
 import statistics
+import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -74,6 +76,7 @@ if __package__ in (None, ""):
 from common.datasets import (
     DatasetUnavailable,
     Sample,
+    fixture_provenance,
     load_dataset,
     load_funsd,
     load_local,
@@ -136,7 +139,86 @@ CSV_FIELDS = [
     # lo anota (`Sample.stratum`); vacío en el resto. Permite el informe "por
     # estrato" sin releer la anotación del dataset.
     "stratum",
+    # Additive: métricas **propias** de `full_page` que `markdown_f1` no separa —
+    # detección/texto de títulos y **orden de lectura** como secuencia (Kendall
+    # tau). Vacías en el resto de bancos y en páginas sin GT de la modalidad
+    # (`""` = no evaluada). La cobertura se cuenta en el informe sobre las filas
+    # con `title_recall` evaluado (no se diluye en una media global).
+    "title_recall", "title_precision", "title_text_f1", "title_seq_tau",
+    "read_order_tau",
+    # Additive: métricas **propias de figuras** de `full_page` — detección de
+    # `figure`, detección de sus captions y **asociación figura↔caption**.
+    # Vacías en el resto de bancos y en páginas sin GT de figuras (`""` = no
+    # evaluada, nunca `0.0`; lo no emitible — las `*_mask` — no entra).
+    "figure_recall", "figure_precision",
+    "figure_caption_recall", "figure_caption_precision",
+    "figure_caption_pair_f1", "figure_caption_text_f1",
 ]
+
+
+# ---------------------------------------------------------------------------
+# Canales de estructura que un motor declara emitir (senal del ADAPTADOR)
+# ---------------------------------------------------------------------------
+# Un motor **solo-texto** (p. ej. `docling`, que devuelve Markdown y nada mas)
+# NO emite las estructuras que miden las columnas de `full_page`: sin ellas la
+# metrica queda **no evaluada** (`N/A`), nunca un `0.0` inventado — 0.0 y N/A no
+# son lo mismo. La senal la declara cada adaptador en `run.emits`; un motor sin
+# declaracion se asume completo (compatibilidad con runs e informes previos).
+#
+# Canales = lo que la metrica necesita para poder evaluarse:
+#   * "layout"   -> elementos de layout en el vocabulario del banco (kind + caja):
+#                   `block_f1`, `layout mAP/recall`, titulos y figuras.
+#   * "boxes"    -> cajas con posicion, aunque el vocabulario no sea el del banco:
+#                   `orden lectura tau`.
+#   * "tables"   -> HTML `<table>` embebido en el Markdown: `TEDS tabla`.
+#   * "formulas" -> registros de formula/LaTeX separados: `LaTeX sim`.
+ALL_STRUCTURE_CHANNELS = frozenset({"layout", "boxes", "tables", "formulas"})
+
+# Motores que NO emiten todos los canales (los ausentes se asumen completos).
+#   * `docling`           — solo Markdown, y sus tablas son **pipe tables**, no
+#     HTML `<table>` (verificado sobre las paginas con GT de tabla): ninguno.
+#   * `pp_structurev3_api` — PaddleOCR PP-StructureV3 en Python: devuelve solo el
+#     Markdown (que si embebe `<table>`), sin cajas, bloques ni formulas aparte.
+#   * `pyocrust_indra` — emite cajas y tablas HTML, pero su vocabulario de bloques
+#     no es el del banco (sin `layout`) y no expone formulas separadas.
+STRUCTURE_CHANNELS: dict[str, frozenset[str]] = {
+    "docling": frozenset(),
+    "pp_structurev3_api": frozenset({"tables"}),
+    "pyocrust_indra": frozenset({"boxes", "tables"}),
+}
+
+
+def emitted_channels(backend: str) -> frozenset[str]:
+    """Canales de estructura que `backend` declara emitir (por defecto, todos)."""
+    return STRUCTURE_CHANNELS.get(backend, ALL_STRUCTURE_CHANNELS)
+
+
+# Metrica de `full_page` -> canal de estructura que necesita para evaluarse.
+# Lo comparten el `scorer` (gatea de origen: la celda sale `""` = N/A) y el
+# generador de informes (no pinta como `0.0` lo que un motor no podia emitir).
+FULL_PAGE_METRIC_CHANNEL: dict[str, str] = {
+    "block_f1": "layout",
+    "layout_map": "layout", "layout_recall": "layout",
+    "title_recall": "layout", "title_precision": "layout",
+    "title_text_f1": "layout", "title_seq_tau": "layout",
+    "figure_recall": "layout", "figure_precision": "layout",
+    "figure_caption_recall": "layout", "figure_caption_precision": "layout",
+    "figure_caption_pair_f1": "layout", "figure_caption_text_f1": "layout",
+    "read_order_tau": "boxes",
+    "table_teds": "tables",
+    "latex_sim": "formulas", "latex_token_f1": "formulas",
+}
+
+
+def not_evaluable_metrics(backend: str) -> frozenset[str]:
+    """Metricas de estructura que `backend` **no puede** emitir -> `N/A`.
+
+    El conjunto son claves de columna del banco (`block_f1`, `layout_map`, …):
+    lo que el motor no emite no se mide ni se pinta como `0.0`.
+    """
+    emits = emitted_channels(backend)
+    return frozenset(metric for metric, channel in FULL_PAGE_METRIC_CHANNEL.items()
+                     if channel not in emits)
 
 
 class ProviderUnavailable(RuntimeError):
@@ -258,6 +340,19 @@ def _quad_to_bbox(points: Sequence[Sequence[float]]) -> list[float]:
     return [min(xs), min(ys), max(xs), max(ys)]
 
 
+def _bbox_quad(box: object) -> list[list[float]]:
+    """`BoundingBox` de pyocrust -> 4 puntos `[[x1,y1],[x2,y1],[x2,y2],[x1,y2]]`.
+
+    Es la forma de `bbox` que consumen los scorers de layout (`score_layout`):
+    caja envolvente del poligono. Vacio si la caja no expone sus esquinas.
+    """
+    try:
+        x1, y1, x2, y2 = float(box.x1), float(box.y1), float(box.x2), float(box.y2)
+    except (AttributeError, TypeError, ValueError):
+        return []
+    return [[x1, y1], [x2, y1], [x2, y2], [x1, y2]]
+
+
 def _pyocrust_backend(preset: str, formula_only: bool = False, device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
     import pyocrust  # noqa: PLC0415 - import tardío para no penalizar el arranque
 
@@ -289,6 +384,20 @@ def _pyocrust_backend(preset: str, formula_only: bool = False, device: str = "cp
             for r in regions
             if getattr(r, "box", None) is not None
         ]
+        # Elementos de layout (kind + caja + score) en el **mismo vocabulario**
+        # que consume `score_layout` (`element_type`/`score`/`bbox`): el pipeline
+        # ya los trae y antes se tiraban. `full_page` los usa para el mAP de
+        # layout; las formulas llevan su LaTeX en `text`.
+        elements = [
+            {
+                "element_type": str(getattr(element, "kind", "")),
+                "score": float(getattr(element, "confidence", 0.0) or 0.0),
+                "bbox": _bbox_quad(getattr(element, "box", None)),
+                "text": str(getattr(element, "text", "") or ""),
+            }
+            for element in (getattr(result, "elements", []) or [])
+            if getattr(element, "box", None) is not None
+        ]
         return OcrOutput(
             text=text,
             n_regions=len(regions),
@@ -296,11 +405,19 @@ def _pyocrust_backend(preset: str, formula_only: bool = False, device: str = "cp
             elapsed_ms=elapsed_ms,
             extra={"kind": type(result).__name__,
                    "blocks": [e.kind for e in getattr(result, "elements", [])],
-                   "boxes": boxes},
+                   "boxes": boxes,
+                   "elements": elements,
+                   "formulas": [str(f) for f in (getattr(result, "formulas", []) or [])]},
         )
 
     # EP real confirmado por pyocrust (honestidad de proveedor): el banco no lo supone.
     run.provider_effective = getattr(engine, "provider_effective", None)
+    # Declaracion de estructura: Indra emite cajas y tablas HTML pero su vocabulario
+    # de bloques no es el del banco (sin `layout`) y no expone formulas separadas;
+    # `pp_structurev3` emite todos los canales. Sin esta senal, un motor que no
+    # emite una estructura publicaria `0.0` en vez de `N/A` (ver `STRUCTURE_CHANNELS`).
+    run.emits = (emitted_channels("pyocrust_indra") if preset == "indra"
+                 else ALL_STRUCTURE_CHANNELS)
     return run
 
 
@@ -703,7 +820,268 @@ YOLO_LAYOUT_MODELS = {
 LICENSES = {
     **{name: "AGPL-3.0" for name in YOLO_LAYOUT_MODELS if name.startswith(("hantian_", "omoured_"))},
     **{name: "MIT" for name in YOLO_LAYOUT_MODELS if name.startswith("armaggheddon_")},
+    # Pipelines documentales completos del banco `full_page`.
+    "pp_structurev3_api": "Apache-2.0",
+    "docling": "MIT",
+    # Alternativas externas del banco `table` (además de TATR, MIT).
+    "paddleocr_slanet": "Apache-2.0",
+    "docling_tableformer": "MIT",
+    # Alternativas independientes de `orientation`/`text_line` (proyecto distinto).
+    "rapidocr_mobile_cls": "Apache-2.0",
+    "easyocr_rotation": "Apache-2.0",
+    # Baseline geometrica clasica de `rectification` (OpenCV: Apache-2.0; sin pesos).
+    "opencv_perspective": "Apache-2.0",
+    # Alternativa externa del banco `formula` (UniMERNet, Apache-2.0).
+    "unimernet": "Apache-2.0",
 }
+
+# ---------------------------------------------------------------------------
+# Procedencia de cada alternativa: ¿es un modelo INDEPENDIENTE o el MISMO peso
+# por otra via? El informe lo declara explicitamente para no presentar como
+# "modelo distinto" lo que solo cambia de runtime.
+# ---------------------------------------------------------------------------
+#   "independiente"      -> otro modelo (otro proveedor o checkpoint distinto).
+#   "mismo_peso_otra_via"-> MISMO `.onnx` de PaddleOCR cargado por otro runtime.
+#   "mismo_tronco_otro_checkpoint" -> PP-LCNet de PaddleOCR pero OTRO entrenamiento.
+ALTERNATIVE_PROVENANCE: dict[str, str] = {
+    "lcnet_doc_ori": "mismo_peso_otra_via",
+    "lcnet_textline_ori": "mismo_peso_otra_via",
+    "uvdoc": "mismo_peso_otra_via",
+    "onnx_seal_det": "mismo_peso_otra_via",
+    "rapidocr_mobile_cls": "independiente",
+    "easyocr_rotation": "independiente",
+    "opencv_perspective": "baseline_clasico",
+    "tatr": "independiente",
+    "paddleocr_slanet": "independiente",
+    "docling_tableformer": "independiente",
+    "docling_heron_101": "independiente",
+    "deformable_detr": "independiente",
+    "pp_structurev3_api": "independiente",
+    "docling": "independiente",
+    "rapidocr": "independiente",
+    "easyocr": "independiente",
+    "tesseract": "independiente",
+    "paddle_latex_ocr": "independiente",
+    "unimernet": "independiente",
+}
+
+
+def alternative_provenance(backend: str) -> str:
+    """Como se relaciona `backend` con el motor de `pyocrust` (para el informe)."""
+    return ALTERNATIVE_PROVENANCE.get(backend, "independiente")
+
+
+# --- pipelines documentales completos (`full_page`) ---------------------------
+# Dos alternativas externas REALES al pipeline propio. Las dos emiten el Markdown
+# del documento, que es lo que consume `markdown_f1`; ninguna inventa contenido.
+
+# docling vive en un venv APARTE (`benchmarks/.venv_docling`): su `[standard]`
+# arrastra torch/torchvision y comparte `transformers`/`huggingface_hub` con el
+# venv del banco. Instalarlo en el venv principal degradaria los backends de
+# `layout`/`table`. Se invoca por **subproceso**, un modelo a la vez.
+DOCLING_VENV_PYTHON = BENCHMARKS_ROOT / ".venv_docling" / "Scripts" / "python.exe"
+_DOCLING_RUNNER = r'''
+import sys, warnings
+warnings.filterwarnings("ignore")
+from docling.document_converter import DocumentConverter, ImageFormatOption
+from docling.datamodel.base_models import InputFormat
+from docling.datamodel.pipeline_options import PdfPipelineOptions
+
+pipe = PdfPipelineOptions()
+# La entrada del banco es una imagen raster: sin OCR no hay texto que emitir.
+pipe.do_ocr = True
+pipe.do_table_structure = True
+conv = DocumentConverter(format_options={InputFormat.IMAGE: ImageFormatOption(pipeline_options=pipe)})
+print(conv.convert(sys.argv[1]).document.export_to_markdown())
+'''
+
+# Variante tabla-solo del runner de docling: el recorte ya es una tabla, así que
+# se emite su HTML (`export_to_html`), que es lo que consume el TEDS-S del banco
+# de `table`. `do_ocr=True` para que TableFormer haga cell-matching y la tabla
+# salga estructurada; sin OCR la tabla queda vacía. Sin `do_table_structure` no
+# habría estructura: se pide explícitamente.
+_DOCLING_TABLE_RUNNER = r'''
+import sys, warnings
+warnings.filterwarnings("ignore")
+from docling.document_converter import DocumentConverter, ImageFormatOption
+from docling.datamodel.base_models import InputFormat
+from docling.datamodel.pipeline_options import PdfPipelineOptions
+
+pipe = PdfPipelineOptions()
+pipe.do_ocr = True
+pipe.do_table_structure = True
+conv = DocumentConverter(format_options={InputFormat.IMAGE: ImageFormatOption(pipeline_options=pipe)})
+doc = conv.convert(sys.argv[1]).document
+for table in doc.tables:
+    sys.stdout.write(table.export_to_html(doc))
+'''
+
+
+def _docling_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
+    """Pipeline documental completo de **docling** (MIT) -> Markdown de página.
+
+    Corre en el venv aislado `benchmarks/.venv_docling` por subproceso: sus
+    dependencias (torch/torchvision/transformers) no coexisten con el venv del
+    banco. Si ese venv no existe, el backend queda `skipped` con el `pip install`
+    exacto en vez de fallar a medias.
+    """
+    if not DOCLING_VENV_PYTHON.is_file():
+        raise ProviderUnavailable(
+            f"falta el venv de docling; crear con: uv venv {DOCLING_VENV_PYTHON.parents[1]} "
+            f"&& uv pip install --python {DOCLING_VENV_PYTHON} docling")
+
+    def run(image: Image.Image) -> OcrOutput:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "page.png"
+            image.convert("RGB").save(path, format="PNG")
+            start = time.perf_counter()
+            proc = subprocess.run(
+                [str(DOCLING_VENV_PYTHON), "-c", _DOCLING_RUNNER, str(path)],
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900,
+            )
+            elapsed_ms = (time.perf_counter() - start) * 1000.0
+        if proc.returncode != 0:
+            raise RuntimeError(f"docling: {(proc.stderr or '').strip().splitlines()[-1:]}")
+        return OcrOutput(text=proc.stdout, elapsed_ms=elapsed_ms,
+                         extra={"engine": "docling", "model": "docling-default"})
+
+    run.provider_effective = "cpu" if device == "cpu" else "cuda"
+    # docling solo devuelve Markdown (sin cajas, bloques ni formulas; sus tablas
+    # son `pipe tables`, no el HTML que mide `TEDS`): declara 0 canales de
+    # estructura -> esas columnas salen `N/A`, nunca `0.0`.
+    run.emits = emitted_channels("docling")
+    return run
+
+
+def _pp_structurev3_api_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
+    """Pipeline completo de página de **PaddleOCR PP-StructureV3** (Apache-2.0) -> Markdown.
+
+    Alternativa externa al `pp_structurev3` de `pyocrust`: el **mismo** pipeline
+    publicado por PaddleOCR (layout + OCR + tablas + fórmulas), envuelto aquí en
+    Python. El motor propio es una implementación distinta del mismo modelo, así
+    que la comparación es 1:1 sobre el mismo GT de documento.
+    """
+    try:
+        from paddleocr import PPStructureV3  # noqa: PLC0415
+    except ImportError as exc:  # pragma: no cover - entorno sin paddleocr
+        raise ProviderUnavailable("pip install paddleocr paddlex[ocr]") from exc
+
+    # `enable_mkldnn=False`: este paddle (3.3.1) revienta al ejecutar un modelo
+    # por el motor oneDNN/PIR ("ConvertPirAttribute2RuntimeAttribute not support
+    # [pir::ArrayAttribute<pir::DoubleAttribute>]"); el EP de CPU nativo si corre.
+    # Sin este flag el backend no levanta ni el warmup (error, no `skipped`).
+    # Carga perezosa: cargar todos los modelos la primera vez, una sola vez por run.
+    pipeline = PPStructureV3(
+        device=("gpu" if device != "cpu" else "cpu"), enable_mkldnn=False
+    )
+
+    def run(image: Image.Image) -> OcrOutput:
+        import numpy as np  # noqa: PLC0415
+
+        start = time.perf_counter()
+        results = pipeline.predict(np.asarray(image.convert("RGB")))
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+        markdown = ""
+        if results:
+            payload = results[0].markdown
+            if isinstance(payload, dict):
+                markdown = str(payload.get("markdown_texts", "") or "")
+            else:
+                markdown = str(payload or "")
+        return OcrOutput(text=markdown, elapsed_ms=elapsed_ms,
+                         extra={"engine": "paddleocr", "model": "PP-StructureV3"})
+
+    run.provider_effective = "cpu" if device == "cpu" else "cuda"
+    # Devuelve solo Markdown (con tablas HTML embebidas): emite `tables` pero no
+    # cajas/bloques/formulas aparte -> esas columnas quedan `N/A`, no `0.0`.
+    run.emits = emitted_channels("pp_structurev3_api")
+    return run
+
+
+# Segunda y tercera alternativa REAL al `table_structure_recognition` de
+# `pyocrust` en el banco de `table`, además de TATR. Ambas off-line y CPU-only.
+# - `paddleocr_slanet`: SLANet_plus de PaddleOCR por su API oficial
+#   (`TableStructureRecognition`), Apache-2.0. Emite el HTML de la tabla (solo
+#   gramática, sin texto de celda), el mismo GT que `pyocrust_table`.
+# - `docling_tableformer`: TableFormer (docling, MIT) en su venv aislado; emite
+#   HTML con texto de celda, así que se puntúa con el MISMO TEDS-S que el resto
+#   (la secuencia de etiquetas), no el TEDS de árbol.
+PADDLEOCR_TABLE_MODELS = frozenset({"SLANet_plus", "SLANeXt_wired"})
+
+
+def _paddleocr_slanet_backend(model_name: str = "SLANet_plus",
+                              device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
+    """SLANet de **PaddleOCR** (`TableStructureRecognition`) -> HTML de estructura.
+
+    El motor propio de `pyocrust` implementa el mismo SLANeXt en Rust/ONNX; aquí
+    se mide la implementación **oficial** de PaddleOCR sobre el mismo recorte y el
+    mismo GT. `enable_mkldnn=False` por el mismo choque del motor oneDNN/PIR que
+    en `_pp_structurev3_api_backend`. Solo CPU.
+    """
+    try:
+        import numpy as np  # noqa: PLC0415
+        from paddleocr import TableStructureRecognition  # noqa: PLC0415
+    except ImportError as exc:  # pragma: no cover - entorno sin paddleocr
+        raise ProviderUnavailable("pip install paddleocr paddlepaddle") from exc
+
+    if model_name not in PADDLEOCR_TABLE_MODELS:  # pragma: no cover - guardia
+        raise ProviderUnavailable(f"modelo SLANet desconocido: {model_name!r}")
+    model = TableStructureRecognition(model_name=model_name, enable_mkldnn=False)
+
+    def run(image: Image.Image) -> OcrOutput:
+        arr = np.asarray(image.convert("RGB"))
+        start = time.perf_counter()
+        results = model.predict(arr)
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+        html, scores = "", []
+        if results:
+            res = results[0].json.get("res", {})
+            structure = res.get("structure")
+            html = "".join(structure) if isinstance(structure, list) else (structure or "")
+            if res.get("structure_score") is not None:
+                scores.append(float(res["structure_score"]))
+        return OcrOutput(
+            text=html,
+            mean_confidence=(sum(scores) / len(scores)) if scores else 0.0,
+            elapsed_ms=elapsed_ms,
+            extra={"engine": "paddleocr", "model": model_name},
+        )
+
+    run.provider_effective = "cpu" if device == "cpu" else "cuda"
+    return run
+
+
+def _docling_tableformer_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
+    """Estructura de tabla de **docling TableFormer** (MIT) -> HTML de la tabla.
+
+    Corre en el venv aislado `benchmarks/.venv_docling` por subproceso (mismo
+    motivo que el backend `docling` de `full_page`: sus deps no coexisten con el
+    venv del banco). El modelo ve un recorte de tabla: `DocumentConverter` detecta
+    la tabla y `export_to_html` da su estructura **con** texto de celda; el banco
+    la puntúa con TEDS-S (secuencia de etiquetas), comparable a TATR/SLANet.
+    """
+    if not DOCLING_VENV_PYTHON.is_file():
+        raise ProviderUnavailable(
+            f"falta el venv de docling; crear con: uv venv {DOCLING_VENV_PYTHON.parents[1]} "
+            f"&& uv pip install --python {DOCLING_VENV_PYTHON} docling")
+
+    def run(image: Image.Image) -> OcrOutput:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "table.png"
+            image.convert("RGB").save(path, format="PNG")
+            start = time.perf_counter()
+            proc = subprocess.run(
+                [str(DOCLING_VENV_PYTHON), "-c", _DOCLING_TABLE_RUNNER, str(path)],
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900,
+            )
+            elapsed_ms = (time.perf_counter() - start) * 1000.0
+        if proc.returncode != 0:
+            raise RuntimeError(f"docling tableformer: {(proc.stderr or '').strip().splitlines()[-1:]}")
+        return OcrOutput(text=proc.stdout, elapsed_ms=elapsed_ms,
+                         extra={"engine": "docling", "model": "tableformer"})
+
+    run.provider_effective = "cpu" if device == "cpu" else "cuda"
+    return run
 
 
 def _paddle_latex_ocr_backend(model_name: str = "PP-FormulaNet_plus-M",
@@ -732,6 +1110,75 @@ def _paddle_latex_ocr_backend(model_name: str = "PP-FormulaNet_plus-M",
         return OcrOutput(text=text, elapsed_ms=elapsed_ms, extra={"engine": "paddleocr", "model": model_name})
 
     # Honestidad de proveedor: el runner confirma el EP leyendo este atributo.
+    run.provider_effective = "cpu" if device == "cpu" else "cuda"
+    return run
+
+
+# --- UniMERNet (formula) -----------------------------------------------------
+# `unimernet` fija `transformers==4.42.4` (numpy<2) y arrastra `evaluate`/`datasets`;
+# instalarlo en el venv del banco degradaria transformers 5.x, que usan paddleocr,
+# docling y los detectores de layout. Vive en su propio venv
+# (`benchmarks/.venv_unimernet`) y se invoca por **subproceso**, un modelo a la vez
+# — mismo patrón que `docling`. Sus pesos (`unimernet_tiny`, 441 MB) se cargan del
+# cache local (`~/.cache/models/MFR/unimernet_tiny`); si faltan, es `skipped`.
+UNIMERNET_VENV_PYTHON = BENCHMARKS_ROOT / ".venv_unimernet" / "Scripts" / "python.exe"
+UNIMERNET_MODEL_DIR = Path("D:/Environments/cache/models/MFR/unimernet_tiny")
+_UNIMERNET_RUNNER = r'''
+import sys, json, warnings
+warnings.filterwarnings("ignore")
+from omegaconf import OmegaConf
+from PIL import Image
+from unimernet.models.unimernet.unimernet import UniMERModel
+from unimernet.processors.formula_processor import FormulaImageEvalProcessor
+
+model_dir, image_path = sys.argv[1], sys.argv[2]
+cfg = OmegaConf.load(model_dir + "/unimernet_tiny.yaml").model
+cfg.model_config.model_name = model_dir
+cfg.tokenizer_config.path = model_dir
+cfg.pretrained = model_dir + "/pytorch_model.pth"
+model = UniMERModel.from_config(cfg).eval()
+proc = FormulaImageEvalProcessor.from_config(OmegaConf.create({"image_size": [192, 672]}))
+img = Image.open(image_path).convert("RGB")
+tensor = proc(img).unsqueeze(0)
+out = model.generate({"image": tensor})
+pred = out["pred_str"]
+sys.stdout.write(pred[0] if isinstance(pred, list) else str(pred))
+'''
+
+
+def _unimernet_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
+    """**UniMERNet** (`unimernet`, Apache-2.0) -> LaTeX, en venv aislado + subproceso.
+
+    Alternativa externa real de `formula` (referencia SOTA en fórmulas
+    manuscritas). Corre en `benchmarks/.venv_unimernet` porque su pin
+    `transformers==4.42.4`/`numpy<2` choca con el venv del banco. Solo CPU: su
+    `generate` no expone ruta GPU aquí (si se pide GPU, el runner ya lo marca
+    `skipped` por `GPU_CAPABLE_BACKENDS`). Sin venv o sin pesos -> `skipped`.
+    """
+    if not UNIMERNET_VENV_PYTHON.is_file():
+        raise ProviderUnavailable(
+            f"falta el venv de unimernet; crear con: uv venv {UNIMERNET_VENV_PYTHON.parents[1]} "
+            f"&& uv pip install --python {UNIMERNET_VENV_PYTHON} unimernet "
+            f"&& uv pip install --python {UNIMERNET_VENV_PYTHON} 'numpy<2' 'pyarrow<16' 'datasets==2.21.0'")
+    if not (UNIMERNET_MODEL_DIR / "pytorch_model.pth").is_file():
+        raise ProviderUnavailable(f"faltan los pesos de unimernet en {UNIMERNET_MODEL_DIR}")
+
+    def run(image: Image.Image) -> OcrOutput:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "formula.png"
+            image.convert("RGB").save(path, format="PNG")
+            start = time.perf_counter()
+            proc = subprocess.run(
+                [str(UNIMERNET_VENV_PYTHON), "-c", _UNIMERNET_RUNNER,
+                 str(UNIMERNET_MODEL_DIR), str(path)],
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900,
+            )
+            elapsed_ms = (time.perf_counter() - start) * 1000.0
+        if proc.returncode != 0:
+            raise RuntimeError(f"unimernet: {(proc.stderr or '').strip().splitlines()[-1:]}")
+        return OcrOutput(text=proc.stdout, elapsed_ms=elapsed_ms,
+                         extra={"engine": "unimernet", "model": "unimernet_tiny"})
+
     run.provider_effective = "cpu" if device == "cpu" else "cuda"
     return run
 
@@ -839,11 +1286,29 @@ ONNX_MODEL_FILES = {
     "lcnet_doc_ori": "pp-lcnet_x1_0_doc_ori.onnx",
     "lcnet_textline_ori": "pp-lcnet_x1_0_textline_ori.onnx",
     "uvdoc": "uvdoc.onnx",
+    # Mismo `.onnx` que `pyocrust_seal` (deteccion de sellos sobre `onnxruntime`).
+    "seal_det": "pp-ocrv4_mobile_seal_det.onnx",
 }
+
+# Pesos del clasificador de orientacion de linea de **RapidOCR** (proyecto RapidAI),
+# un modelo distinto del PP-LCNet del banco. Vive dentro del paquete instalado
+# (venv del repo, un nivel por encima de `benchmarks/`).
+RAPIDOCR_MOBILE_CLS_ONNX = (
+    BENCHMARKS_ROOT.parent / ".venv" / "Lib" / "site-packages"
+    / "rapidocr" / "models" / "ch_ppocr_mobile_v2.0_cls_mobile.onnx"
+)
 
 # ImageNet en orden **RGB** (el que documenta PP-LCNet; `oar-ocr` lo confirma).
 _LCNET_MEAN = (0.485, 0.456, 0.406)
 _LCNET_STD = (0.229, 0.224, 0.225)
+
+# Postproceso DB del detector de sellos (defaults de PaddleOCR que reproduce
+# `oar-ocr`). `LIMIT` es el lado mayor al que se reescala la pagina.
+_SEAL_DET_LIMIT = 960
+_SEAL_DET_THRESH = 0.3
+_SEAL_DET_BOX_THRESH = 0.5
+_SEAL_DET_UNCLIP = 1.0
+_SEAL_DET_MIN_AREA = 64.0
 
 
 def _onnx_model_path(name: str) -> Path:
@@ -985,6 +1450,233 @@ def _uvdoc_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
     return run
 
 
+def _rapidocr_mobile_cls_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
+    """Clasificador de orientacion de linea 0/180 de **RapidOCR** (`ch_ppocr_mobile_v2.0_cls`).
+
+    Modelo **distinto** del banco: no es el PP-LCNet de PaddleOCR, es la red mobile
+    `cls` de PP-OCRv2 distribuida por el proyecto **RapidAI** (Apache-2.0), ya en el
+    venv de RapidOCR. Aporta un tercero realmente independiente a `text_line`.
+
+    Preprocesado copiado de RapidOCR: resize a `[3, 48, 192]` (W = 192), escala a
+    [0, 1] y normalizacion ImageNet RGB. Salida `[N, 2]`: `label_list = ["0","180"]`.
+    """
+    import numpy as np  # noqa: PLC0415
+
+    try:  # onnxruntime + pesos no conllevan carga de pyocrust
+        import onnxruntime as ort  # noqa: PLC0415
+    except ImportError as exc:  # pragma: no cover - entorno sin onnxruntime
+        raise ProviderUnavailable("pip install onnxruntime") from exc
+    path = RAPIDOCR_MOBILE_CLS_ONNX
+    if not path.is_file():
+        raise ProviderUnavailable(f"falta {path.name} (RapidOCR no instalado)")
+    session = ort.InferenceSession(str(path), providers=["CPUExecutionProvider"])
+    input_name = session.get_inputs()[0].name
+    labels = ("0", "180")
+
+    def run(image: Image.Image) -> OcrOutput:
+        tensor = _lcnet_tensor(image, (48, 192), None)
+        start = time.perf_counter()
+        logits = np.asarray(session.run(None, {input_name: tensor})[0][0], dtype=np.float64)
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+        probs = np.exp(logits - logits.max())
+        probs /= probs.sum()
+        order = np.argsort(probs)[::-1]
+        top = int(order[0])
+        return OcrOutput(
+            text=labels[top], mean_confidence=float(probs[top]), elapsed_ms=elapsed_ms,
+            extra={"engine": "rapidocr", "model": "ch_ppocr_mobile_v2.0_cls",
+                   "label": labels[top], "score": float(probs[top]),
+                   "orientations": [{"class_id": int(i), "label": labels[i], "score": float(probs[i])}
+                                    for i in order]},
+        )
+
+    run.provider_effective = "cpu"
+    return run
+
+
+def _easyocr_rotation_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
+    """Orientacion de pagina por **EasyOCR** (proyecto distinto, no PaddleOCR).
+
+    No es un clasificador dedicado: reconoce el texto de la pagina en las cuatro
+    rotaciones 0/90/180/270 con el recognizer propio de EasyOCR y elige la rotacion
+    que **aplicada** deja el texto legible (mayor confianza media). Es la heuristica
+    que un pipeline OCR real usa cuando no tiene clasificador dedicado; se declara
+    como tal en el informe (`.venv` con los pesos CRAFT+latin ya en cache).
+
+    Emite `label` = la rotacion de **correccion** en grados (la que hay que aplicar),
+    la misma convencion que el GT del banco de `orientation`.
+    """
+    import numpy as np  # noqa: PLC0415
+
+    try:
+        import easyocr  # noqa: PLC0415 - import tardio (carga torch)
+    except ImportError as exc:
+        raise ProviderUnavailable("pip install easyocr") from exc
+    if device != "cpu":
+        raise ProviderUnavailable("easyocr_rotation corre solo en CPU en este banco")
+    # `gpu=False`: solo CPU (regla de honestidad del banco). Los pesos deben estar
+    # en cache; `download_enabled=False` evita bajadas silenciosas en el run.
+    try:
+        reader = easyocr.Reader(["en"], gpu=False, download_enabled=False, verbose=False)
+    except Exception as exc:  # noqa: BLE001 - pesos ausentes: es un `skipped`
+        raise ProviderUnavailable(f"easyocr: pesos no disponibles en cache ({exc})") from exc
+    angles = (0, 90, 180, 270)
+
+    def run(image: Image.Image) -> OcrOutput:
+        start = time.perf_counter()
+        # Convencion del banco: la etiqueta es la rotacion a APLICAR para enderezar.
+        # Si la pagina esta girada `a`, aplicarle `(360-a)%360` la endereza.
+        corrections = {angle: (360 - angle) % 360 for angle in angles}
+        scores = {}
+        for angle in angles:
+            upright = image.rotate(angle, expand=True) if angle else image
+            arr = np.asarray(upright.convert("RGB"))
+            try:
+                detections = reader.readtext(arr, detail=1, paragraph=False)
+            except Exception:  # noqa: BLE001
+                detections = []
+            vals = [float(d[2]) for d in detections if len(d) > 2]
+            scores[angle] = float(sum(vals) / len(vals)) if vals else 0.0
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+        best_angle = max(scores, key=scores.get)
+        label = str(corrections[best_angle])
+        return OcrOutput(
+            text=label, mean_confidence=scores[best_angle], elapsed_ms=elapsed_ms,
+            extra={"engine": "easyocr", "model": "craft_mlt_25k+latin_g2 (recognizer)",
+                   "label": label, "score": scores[best_angle],
+                   "rotations": {str(a): corrections[a] for a in angles},
+                   "scores": {str(a): scores[a] for a in angles},
+                   "note": "no es clasificador dedicado: elige la rotacion de mayor confianza OCR"},
+        )
+
+    run.provider_effective = "cpu"
+    return run
+
+
+def _opencv_perspective_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
+    """Rectificacion geometrica CLASICA con OpenCV (linea base, NO una red).
+
+    Competidor **independiente** de UVDoc/PaddleOCR en el sentido estricto del
+    termino: no usa pesos PaddleOCR (no usa pesos de ningun tipo). Detecta el
+    contorno del documento (Canny -> contorno mayor -> `approxPolyDP`) y aplica la
+    homografia de 4 esquinas a la pagina A4.
+
+    Se declara como **linea base clasica**, no un SOTA: sobre una homografia de
+    perspectiva severa recupera poco (SSIM bajo); sirve de suelo de comparacion,
+    no de techo. Emite el PNG rectificado en `extra["image"]`, igual que `uvdoc`.
+    """
+    import cv2  # noqa: PLC0415
+    import numpy as np  # noqa: PLC0415
+
+    def _order(points: "np.ndarray") -> "np.ndarray":
+        pts = points.reshape(4, 2).astype(np.float32)
+        s = pts.sum(axis=1)
+        d = np.diff(pts, axis=1).ravel()
+        return np.array([pts[np.argmin(s)], pts[np.argmin(d)],
+                         pts[np.argmax(s)], pts[np.argmax(d)]], dtype=np.float32)
+
+    def run(image: Image.Image) -> OcrOutput:
+        arr = np.asarray(image.convert("RGB"))[:, :, ::-1]  # RGB -> BGR
+        start = time.perf_counter()
+        gray = cv2.cvtColor(arr, cv2.COLOR_BGR2GRAY)
+        edges = cv2.dilate(cv2.Canny(cv2.GaussianBlur(gray, (5, 5), 0), 50, 150),
+                           np.ones((3, 3), np.uint8))
+        cnts, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        h, w = arr.shape[:2]
+        if cnts:
+            c = max(cnts, key=cv2.contourArea)
+            approx = cv2.approxPolyDP(cv2.convexHull(c), 0.02 * cv2.arcLength(c, True), True)
+            if len(approx) != 4:
+                approx = cv2.boxPoints(cv2.minAreaRect(c)).reshape(-1, 1, 2)
+            src = _order(approx.reshape(-1, 2))
+            dst = np.array([[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]], np.float32)
+            rectified = cv2.warpPerspective(arr, cv2.getPerspectiveTransform(src, dst), (w, h))
+        else:  # sin contorno: se devuelve la entrada sin tocar (rectificacion nula)
+            rectified = arr
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+        buffer = io.BytesIO()
+        Image.fromarray(rectified[:, :, ::-1], "RGB").save(buffer, format="PNG")
+        return OcrOutput(
+            text="", elapsed_ms=elapsed_ms,
+            extra={"engine": "opencv", "model": "perspective-4corner (baseline)",
+                   "image": buffer.getvalue()},
+        )
+
+    run.provider_effective = "cpu"
+    return run
+
+
+def _paddle_det_boxes(prob, ratio: float, thresh: float, box_thresh: float,
+                      unclip: float, min_area: float) -> list[list[float]]:
+    """Postproceso DB de PaddleOCR: mapa de probabilidad -> cajas.
+
+    `prob` es el mapa `(H, W)` ya en [0, 1]; `ratio` deshace el resize al tamaño
+    original. Reproduce el pipeline documentado por PaddleOCR: binariza por
+    `thresh`, extrae contornos, puntúa cada caja con la media del mapa **sobre los
+    píxeles del contorno** (no el rectángulo relleno: el sello es un anillo), y
+    `unclip` expande el `minAreaRect` sobre su centro.
+    """
+    import cv2  # noqa: PLC0415
+    import numpy as np  # noqa: PLC0415
+
+    mask = (prob > thresh).astype(np.uint8)
+    contours, _ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    height, width = prob.shape
+    boxes: list[list[float]] = []
+    for contour in contours:
+        rect = cv2.minAreaRect(contour)
+        if rect[1][0] * rect[1][1] < min_area:
+            continue
+        points = contour.reshape(-1, 2)
+        inside = prob[points[:, 1].clip(0, height - 1), points[:, 0].clip(0, width - 1)]
+        if float(inside.mean()) < box_thresh:
+            continue
+        quad = cv2.boxPoints(rect)
+        center = quad.mean(0)
+        quad = (center + (quad - center) * unclip) / ratio
+        boxes.append([float(quad[:, 0].min()), float(quad[:, 1].min()),
+                      float(quad[:, 0].max()), float(quad[:, 1].max())])
+    return boxes
+
+
+def _onnx_seal_det_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
+    """Detección de sellos: **mismos pesos** que `pyocrust_seal`, vía `onnxruntime`.
+
+    Alternativa del motor de referencia (Rust `oar-ocr` vs `onnxruntime`): el
+    mismo `.onnx` (`pp-ocrv4_mobile_seal_det.onnx`, Apache-2.0) con el preprocesado
+    y postproceso DB de PaddleOCR. A diferencia de los clasificadores PP-LCNet, la
+    entrada va en **BGR y sin normalizar** (0..255), que es lo que documenta la
+    config de inferencia de este detector.
+    """
+    import cv2  # noqa: PLC0415
+    import numpy as np  # noqa: PLC0415
+
+    session = _load_onnx_session("seal_det")
+    input_name = session.get_inputs()[0].name
+
+    def run(image: Image.Image) -> OcrOutput:
+        rgb = np.asarray(image.convert("RGB"))
+        height, width = rgb.shape[:2]
+        ratio = _SEAL_DET_LIMIT / max(height, width)
+        new_h = max(32, int(round(height * ratio / 32)) * 32)
+        new_w = max(32, int(round(width * ratio / 32)) * 32)
+        bgr = cv2.resize(rgb[:, :, ::-1].astype(np.float32), (new_w, new_h))
+        tensor = np.ascontiguousarray(bgr.transpose(2, 0, 1)[None])
+        start = time.perf_counter()
+        prob = np.asarray(session.run(None, {input_name: tensor})[0][0, 0], dtype=np.float32)
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+        boxes = _paddle_det_boxes(prob, ratio, _SEAL_DET_THRESH, _SEAL_DET_BOX_THRESH,
+                                  _SEAL_DET_UNCLIP, _SEAL_DET_MIN_AREA)
+        return OcrOutput(
+            text="", n_regions=len(boxes), elapsed_ms=elapsed_ms,
+            extra={"engine": "onnxruntime", "model": "pp-ocrv4_mobile_seal_det",
+                   "boxes": boxes},
+        )
+
+    run.provider_effective = "cpu" if device == "cpu" else "cuda"
+    return run
+
+
 def _predictor_output(task: str, result: dict, elapsed_ms: float) -> OcrOutput:
     """`dict` devuelto por una tarea de `TaskPredictor` -> `OcrOutput` común.
 
@@ -1070,17 +1762,43 @@ PROVIDERS: dict[str, Callable[..., Callable[[Image.Image], OcrOutput]]] = {
     "lcnet_doc_ori": lambda device="cpu": _lcnet_classify_backend("lcnet_doc_ori", ["0", "90", "180", "270"], (224, 224), 256),
     "lcnet_textline_ori": lambda device="cpu": _lcnet_classify_backend("lcnet_textline_ori", ["0", "180"], (80, 160), None),
     "uvdoc": lambda device="cpu": _uvdoc_backend(),
+    # Alternativas realmente INDEPENDIENTES (no pesos PaddleOCR):
+    #   * `rapidocr_mobile_cls` — red mobile cls de PP-OCRv2 del proyecto RapidAI
+    #      -> `text_line` (0/180). Modelo distinto, no el PP-LCNet del banco.
+    #   * `easyocr_rotation` — orientacion de pagina por reconocimiento en 4
+    #      rotaciones con el recognizer de EasyOCR -> `orientation`. No es un
+    #      clasificador dedicado; el informe lo declara como heuristica.
+    "rapidocr_mobile_cls": lambda device="cpu": _rapidocr_mobile_cls_backend(device=device),
+    "easyocr_rotation": lambda device="cpu": _easyocr_rotation_backend(device=device),
+    # Alternativa a `rectification` SIN pesos PaddleOCR y sin red: linea base
+    # geometrica clasica (OpenCV). El informe la declara como baseline, no SOTA.
+    "opencv_perspective": lambda device="cpu": _opencv_perspective_backend(device=device),
+    # Alternativa real de `seal`: mismos pesos que `pyocrust_seal` (PP-OCRv4 seal
+    # det), otro runtime (`onnxruntime`). Deteccion de cajas -> `extra["boxes"]`.
+    "onnx_seal_det": lambda device="cpu": _onnx_seal_det_backend(device=device),
     # Alternativas reales de `layout` (`transformers`, offline desde la cache HF):
     # RT-DETR (docling heron-101) y Deformable-DETR (DocLayNet). Solo CPU.
     "docling_heron_101": lambda device="cpu": _hf_layout_backend(LAYOUT_HF_MODELS["docling_heron_101"]),
     "deformable_detr": lambda device="cpu": _hf_layout_backend(LAYOUT_HF_MODELS["deformable_detr"]),
     "paddle_latex_ocr": _paddle_latex_ocr_backend,
+    # Alternativa real de `formula`: UniMERNet (Apache-2.0) en su venv aislado,
+    # por subproceso (solo CPU). Pesos `unimernet_tiny` del cache local.
+    "unimernet": _unimernet_backend,
     "rapidocr": _rapidocr_backend,
     "easyocr": _easyocr_backend,
     "tesseract": _tesseract_backend,
     # Alternativa real al `table_structure_recognition` de `pyocrust` en el banco
     # de `table`: TATR vía `transformers` (solo CPU; `--device gpu` -> `skipped`).
     "tatr": _tatr_backend,
+    # Pipelines documentales completos para `full_page` (emiten Markdown de pagina).
+    # `pp_structurev3_api`: PaddleOCR PP-StructureV3 en Python (Apache-2.0).
+    # `docling`: docling (MIT) en su venv aislado, por subproceso (solo CPU).
+    "pp_structurev3_api": lambda device="cpu": _pp_structurev3_api_backend(device=device),
+    "docling": lambda device="cpu": _docling_backend(device=device),
+    # Alternativas externas al `table_structure_recognition` de `pyocrust` (además
+    # de TATR): SLANet oficial de PaddleOCR y TableFormer de docling. Solo CPU.
+    "paddleocr_slanet": lambda device="cpu": _paddleocr_slanet_backend(device=device),
+    "docling_tableformer": lambda device="cpu": _docling_tableformer_backend(device=device),
 }
 
 # Una factoría por checkpoint; captura cada nombre para no cerrar sobre el último.
@@ -1121,9 +1839,19 @@ TASK_TYPES = {"pyocrust_structure": "structure", "pyocrust_formula": "formula", 
               "pyocrust_rectify": "rectification", "pyocrust_seal": "seal",
               # Alternativas reales de esas tareas (`onnxruntime`): mismo task_type.
               "lcnet_doc_ori": "orientation", "lcnet_textline_ori": "text_line",
-              "uvdoc": "rectification",
+              "uvdoc": "rectification", "onnx_seal_det": "seal",
+              # Alternativas independientes (no pesos PaddleOCR) de esas tareas.
+              "rapidocr_mobile_cls": "text_line", "easyocr_rotation": "orientation",
+              "opencv_perspective": "rectification",
               # Alternativa real de `table` (TATR): estructura de tabla, mismo GT.
-              "tatr": "table"}
+              "tatr": "table",
+              # Alternativa real de `formula`: UniMERNet (LaTeX, mismo GT anotado).
+              "unimernet": "formula",
+              # Otras alternativas reales de `table`: SLANet (PaddleOCR) y
+              # TableFormer (docling), misma GT que el especialista.
+              "paddleocr_slanet": "table", "docling_tableformer": "table",
+              # Pipelines documentales completos: mismo task_type que el banco.
+              "pp_structurev3_api": "full_page", "docling": "full_page"}
 MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"), "pyocrust_structure": ("pp_structurev3", "default"),
                "pyocrust_formula": ("pp_structurev3", "pp-formulanet-s"), "pyocrust_formulanet": ("pp-formulanet-s", "direct"),
                "pyocrust_formulanet_l": ("pp-formulanet-l", "direct"),
@@ -1144,8 +1872,21 @@ MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"), "pyocrust_structure": ("pp_stru
                "lcnet_doc_ori": ("pp-lcnet_x1_0_doc_ori", "onnxruntime"),
                "lcnet_textline_ori": ("pp-lcnet_x1_0_textline_ori", "onnxruntime"),
                "uvdoc": ("uvdoc", "onnxruntime"),
+               "onnx_seal_det": ("pp-ocrv4_mobile_seal_det", "onnxruntime"),
+               # Alternativas independientes (modelo de otro proyecto, no PaddleOCR).
+               "rapidocr_mobile_cls": ("ch_ppocr_mobile_v2.0_cls", "rapidocr"),
+               "easyocr_rotation": ("craft_mlt_25k+latin_g2", "easyocr"),
+               "opencv_perspective": ("perspective-4corner", "baseline (OpenCV, sin pesos)"),
                # Alternativa real de `table` (TATR, `transformers`).
-               "tatr": ("table-transformer-structure-recognition", "default")}
+               "tatr": ("table-transformer-structure-recognition", "default"),
+               # Alternativa real de `formula`: UniMERNet (`unimernet`), pesos tiny.
+               "unimernet": ("unimernet", "tiny"),
+               # Otras alternativas de `table`: SLANet (PaddleOCR, Apache-2.0) y
+               # TableFormer (docling, MIT).
+               "paddleocr_slanet": ("SLANet_plus", "paddleocr"),
+               "docling_tableformer": ("tableformer", "docling"),
+               "pp_structurev3_api": ("PP-StructureV3", "paddleocr"),
+               "docling": ("docling-default", "pipeline")}
 
 # `params_m` conocido por mediciones previas, el smoke limitado y los ejemplos
 # explícitos del criterio; para los demás se deja desconocido hasta medir el
@@ -1179,9 +1920,18 @@ FEATURE_TYPES = {"pyocrust_structure": "full_page", "pyocrust_indra": "full_page
                  "pyocrust_rectify": "rectification", "pyocrust_seal": "seal",
                  # Alternativas reales de esas tareas (`onnxruntime`): mismo banco.
                  "lcnet_doc_ori": "orientation", "lcnet_textline_ori": "text_line",
-                 "uvdoc": "rectification",
+                 "uvdoc": "rectification", "onnx_seal_det": "seal",
+                 # Alternativas independientes (no pesos PaddleOCR) de esas tareas.
+                 "rapidocr_mobile_cls": "text_line", "easyocr_rotation": "orientation",
+                 "opencv_perspective": "rectification",
                  # Alternativa real del banco `table` (TATR, `transformers`).
-                 "tatr": "table"}
+                 "tatr": "table",
+                 # Alternativa real del banco `formula` (UniMERNet).
+                 "unimernet": "formula",
+                 # Otras alternativas reales de `table` (SLANet / TableFormer).
+                 "paddleocr_slanet": "table", "docling_tableformer": "table",
+                 # Pipelines documentales completos: mismo banco.
+                 "pp_structurev3_api": "full_page", "docling": "full_page"}
 FEATURE_TYPES.update({backend: "layout" for backend in YOLO_LAYOUT_MODELS})
 
 # `formula` compara motores que **emiten LaTeX**. Los OCR de texto no tienen
@@ -1283,6 +2033,10 @@ def run_benchmark(
         provider_effective = engine_provider
         provenance["provider_effective"] = provider_effective
 
+    # Canales de estructura que declara el ADAPTADOR (atributo `run.emits`); si no
+    # declara nada (adaptadores de test, runs previas) se asume motor completo.
+    emits = getattr(runner, "emits", emitted_channels(backend))
+
     load_ms = (time.perf_counter() - load_start) * 1000
     rows: list[dict] = []
     errors: list[str] = []
@@ -1363,17 +2117,27 @@ def run_benchmark(
             "error": "",
             "task_type": task_type, "model_name": model_name, "model_variant": model_variant,
             "markdown_f1": markdown_f1(sample.gt_markdown, output.text) if task_type != "text" and sample.gt_markdown is not None else "",
-            "block_f1": block_f1(sample.gt_blocks, output.extra.get("blocks", [])) if task_type != "text" and sample.gt_blocks is not None else "",
+            # `block_f1` compara TIPOS de bloque del vocabulario del banco: un motor
+            # que no los emite (docling, indra) queda no evaluado, no `0.0`.
+            "block_f1": block_f1(sample.gt_blocks, output.extra.get("blocks", [])) if "layout" in emits and task_type != "text" and sample.gt_blocks is not None else "",
             "latex_exact": latex_exact_v, "latex_sim": latex_sim_v, "latex_token_f1": latex_f1_v,
             "feature": feature,
             "box_recall": box_recall_v, "box_iou_mean": box_iou_v,
             "device_requested": device, "provider_effective": provider_effective,
             # Métricas por feature: "" = no evaluada; el `scorer` las sobreescribe.
             "layout_map": "", "layout_recall": "", "table_teds": "", "ori_acc": "", "rect_sim": "",
+            # Métricas propias de `full_page` (títulos + orden de lectura): el
+            # `scorer` de esa feature las rellena; "" = no evaluada.
+            "title_recall": "", "title_precision": "", "title_text_f1": "",
+            "title_seq_tau": "", "read_order_tau": "",
             # Estrato de la página (`data_source × layout`) cuando el dataset lo anota.
             "stratum": sample.stratum or "",
         }
         # Métrica propia de la feature (layout/tabla/orientación/rectificado).
+        # El adaptador declara sus canales de estructura en `extra["emits"]`; un
+        # `scorer` (p. ej. `score_full_page`) los consulta para no puntuar como
+        # `0.0` lo que el motor no emite.
+        output.extra.setdefault("emits", emits)
         if scorer is not None:
             row.update(scorer(sample, output))
         rows.append(row)
@@ -1505,6 +2269,9 @@ def run_backends(
                 "timestamp": timestamp,
                 "runtime": _describe_runtime(),
                 "origen": "medido",
+                # Provenance del DATASET: `dataset` (muestra real) o `fixture`
+                # (fallback minimo versionado, sin red). El informe lo declara.
+                "dataset_source": fixture_provenance(),
                 # Provenance: comando exacto + parámetros de la corrida.
                 "command": [sys.executable, *sys.argv],
                 "dataset": dataset,
@@ -1543,7 +2310,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_RESULTS_DIR)
     parser.add_argument("--dump-outputs", action="store_true",
                         help="escribe <backend>.outputs.json con la salida cruda de cada muestra")
+    parser.add_argument("--fetch", action="store_true",
+                        help="prepara (puebla) el cache del dataset y sale: falla claro sin red")
     args = parser.parse_args(argv)
+    if args.fetch:
+        # Paso explicito de preparacion: UN error claro si no hay red y no hay
+        # cache, en vez de dejar cada muestra en `skipped`.
+        from common.datasets import FETCH_HELP, DatasetOffline, prepare_datasets
+
+        try:
+            info = prepare_datasets()
+        except DatasetOffline as exc:
+            print(f"[error] {exc}", file=sys.stderr)
+            return 2
+        print(f"[ok] dataset preparado: revision={info['revision']} "
+              f"sha256={info['sha256'][:12]}... ({FETCH_HELP})")
+        return 0
     tasks = set(args.task_types.split(","))
     if not tasks <= {"text", "structure", "formula", "full_page"} or args.limit < 0 or args.warmup < 0 or args.repeats < 1:
         parser.error("invalid task types or limits")

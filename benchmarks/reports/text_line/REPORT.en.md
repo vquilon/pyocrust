@@ -17,11 +17,17 @@
 | pp-lcnet_x1_0_textline_ori (6.8M) | 20 | 100.0% | 26 |
 | pp-lcnet_x1_0_textline_ori (onnxruntime) | 20 | 100.0% | **5** |
 
-> Bold values mark the best result for each metric among the **measured** engines in `text_line`. `N/A` = not evaluated (no ground truth for that column), never an invented `0.0`.
+> Bold values mark the best result for each metric among the **measured** engines in `text_line`. `N/A` = not evaluated (no ground truth for that column **or** the engine does not emit that structure), never an invented `0.0`.
 
 ## Skipped — not counted as executed
 
 - (none)
+
+## Provenance of the alternatives
+
+- `pp-lcnet_x1_0_textline_ori (onnxruntime)` — **same weights, a different path** (the SAME PaddleOCR `.onnx` through another runtime — NOT a different model)
+
+> The reference engine (`pyocrust`) is not listed: it defines the base result. An alternative with **same weights, a different path** measures the same model through another runtime; it does **not** add an independent competitor, and it is stated as such.
 
 ## Reporting notes
 

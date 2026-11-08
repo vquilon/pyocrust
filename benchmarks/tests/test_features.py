@@ -147,6 +147,85 @@ def test_tatr_registrado_como_alternativa_de_table_sin_tocar_el_csv():
     assert table_teds(_tatr_grid_html(0, 0), grid) == 0.0
 
 
+def test_nuevas_alternativas_de_table_registradas():
+    """`paddleocr_slanet` y `docling_tableformer` son alternativas medidas de `table`.
+
+    Ambos backends están registrados con su `task_type`/`feature`/`model_name` y
+    sus licencias resueltas (Apache-2.0 / MIT), y el banco de `table` los corre
+    por defecto junto a `tatr`. La normalización `<th>`->`<td>` del scorer no
+    penaliza la cabecera de TableFormer (misma celda en el TEDS-S).
+    """
+    from common.runner import FEATURE_TYPES, LICENSES, MODEL_NAMES, PROVIDERS, TASK_TYPES
+    from features.table.bank import DEFAULT_BACKENDS, _table_html, score_table
+    from common.runner import OcrOutput
+    from common import Sample
+    from PIL import Image
+
+    for backend, model_name, license_name in [
+        ("paddleocr_slanet", "SLANet_plus", "Apache-2.0"),
+        ("docling_tableformer", "tableformer", "MIT"),
+    ]:
+        assert backend in PROVIDERS, backend
+        assert TASK_TYPES[backend] == FEATURE_TYPES[backend] == "table", backend
+        assert MODEL_NAMES[backend][0] == model_name, backend
+        assert LICENSES[backend] == license_name, backend
+        assert backend in DEFAULT_BACKENDS.split(","), backend
+
+    # `<th>` (cabecera de TableFormer) se normaliza a `<td>`: misma celda.
+    sample = Sample("t", Image.new("RGB", (4, 4)), "",
+                    gt_html="<table><tr><td>a</td><td>b</td></tr></table>")
+    th = OcrOutput("<html><body><table><tr><th>a</th><th>b</th></tr></table></body></html>")
+    assert _table_html(th.text).count("<td") == 2
+    assert score_table(sample, th) == {"table_teds": 1.0}
+
+
+def test_default_backends_solo_nombres_que_producen_filas():
+    """`text`: el default no anuncia motores sin fabrica (criterio de la tarjeta).
+
+    Los anunciados sin adaptador (`surya`/`paddleocr`/`python-doctr`) quedan fuera del
+    default —ahí solo va lo que produce filas— pero siguen siendo un `skipped`
+    honesto si se piden de forma explícita.
+    """
+    from common.runner import PROVIDERS
+    from features.text.bank import DEFAULT_BACKENDS, EXTRA_FACTORIES
+
+    defaults = DEFAULT_BACKENDS.split(",")
+    assert defaults == ["pyocrust", "rapidocr", "easyocr", "tesseract"]
+    for absent in ("surya", "paddleocr", "python-doctr"):
+        assert absent not in defaults, absent
+        assert absent in EXTRA_FACTORIES, absent  # explícito -> skipped con motivo
+    # Todo backend del default tiene fabrica real en `PROVIDERS` o en las EXTRA.
+    for name in defaults:
+        assert name in PROVIDERS, name
+
+
+def test_orientation_y_rectification_con_alternativa_no_paddleocr():
+    """`orientation` y `rectification` ≥2 entradas, ≥1 NO pesos PaddleOCR.
+
+    `orientation`: `easyocr_rotation` (reconocimiento en 4 rotaciones, proyecto
+    EasyOCR). `rectification`: `opencv_perspective` (línea base geométrica clásica
+    sin pesos). Ninguno carga un `.onnx` de PaddleOCR.
+    """
+    from common.runner import (ALTERNATIVE_PROVENANCE, FEATURE_TYPES, MODEL_NAMES,
+                               PROVIDERS, TASK_TYPES, alternative_provenance)
+    from features.orientation.bank import DEFAULT_BACKENDS as ORI
+    from features.rectification.bank import DEFAULT_BACKENDS as RECT
+
+    assert "easyocr_rotation" in ORI.split(",")
+    assert "opencv_perspective" in RECT.split(",")
+    for backend, task in (("easyocr_rotation", "orientation"),
+                          ("opencv_perspective", "rectification")):
+        assert backend in PROVIDERS, backend
+        assert TASK_TYPES[backend] == FEATURE_TYPES[backend] == task, backend
+        assert alternative_provenance(backend) != "mismo_peso_otra_via", backend
+    # `onxx`/PaddleOCR de esas tareas SÍ se declaran "mismo peso, distinta vía".
+    for backend in ("lcnet_doc_ori", "uvdoc"):
+        assert alternative_provenance(backend) == "mismo_peso_otra_via", backend
+    assert MODEL_NAMES["easyocr_rotation"][0] == "craft_mlt_25k+latin_g2"
+    assert MODEL_NAMES["opencv_perspective"][0] == "perspective-4corner"
+    assert "baseline_clasico" in set(ALTERNATIVE_PROVENANCE.values())
+
+
 def test_seal_registrado_y_medido_sobre_gt_sintetico():
     """`seal` es una feature medida: backend registrado y dataset sintético con GT.
 
@@ -162,9 +241,39 @@ def test_seal_registrado_y_medido_sobre_gt_sintetico():
     assert TASK_TYPES["pyocrust_seal"] == FEATURE_TYPES["pyocrust_seal"] == "seal"
     assert MODEL_NAMES["pyocrust_seal"][0] == "pp-ocrv4_mobile_seal_det"
     assert "synthetic_seal" in DATASETS
+    # Alternativa externa real: mismos pesos, otro runtime (`onnxruntime`).
+    from common.runner import ONNX_MODEL_FILES
+    assert "onnx_seal_det" in PROVIDERS
+    assert TASK_TYPES["onnx_seal_det"] == FEATURE_TYPES["onnx_seal_det"] == "seal"
+    assert MODEL_NAMES["onnx_seal_det"] == ("pp-ocrv4_mobile_seal_det", "onnxruntime")
+    assert ONNX_MODEL_FILES["seal_det"] == "pp-ocrv4_mobile_seal_det.onnx"
     # GT determinista: la primera caja es el rectángulo del sello pegado.
     sample = load_synthetic_seal(limit=1)[0]
     assert sample.gt_boxes == ((120.0, 140.0, 540.0, 300.0),)
+
+
+def test_seal_det_postproceso_db_extrae_una_caja():
+    """El postproceso DB (`_paddle_det_boxes`) saca la caja del anillo del sello.
+
+    Mapa de probabilidad sintético: un anillo (marco) blanco sobre negro, como el
+    borde de un tampón. `findContours` devuelve ambas fronteras del anillo (exterior
+    e interior), así que se comprueba que la caja **exterior** —la del sello— está
+    entre las extraídas y alineada con el marco (`unclip=1.0`: sin expansión).
+    """
+    import numpy as np
+
+    from common.runner import (_SEAL_DET_BOX_THRESH, _SEAL_DET_MIN_AREA, _SEAL_DET_THRESH,
+                               _SEAL_DET_UNCLIP, _paddle_det_boxes)
+
+    prob = np.zeros((200, 300), np.float32)
+    prob[40:160, 30:270] = 0.9           # relleno del sello
+    prob[60:140, 50:250] = 0.0           # hueco central (solo queda el anillo)
+    boxes = _paddle_det_boxes(prob, 1.0, _SEAL_DET_THRESH, _SEAL_DET_BOX_THRESH,
+                              _SEAL_DET_UNCLIP, _SEAL_DET_MIN_AREA)
+    assert boxes, "el anillo del sello debe producir al menos una caja"
+    # La caja exterior del sello: la de mayor área.
+    x1, y1, x2, y2 = max(boxes, key=lambda b: (b[2] - b[0]) * (b[3] - b[1]))
+    assert abs(x1 - 30) <= 3 and abs(y1 - 40) <= 3 and abs(x2 - 270) <= 6 and abs(y2 - 160) <= 6, (x1, y1, x2, y2)
 
 
 def test_alternativas_onnx_de_orientation_textline_rectification():
@@ -203,9 +312,11 @@ def test_registro_de_39_yolo_doclaynet_y_resumen_canonico(monkeypatch):
 
     names = set(runner.YOLO_LAYOUT_MODELS)
     assert len(names) == 39
-    assert names == set(runner.LICENSES) == {
-        backend for backend in runner.MODEL_NAMES if backend in runner.YOLO_LAYOUT_MODELS
-    }
+    # Los 39 YOLO son un subconjunto **propio** de `LICENSES`: los pipelines
+    # documentales `full_page` (`pp_structurev3_api`, `docling`) también se
+    # licencian ahí, pero no son YOLO. La igualdad se acota a los YOLO.
+    assert names == {b for b in runner.MODEL_NAMES if b in runner.YOLO_LAYOUT_MODELS}
+    assert names <= set(runner.LICENSES)
     assert {runner.LICENSES[name] for name in names if name.startswith(("hantian_", "omoured_"))} == {"AGPL-3.0"}
     assert {runner.LICENSES[name] for name in names if name.startswith("armaggheddon_")} == {"MIT"}
     assert names <= set(runner.PROVIDERS) == set(runner.BACKENDS)

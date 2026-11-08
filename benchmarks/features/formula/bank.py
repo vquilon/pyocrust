@@ -39,7 +39,8 @@ from datetime import datetime
 
 from PIL import Image
 
-from common import OcrOutput, ProviderUnavailable, load_dataset, run_backends
+from common import OcrOutput, ProviderUnavailable, Sample, load_dataset, run_backends
+from common.metrics import latex_exact, latex_similarity, latex_token_f1
 from common.runner import _image_bytes, _paddle_latex_ocr_backend
 from features._base import FeatureSpec, common_argparser, feature_out_dir, unavailable_factory
 
@@ -51,9 +52,9 @@ SPEC = FeatureSpec(
     dataset="omnidocbench_formula (recorte por bloque `equation_isolated` + GT LaTeX)",
     alternatives={
         "pix2tex (LaTeX-OCR)": ("pix2tex", "pix2tex"),
+        "UniMERNet": ("unimernet", "unimernet (github.com/opendatalab/UniMERNet)"),
         "texify (surya_latex_ocr)": ("texify", "texify"),
         "nougat": ("nougat", "nougat-ocr"),
-        "UniMERNet": ("unimernet", "unimernet (github.com/opendatalab/UniMERNet)"),
         "Pix2Text": ("pix2text", "pix2text"),
         "TexTeller": ("texteller", "texteller"),
         "img2latex": ("img2latex", "img2latex"),
@@ -90,12 +91,15 @@ def _pix2tex_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
 
 
 # Motores LaTeX aún no integrados: `skipped` con motivo honesto (nunca `ok`).
+# NO entran en `DEFAULT_BACKENDS`: sin adaptador no producen filas y anunciarlas en
+# el default dejaba el informe con motores que nunca aparecen (criterio de la tarjeta).
+# `unimernet` SÍ se integró (venv aislado + subproceso) y ya no vive aquí: va en
+# `PROVIDERS` del runner y sí produce filas.
 EXTRA_FACTORIES = {
     "pix2tex": _pix2tex_backend,
     "paddle_latex_ocr": _paddle_latex_ocr_backend,
     "texify": unavailable_factory("texify", "texify"),
     "nougat": unavailable_factory("nougat", "nougat-ocr"),
-    "unimernet": unavailable_factory("unimernet", "unimernet (github.com/opendatalab/UniMERNet)"),
     # P2T no se fuerza a propósito: `pip install pix2text` degrada `transformers`
     # y `huggingface_hub` y cambia `opencv-python-headless` por `opencv-python`
     # en el venv donde ya corren easyocr/rapidocr/datasets. La fila queda
@@ -106,15 +110,64 @@ EXTRA_FACTORIES = {
         "cambia opencv-python-headless→opencv-python)",
     ),
     "texteller": unavailable_factory("texteller", "texteller"),
-    "img2latex": unavailable_factory("img2latex", "img2latex"),
+    # `img2latex` NO existe en PyPI (verificado con `pip index versions`): es un
+    # nombre fantasma, no una alternativa instalable. Queda `skipped` con el motivo.
+    "img2latex": unavailable_factory("img2latex", "img2latex (no publicado en PyPI)"),
 }
 EXTRA_MODELS = {name: (name, "default") for name in EXTRA_FACTORIES}
 
-# Orden por defecto: motores LaTeX de pyocrust y alternativas LaTeX reales.
-# Los OCR de texto (easyocr/rapidocr/tesseract) no entran: no emiten LaTeX.
+# --- puntuación: LaTeX **aislado** del motor, contra el GT anotado -----------
+
+def _formula_latex(output: OcrOutput) -> str:
+    """LaTeX **aislado** que emite un motor de fórmulas (no el Markdown de página).
+
+    El banco recibe un recorte de fórmula por muestra, pero el **pipeline
+    completo** (`pyocrust_structure`) devuelve el Markdown de la "página" entera:
+    su LaTeX va en `extra["formulas"]` (y en el `text` de cada elemento
+    `formula`). Se prioriza esa salida por sub-tarea; si el motor no expone
+    fórmulas separadas, se usa `text` tal cual —los motores LaTeX puros (pix2tex,
+    PP-FormulaNet) solo emiten el LaTeX en `text`—. Sin LaTeX -> `""`: la métrica
+    queda **no evaluada** con motivo honesto, no un `0.0` espurio.
+    """
+    formulas = [str(f) for f in (output.extra.get("formulas") or []) if str(f).strip()]
+    if formulas:
+        return "\n".join(formulas)
+    text = str(output.text or "").strip()
+    # Markdown de página (con tabla o cabeceras) sin fórmulas aisladas: no es LaTeX.
+    if "<table" in text or "##" in text or "<div" in text:
+        return ""
+    return text
+
+
+def score_formula(sample: Sample, output: OcrOutput) -> dict:
+    """`latex_*` sobre el LaTeX **aislado** del motor, contra el GT anotado.
+
+    Sustituye la puntuación por defecto del runner (que mide `output.text` crudo,
+    el Markdown de página en el pipeline completo). Así todos los motores se
+    comparan por su salida de fórmula. Sin GT LaTeX o sin LaTeX emitido la
+    métrica queda **no evaluada** (`""`), nunca un `0.0` espurio.
+    """
+    gt = str((sample.gt_by_task or {}).get("formula", sample.gt_text) or "")
+    pred = _formula_latex(output)
+    if not gt.strip() or not pred:
+        return {"latex_exact": "", "latex_sim": "", "latex_token_f1": ""}
+    return {
+        "latex_exact": latex_exact(gt, pred),
+        "latex_sim": round(latex_similarity(gt, pred), 4),
+        "latex_token_f1": round(latex_token_f1(gt, pred), 4),
+    }
+
+
+# Orden por defecto: solo motores con adaptador real que producen filas. Las
+# alternativas anunciadas sin adaptador ni pesos (texify/nougat/pix2text/texteller/
+# img2latex) se piden de forma explícita y salen como `skipped` con su motivo
+# —anunciarlas en el default dejaba el informe con motores que nunca aparecen—.
+# `pyocrust_structure` cierra la lista: el **pipeline completo** medido en la
+# tarea de fórmula (compara cruzada; su LaTeX aislado sale de `extra["formulas"]`).
 DEFAULT_BACKENDS = (
     "pyocrust_formulanet,pyocrust_formula,pyocrust_indra,"
-    "paddle_latex_ocr,pix2tex,texify,nougat,unimernet,pix2text,texteller,img2latex"
+    "paddle_latex_ocr,pix2tex,unimernet,"
+    "pyocrust_structure"
 )
 
 
@@ -132,10 +185,38 @@ def main(argv: Sequence[str] | None = None) -> int:
         warmup=args.warmup, repeats=args.repeats, device=args.device,
         task_override="formula", feature=SPEC.feature,
         factories=EXTRA_FACTORIES, models=EXTRA_MODELS, dump_outputs=args.dump_outputs,
+        scorer=score_formula,
     )
     print(f"\n[formula] resultados en {out_dir}")
     return 0
 
 
+def _self_check() -> None:
+    """Motor LaTeX puro y pipeline completo se puntúan por su LaTeX aislado."""
+    from PIL import Image
+
+    image = Image.new("RGB", (4, 4))
+    sample = Sample("f", image, "", gt_by_task={"formula": r"x^2"})
+    # Motor LaTeX puro: el LaTeX va en `text`.
+    pure = OcrOutput(r"x^2")
+    assert score_formula(sample, pure)["latex_exact"] == 1.0
+    assert score_formula(sample, pure)["latex_sim"] == 1.0
+    # Pipeline completo: su `text` es Markdown de página; el LaTeX aislado sale de
+    # `extra["formulas"]` (prioritario). Se puntúa por esa salida, no por el Markdown.
+    pipeline = OcrOutput("## titulo\n<div>algo</div>", extra={"formulas": [r"x^2"]})
+    assert score_formula(sample, pipeline)["latex_exact"] == 1.0
+    # Sin fórmulas aisladas y con Markdown de página -> no evaluada (""), no 0.0.
+    no_formula = OcrOutput("## titulo\n<div>algo</div>")
+    assert score_formula(sample, no_formula) == {
+        "latex_exact": "", "latex_sim": "", "latex_token_f1": ""}
+    # Sin GT LaTeX la métrica queda no evaluada, nunca un 0.0.
+    bare = Sample("g", image, "")
+    assert score_formula(bare, pure)["latex_sim"] == ""
+    print("features.formula self-check OK")
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    if "--self-check" in sys.argv:
+        _self_check()
+    else:
+        raise SystemExit(main())

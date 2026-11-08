@@ -33,15 +33,17 @@ modelo Tiny por defecto).
 
 | Alternativa | `pip install` | Estado aquí |
 | :--- | :--- | :--- |
-| rapidocr | `rapidocr-onnxruntime` | integrado |
-| easyocr | `easyocr` (requiere torch) | integrado |
+| rapidocr | `rapidocr-onnxruntime` | integrado (**en el default**) |
+| easyocr | `easyocr` (requiere torch) | integrado (**en el default**) |
 | tesseract | `pytesseract` + binario Tesseract | `skipped` (no instalado) |
-| surya | `surya-ocr` | `skipped` (adaptador pendiente) |
-| paddleocr | `paddleocr paddlepaddle` | `skipped` (adaptador pendiente) |
-| doctrl | `doctrl` | `skipped` (adaptador pendiente) |
+| surya | `surya-ocr` | `skipped` (adaptador pendiente; **fuera del default**) |
+| paddleocr | `paddleocr paddlepaddle` | `skipped` (adaptador pendiente; **fuera del default**) |
+| doctrl | `doctrl` | `skipped` (paquete NO publicado; probable typo de `python-doctr`; **fuera del default**) |
 
-Las no instaladas quedan **`skipped` con motivo** en el `summary.json`, nunca
-como `ok`.
+`DEFAULT_BACKENDS` solo lista motores con adaptador real que **producen filas**
+(`pyocrust,rapidocr,easyocr,tesseract`). Los anunciados sin fábrica
+(`surya`/`paddleocr`/`doctrl`) quedan **fuera del default**: se piden de forma
+explícita y salen como `skipped` con motivo, nunca como `ok`.
 
 ## Cómo correrlo
 

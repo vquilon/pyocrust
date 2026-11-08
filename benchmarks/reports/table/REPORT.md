@@ -4,24 +4,35 @@
 
 ## Provenance
 
-- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/table/bank.py --limit 20 --device cpu --backends pyocrust_table,tatr`
+- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/table/bank.py --backends pyocrust_table,paddleocr_slanet,docling_tableformer,tatr --limit 20 --device cpu --output-dir benchmarks/results`
 - **dataset**: `omnidocbench_table` · **n** (por motor): `20` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
+- **revision HF (fijada)**: `aa1ee96d106dbe53d0ae59474d75c6e6d9b53fec` — misma revision en cualquier maquina; los bytes se verifican contra `benchmarks/datasets_manifest.json`
 - **seed**: no aplica (banco determinista, sin aleatoriedad)
-- **run**: `benchmarks/results/table/2026-11-06_23-57-06` · **fecha**: `2026-11-06_23-57-06`
+- **run**: `benchmarks/results/table/2026-11-08_18-43-55` · **fecha**: `2026-11-08_18-43-55`
 - **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': []}
 
 ## Comparativa (media por motor)
 
 | Motor (variante) | n | TEDS estrut. ↑ | ms/tabla ↓ |
 | :--- | ---: | ---: | ---: |
-| slanet_plus (default) | 20 | **0.854** | 749 |
-| table-transformer-structure-recognition (default) | 20 | 0.699 | **140** |
+| SLANet_plus (paddleocr) | 20 | **0.828** | **71** |
+| slanet_plus (default) | 20 | 0.780 | 796 |
+| table-transformer-structure-recognition (default) | 20 | 0.698 | 760 |
+| tableformer (docling) | 20 | 0.807 | 32806 |
 
-> En negrita, el mejor de cada métrica entre los motores **medidos** de `table`. `N/A` = no evaluada (sin GT de esa columna), nunca un `0.0` inventado.
+> En negrita, el mejor de cada métrica entre los motores **medidos** de `table`. `N/A` = no evaluada (sin GT de esa columna **o** el motor no emite esa estructura), nunca un `0.0` inventado.
 
 ## Saltados (`skipped`) — no cuentan como ejecutados
 
 - (ninguno)
+
+## Procedencia de las alternativas
+
+- `SLANet_plus (paddleocr)` — modelo **independiente** (otro proyecto/checkpoint)
+- `table-transformer-structure-recognition (default)` — modelo **independiente** (otro proyecto/checkpoint)
+- `tableformer (docling)` — modelo **independiente** (otro proyecto/checkpoint)
+
+> El motor de referencia (`pyocrust`) no se lista: es el que define el resultado base. Una alternativa con **mismo peso, distinta vía** mide el mismo modelo con otro runtime; **no** aporta un competidor independiente y así queda declarado.
 
 ## Nota de honestidad
 
@@ -35,8 +46,10 @@
 
 | Motor (variante) | Structural TEDS ↑ (CPU) | Structural TEDS ↑ (GPU) | ms CPU | ms GPU | provider GPU |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| slanet_plus (default) | 0.854 | 0.854 | 749 | 668 | directml |
-| table-transformer-structure-recognition (default) | 0.699 | N/A | 140 | N/A | n/a (no corre en GPU) |
+| SLANet_plus (paddleocr) | 0.828 | N/A | 71 | N/A | n/a (no corre en GPU) |
+| slanet_plus (default) | 0.780 | 0.854 | 796 | 668 | directml |
+| table-transformer-structure-recognition (default) | 0.698 | N/A | 760 | N/A | n/a (no corre en GPU) |
+| tableformer (docling) | 0.807 | N/A | 32806 | N/A | n/a (no corre en GPU) |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.
 

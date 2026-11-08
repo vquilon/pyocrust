@@ -1,13 +1,13 @@
 \documentclass[border=2pt]{standalone}
 \usepackage{booktabs}
 \begin{document}
-\begin{tabular}{lrrrrrl}
+\begin{tabular}{lrrrrrrrrrrrrrrrrrrrr}
 \toprule
-Engine (variant/size) & n & Markdown F1 $\uparrow$ & Block F1 $\uparrow$ & CER $\downarrow$ & ms/page $\downarrow$ & license \\
+Engine (variant/size) & n & Markdown F1 $\uparrow$ & F1 bloques $\uparrow$ & layout mAP $\uparrow$ & TEDS tabla $\uparrow$ & LaTeX sim $\uparrow$ & títulos recall $\uparrow$ & títulos prec. $\uparrow$ & F1 texto títulos $\uparrow$ & secuencia títulos τ $\uparrow$ & orden lectura τ $\uparrow$ & figuras recall $\uparrow$ & figuras prec. $\uparrow$ & captions recall $\uparrow$ & captions prec. $\uparrow$ & asoc. fig↔caption $\uparrow$ & F1 texto captions $\uparrow$ & CER $\downarrow$ & ms/página $\downarrow$ & license \\
 \midrule
-indra (math) & 20 & \textbf{0.231} & \underline{0.000} & \textbf{0.996} & \textbf{1547} & OpenRAIL-M-Mod \\
-pp\_structurev3 (default) & 20 & \underline{0.211} & \textbf{0.849} & \underline{3.743} & \underline{10033} & Apache-2.0 \\
+docling-default (pipeline) & 20 & \textbf{0.354} & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & \textbf{0.518} & \underline{29302} & MIT \\
+pp\_structurev3 (default) & 20 & \underline{0.270} & 0.700 & 0.677 & 0.674 & 0.351 & 0.702 & 0.652 & 0.649 & 0.750 & 0.661 & 0.500 & 0.500 & 1.000 & 1.000 & 0.000 & 0.500 & \underline{2.190} & \textbf{9769} & Apache-2.0 \\
 \bottomrule
 \end{tabular}
-\par\smallskip{\footnotesize Note: \texttt{N/A} = not evaluated, never \texttt{0.0}. Values and n match \texttt{REPORT.md}; licenses informational per \texttt{../QUALITY\_VS\_TIME.md}.}
+\par\smallskip{\footnotesize Note: N/A = not evaluated (no ground truth for that column, or the engine does not emit that structure, e.g. docling emits Markdown only); 0.000 = evaluated and the engine got it wrong, never an unmeasured 0.0. Values and n match REPORT.md (run 2026-11-08\_17-40-47, device cpu, n <= 20).}
 \end{document}

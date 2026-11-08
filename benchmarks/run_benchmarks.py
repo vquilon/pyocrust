@@ -262,45 +262,20 @@ def block_f1(gt: Sequence[str], pred: Sequence[str]) -> float:
 
 
 def load_funsd(split: str = "train", limit: int | None = None) -> list[Sample]:
-    """Carga FUNSD desde Hugging Face, cacheado en `benchmarks/data_cache`."""
-    try:
-        from datasets import load_dataset
-    except ImportError as exc:  # pragma: no cover - entorno sin `datasets`
-        raise ProviderUnavailable(
-            "pip install datasets (y pyarrow) para descargar FUNSD"
-        ) from exc
+    """Carga FUNSD desde Hugging Face, cacheado en `benchmarks/data_cache`.
 
-    cache = HERE / "data_cache"
-    cache.mkdir(parents=True, exist_ok=True)
-    marker = cache / f"funsd_{split}.ok"
+    Sin red (o sin el cache), el loader canonico de `common.datasets` cae a la
+    fixture versionada `fixtures/funsd_mini/` y declara el provenance
+    (`common.datasets.fixture_provenance()`). Este driver heredado se limita a
+    adaptar su `Sample` (que ademas trae `gt_boxes`) al `Sample` local: el orden
+    de lectura del GT lo calcula el loader compartido, uno solo para los dos.
+    """
+    from common.datasets import load_funsd as _load_funsd
 
-    ds = load_dataset("nielsr/funsd", split=split, cache_dir=str(cache))
-    if limit is not None:
-        ds = ds.select(range(min(limit, len(ds))))
-
-    samples: list[Sample] = []
-    for row in ds:
-        words = [str(w) for w in row["words"]]
-        bboxes = row["bboxes"]
-        # Orden de lectura por caja (fila, luego columna): el OCR lineal y el
-        # ground truth deben recorrer la pagina en el mismo sentido.
-        ordered = sorted(
-            zip(words, bboxes),
-            key=lambda wb: (
-                (wb[1][1] + wb[1][3]) / 2.0,  # centro Y
-                (wb[1][0] + wb[1][2]) / 2.0,  # centro X
-            ),
-        )
-        gt_text = " ".join(w for w, _ in ordered)
-        samples.append(
-            Sample(
-                image_id=str(row["id"]),
-                image=row["image"].convert("RGB"),
-                gt_text=gt_text,
-            )
-        )
-    marker.write_text(f"{len(samples)} samples\n", encoding="utf-8")
-    return samples
+    return [
+        Sample(s.image_id, s.image, s.gt_text)
+        for s in _load_funsd(split=split, limit=limit)
+    ]
 
 
 # ---------------------------------------------------------------------------

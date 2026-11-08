@@ -147,6 +147,37 @@ def block_f1(gt: Sequence[str], pred: Sequence[str]) -> float:
     return 2 * sum((a & b).values()) / (sum(a.values()) + sum(b.values())) if a or b else 1.0
 
 
+def kendall_tau(a: Sequence[float], b: Sequence[float]) -> float:
+    """Tau-b de Kendall entre dos secuencias de la **misma longitud**.
+
+    Mide cuánto coinciden dos órdenes (aquí: el orden de lectura que emite el
+    motor y el `order` anotado). `+1` = mismo orden, `-1` = invertido, `0` =
+    sin relación. A diferencia de `markdown_f1` (LCS de tokens), **sí** castiga
+    dos bloques idénticos pero intercambiados: el LCS no cambia, la tau baja.
+
+    Implementación directa `O(n²)` — `ponytail:` las páginas anotadas tienen
+    decenas de bloques, no miles; si algún día se ordenan páginas enormes,
+    sustituir por el algoritmo de fusión `O(n log n)`.
+    """
+    if len(a) != len(b):
+        raise ValueError("kendall_tau requires equal-length sequences")
+    n = len(a)
+    if n < 2:
+        return 1.0
+    concordant = discordant = 0
+    for i in range(n):
+        for j in range(i + 1, n):
+            da, db = a[i] - a[j], b[i] - b[j]
+            if da == 0 or db == 0:      # empate (tau-b lo ignora)
+                continue
+            if (da > 0) == (db > 0):
+                concordant += 1
+            else:
+                discordant += 1
+    total = concordant + discordant
+    return (concordant - discordant) / total if total else 1.0
+
+
 # ---------------------------------------------------------------------------
 # Cajas (detección): el banco de `text` mide también la geometría.
 # ---------------------------------------------------------------------------
@@ -190,6 +221,36 @@ def box_metrics(
         bests.append(best)
         matched += best >= thr
     return matched / len(gt_list), sum(bests) / len(bests)
+
+
+def match_boxes(
+    gt_boxes: Sequence[Sequence[float]],
+    pred_boxes: Sequence[Sequence[float]],
+    thr: float = 0.5,
+) -> list[tuple[int, int]]:
+    """Emparejamiento voraz 1-a-1 `(gt_idx, pred_idx)` por IoU >= `thr`.
+
+    Cada caja GT se lleva la predicción libre de mayor IoU; una predicción ya
+    emparejada no se reutiliza (evita que dos GT compartan la misma caja). Es el
+    mismo criterio 1-a-1 de `detection_map`. Devuelve la lista de pares, sin
+    orden garantizado.
+    """
+    gt_list = [tuple(map(float, b)) for b in gt_boxes]
+    pred_list = [tuple(map(float, b)) for b in pred_boxes]
+    taken = [False] * len(pred_list)
+    pairs: list[tuple[int, int]] = []
+    for gi, gt_box in enumerate(gt_list):
+        best_i, best_iou = -1, 0.0
+        for pi, pred_box in enumerate(pred_list):
+            if taken[pi]:
+                continue
+            value = iou(gt_box, pred_box)
+            if value > best_iou:
+                best_i, best_iou = pi, value
+        if best_i >= 0 and best_iou >= thr:
+            taken[best_i] = True
+            pairs.append((gi, best_i))
+    return pairs
 
 
 # ---------------------------------------------------------------------------
@@ -339,8 +400,8 @@ from latex_metrics import (  # noqa: E402  (import al final: único origen de la
 
 __all__ = [
     "normalize", "levenshtein", "cer", "wer", "word_f1", "cer_ord", "wer_ord",
-    "markdown_f1", "block_f1", "iou", "box_metrics",
-    "detection_map", "html_tags", "table_teds", "image_ssim",
+    "markdown_f1", "block_f1", "iou", "box_metrics", "match_boxes",
+    "detection_map", "html_tags", "table_teds", "image_ssim", "kendall_tau",
     "normalize_latex", "latex_exact", "latex_similarity", "latex_token_f1",
 ]
 
@@ -360,6 +421,15 @@ def _self_check() -> None:
     assert iou((0, 0, 2, 2), (5, 5, 6, 6)) == 0.0
     recall, mean_best = box_metrics([(0, 0, 2, 2), (10, 10, 12, 12)], [(0, 0, 2, 2)])
     assert recall == 0.5 and mean_best == 0.5
+    # emparejamiento 1-a-1 por IoU (lo usa el scorer de full_page)
+    assert match_boxes([(0, 0, 2, 2), (10, 10, 12, 12)], [(0, 0, 2, 2)]) == [(0, 0)]
+    assert match_boxes([(0, 0, 2, 2)], [(5, 5, 6, 6)]) == []
+    # orden de lectura: permutación vs identidad (tau=1), invertida (tau=-1)
+    assert kendall_tau([0, 1, 2], [0, 1, 2]) == 1.0
+    assert kendall_tau([0, 1, 2], [2, 1, 0]) == -1.0
+    # dos bloques intercambiados bajan la tau, aunque el multiconjunto sea igual
+    assert kendall_tau([0, 1, 2, 3], [0, 2, 1, 3]) < 1.0
+    assert kendall_tau([7], [9]) == 1.0
     # latex (reexportado)
     assert latex_exact(r"\dfrac{1}{2}", r"\frac{1}{2}") == 1.0
     assert latex_token_f1("abc", "cab") == 1.0

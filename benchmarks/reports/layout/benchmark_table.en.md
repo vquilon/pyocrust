@@ -45,14 +45,15 @@ de documentos frente al sesgo previo hacia páginas ricas en table/formula).
 | omoured/v11-n | 40 | 0.381 | 0.436 | 144 | AGPL-3.0 |
 | omoured/v11-s | 40 | 0.389 | 0.446 | 194 | AGPL-3.0 |
 | omoured/v11-x | 40 | 0.287 | 0.323 | 984 | AGPL-3.0 |
-| pp-doclayoutv3 (130M) | 40 | 0.669 | 0.706 | 528 | Apache-2.0 |
+| pp-doclayoutv3 (130M) | 60 | 0.689 | 0.725 | 1635 | Apache-2.0 |
+| pp_structurev3 (default) | 20 | 0.677 | 0.700 | 10843 | Apache-2.0 |
 | deformable-detr-DocLayNet (default) — skipped | N/A | N/A | N/A | N/A | N/A |
 
-> Métricas **estratificadas** por `data_source × layout` de la run `2026-11-08_10-54-58` (device `cpu`, n total ≤ 40, 39 estratos). `N/A` = no measured (`skipped`), never `0.0`. Licencias informational.
+> Métricas **estratificadas** por `data_source × layout` de la run `2026-11-08_16-40-00` (device `cpu`, n total ≤ 40, 39 estratos). `N/A` = no measured (`skipped`), never `0.0`. Licencias informational.
 
 ## Per stratum (`data_source × layout`)
 
-> mAP/recall@IoU 0.5 **per engine and stratum** of the page (stratified sample, `page_info.page_attribute`). Engines measured: 41 · strata covered: 39. `—` = this engine has no measurement in that stratum.
+> mAP/recall@IoU 0.5 **per engine and stratum** of the page (stratified sample, `page_info.page_attribute`). Engines measured: 42 · strata covered: 39. `—` = this engine has no measurement in that stratum.
 
 > **Strata (pages in the sample)**: `PPT2PDF×1andmore_column` (2), `PPT2PDF×double_column` (1), `PPT2PDF×other_layout` (1), `PPT2PDF×single_column` (1), `academic_literature×1andmore_column` (1), `academic_literature×double_column` (1), `academic_literature×other_layout` (1), `academic_literature×single_column` (1), `academic_literature×three_column` (1), `book×1andmore_column` (1), `book×double_column` (1), `book×other_layout` (1), `book×single_column` (1), `book×three_column` (1), `colorful_textbook×1andmore_column` (1), `colorful_textbook×double_column` (1), `colorful_textbook×other_layout` (1), `colorful_textbook×single_column` (1), `colorful_textbook×three_column` (1), `exam_paper×1andmore_column` (1), `exam_paper×double_column` (1), `exam_paper×other_layout` (1), `exam_paper×single_column` (1), `exam_paper×three_column` (1), `historical_document×other_layout` (1), `historical_document×single_column` (1), `magazine×1andmore_column` (1), `magazine×double_column` (1), `magazine×other_layout` (1), `magazine×single_column` (1), `magazine×three_column` (1), `newspaper×other_layout` (1), `newspaper×three_column` (1), `note×other_layout` (1), `note×single_column` (1), `research_report×1andmore_column` (1), `research_report×double_column` (1), `research_report×other_layout` (1), `research_report×single_column` (1).
 
@@ -100,7 +101,8 @@ de documentos frente al sesgo previo hacia páginas ricas en table/formula).
 | omoured/v11-n | 0.252 | 0.100 | 0.111 | 0.017 | 0.713 | 0.734 | 0.551 | 0.667 | 0.587 | 0.750 | 0.528 | 0.000 | 0.733 | 0.667 | 0.500 | 0.377 | 0.108 | 0.125 | 0.267 | 0.191 | 0.203 | 0.384 | 0.238 | 0.253 | 0.026 | 0.071 | 1.000 | 0.281 | 0.076 | 0.375 | 0.667 | 0.517 | 0.648 | 0.378 | 0.000 | 0.324 | 0.546 | 0.700 | 0.333 |
 | omoured/v11-s | 0.233 | 0.000 | 0.018 | 0.000 | 0.356 | 0.700 | 0.750 | 0.667 | 0.681 | 0.625 | 0.716 | 0.150 | 0.489 | 0.622 | 0.519 | 0.201 | 0.354 | 0.292 | 0.320 | 0.143 | 0.326 | 0.389 | 0.048 | 0.248 | 0.013 | 0.528 | 1.000 | 0.312 | 0.125 | 0.375 | 0.667 | 0.494 | 0.831 | 0.433 | 0.000 | 0.488 | 0.481 | 0.400 | 0.333 |
 | omoured/v11-x | 0.117 | 0.000 | 0.111 | 0.000 | 0.334 | 0.680 | 0.250 | 0.250 | 0.753 | 0.375 | 0.472 | 0.000 | 0.238 | 0.433 | 0.500 | 0.125 | 0.196 | 0.250 | 0.212 | 0.110 | 0.225 | 0.401 | 0.000 | 0.028 | 0.000 | 0.000 | 0.833 | 0.312 | 0.062 | 0.417 | 1.000 | 0.490 | 0.848 | 0.178 | 0.000 | 0.374 | 0.464 | 0.200 | 0.111 |
-| pp-doclayoutv3 (130M) | 0.775 | 0.495 | 0.667 | 0.557 | 0.850 | 0.792 | 1.000 | 1.000 | 0.964 | 0.700 | 0.812 | 0.445 | 0.887 | 1.000 | 0.892 | 0.700 | 0.459 | 0.591 | 0.295 | 0.710 | 0.488 | 0.725 | 0.114 | 0.343 | 0.015 | 0.667 | 0.750 | 0.500 | 0.111 | 0.562 | 0.917 | 0.757 | 0.768 | 0.750 | 0.556 | 0.781 | 0.769 | 0.917 | 0.896 |
+| pp-doclayoutv3 (130M) | 0.783 | 0.495 | 0.667 | 0.557 | 0.850 | 0.792 | 1.000 | 1.000 | 0.964 | 0.700 | 0.812 | 0.445 | 0.887 | 1.000 | 0.892 | 0.700 | 0.459 | 0.591 | 0.295 | 0.710 | 0.488 | 0.725 | 0.114 | 0.343 | 0.015 | 0.667 | 0.750 | 0.500 | 0.111 | 0.562 | 0.917 | 0.757 | 0.768 | 0.750 | 0.556 | 0.781 | 0.769 | 0.917 | 0.896 |
+| pp_structurev3 (default) | 0.783 | 0.000 | 0.667 | 0.539 | 0.855 | 0.749 | 1.000 | 0.958 | 0.784 | 0.700 | 0.812 | 0.424 | 0.846 | 1.000 | 0.846 | 0.700 | 0.422 | 0.568 | 0.306 | 0.578 | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — |
 
 ### recall@IoU 0.5 per stratum
 
@@ -146,5 +148,6 @@ de documentos frente al sesgo previo hacia páginas ricas en table/formula).
 | omoured/v11-n | 0.350 | 0.100 | 0.111 | 0.100 | 0.797 | 0.803 | 0.600 | 0.667 | 0.700 | 0.750 | 0.750 | 0.000 | 0.733 | 0.667 | 0.500 | 0.458 | 0.118 | 0.125 | 0.267 | 0.367 | 0.229 | 0.462 | 0.238 | 0.311 | 0.026 | 0.500 | 1.000 | 0.312 | 0.142 | 0.417 | 0.667 | 0.553 | 0.769 | 0.433 | 0.000 | 0.333 | 0.586 | 0.800 | 0.333 |
 | omoured/v11-s | 0.250 | 0.000 | 0.056 | 0.000 | 0.450 | 0.744 | 0.800 | 0.667 | 0.800 | 0.625 | 0.750 | 0.150 | 0.667 | 0.667 | 0.538 | 0.500 | 0.480 | 0.292 | 0.467 | 0.267 | 0.380 | 0.492 | 0.048 | 0.378 | 0.026 | 0.833 | 1.000 | 0.312 | 0.125 | 0.417 | 0.667 | 0.527 | 0.875 | 0.433 | 0.000 | 0.500 | 0.517 | 0.400 | 0.500 |
 | omoured/v11-x | 0.150 | 0.000 | 0.111 | 0.000 | 0.408 | 0.705 | 0.300 | 0.250 | 0.890 | 0.375 | 0.472 | 0.000 | 0.238 | 0.722 | 0.500 | 0.125 | 0.196 | 0.250 | 0.300 | 0.183 | 0.241 | 0.431 | 0.000 | 0.122 | 0.000 | 0.000 | 0.833 | 0.312 | 0.125 | 0.417 | 1.000 | 0.514 | 0.912 | 0.233 | 0.000 | 0.417 | 0.502 | 0.200 | 0.333 |
-| pp-doclayoutv3 (130M) | 0.817 | 0.500 | 0.667 | 0.683 | 0.895 | 0.867 | 1.000 | 1.000 | 0.992 | 0.700 | 0.812 | 0.500 | 0.900 | 1.000 | 0.897 | 0.700 | 0.490 | 0.667 | 0.454 | 0.757 | 0.516 | 0.795 | 0.333 | 0.343 | 0.026 | 0.667 | 0.750 | 0.500 | 0.237 | 0.562 | 0.917 | 0.765 | 0.783 | 0.750 | 0.625 | 0.786 | 0.771 | 1.000 | 1.000 |
+| pp-doclayoutv3 (130M) | 0.811 | 0.500 | 0.667 | 0.683 | 0.895 | 0.867 | 1.000 | 1.000 | 0.992 | 0.700 | 0.812 | 0.500 | 0.900 | 1.000 | 0.897 | 0.700 | 0.490 | 0.667 | 0.454 | 0.757 | 0.516 | 0.795 | 0.333 | 0.343 | 0.026 | 0.667 | 0.750 | 0.500 | 0.237 | 0.562 | 0.917 | 0.765 | 0.783 | 0.750 | 0.625 | 0.786 | 0.771 | 1.000 | 1.000 |
+| pp_structurev3 (default) | 0.800 | 0.000 | 0.667 | 0.617 | 0.895 | 0.749 | 1.000 | 1.000 | 0.817 | 0.700 | 0.812 | 0.467 | 0.900 | 1.000 | 0.846 | 0.700 | 0.471 | 0.611 | 0.324 | 0.629 | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — | — |
 

@@ -1,6 +1,6 @@
 # Cobertura de `pyocrust` — «todo en uno», autogestionado
 
-> **Un solo paquete** cubre **9 features** en **12 capacidades** y **descarga y cachea sus propios modelos** (`ensure_models`), sin servicios externos ni pesos versionados a mano. Lo `medido` se separa siempre de lo `referencia` y lo `esqueleto`.
+> **Un solo paquete** cubre **9 features** en **12 capacidades** y **descarga y cachea sus propios modelos** (`ensure_models`), sin servicios externos ni pesos versionados a mano. Lo `medido` se separa siempre de lo `esqueleto`.
 
 ![Cobertura feature × capacidad](../figures/FEATURES_OVERVIEW.png)
 
@@ -49,5 +49,4 @@
 
 - **`medido`** (9): `text`, `layout`, `orientation`, `rectification`, `text_line`, `seal`, `formula`, `table`, `full_page`.
 - **`esqueleto`** (0):  — banco y README documentados, sin cifras.
-- **`referencia`**:  citan tablas externas **con URL** en su `REPORT.md` (no comparables 1:1).
 

@@ -4,63 +4,77 @@
 
 ## Provenance
 
-- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe features/layout/bank.py --limit 40 --device cpu --output-dir results`
+- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/layout/bank.py --limit 40 --device cpu --output-dir benchmarks/results`
 - **dataset**: `omnidocbench_layout` · **n** (por motor): `40` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
+- **revision HF (fijada)**: `aa1ee96d106dbe53d0ae59474d75c6e6d9b53fec` — misma revision en cualquier maquina; los bytes se verifican contra `benchmarks/datasets_manifest.json`
 - **seed**: no aplica (banco determinista, sin aleatoriedad)
-- **run**: `benchmarks/results/layout/2026-11-08_10-54-58` · **fecha**: `2026-11-08_10-54-58`
-- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['directml']}
+- **run**: `benchmarks/results/layout/2026-11-08_16-16-05` · **fecha**: `2026-11-08_16-16-05`
+- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': []}
 
 ## Comparativa (media por motor)
 
 | Motor (variante) | n | mAP@IoU 0.5 ↑ | recall@IoU 0.5 ↑ | ms/imagen ↓ |
 | :--- | ---: | ---: | ---: | ---: |
-| armaggheddon/y11-m | 40 | 0.472 | 0.531 | 380 |
-| armaggheddon/y11-n | 40 | 0.461 | 0.522 | 89 |
-| armaggheddon/y11-s | 40 | 0.459 | 0.517 | 162 |
+| armaggheddon/y11-m | 40 | 0.472 | 0.531 | 442 |
+| armaggheddon/y11-n | 40 | 0.461 | 0.522 | 96 |
+| armaggheddon/y11-s | 40 | 0.459 | 0.517 | 176 |
 | armaggheddon/y26-m (21.8M) | 40 | 0.494 | 0.540 | 401 |
-| armaggheddon/y26-n (2.6M) | 40 | 0.521 | 0.588 | 93 |
-| armaggheddon/y26-s | 40 | 0.418 | 0.463 | 169 |
-| docling-layout-heron-101 (default) | 40 | **0.747** | **0.939** | 985 |
-| hantian/v10-b | 40 | 0.446 | 0.495 | 520 |
-| hantian/v10-l | 40 | 0.466 | 0.523 | 598 |
-| hantian/v10-m | 40 | 0.497 | 0.548 | 342 |
-| hantian/v10-n | 40 | 0.443 | 0.494 | **88** |
-| hantian/v10-s | 40 | 0.455 | 0.511 | 175 |
-| hantian/v11-l | 40 | 0.468 | 0.535 | 509 |
-| hantian/v11-m (21.8M) | 40 | 0.442 | 0.499 | 410 |
-| hantian/v11-n (2.6M) | 40 | 0.457 | 0.520 | 98 |
-| hantian/v11-s | 40 | 0.438 | 0.505 | 180 |
-| hantian/v12-l | 40 | 0.483 | 0.529 | 685 |
-| hantian/v12-m | 40 | 0.459 | 0.522 | 541 |
-| hantian/v12-n | 40 | 0.489 | 0.526 | 137 |
-| hantian/v12-s | 40 | 0.473 | 0.542 | 239 |
-| hantian/v8-l | 40 | 0.449 | 0.517 | 864 |
-| hantian/v8-m | 40 | 0.461 | 0.537 | 442 |
-| hantian/v8-n | 40 | 0.473 | 0.540 | 138 |
-| hantian/v8-s | 40 | 0.451 | 0.522 | 213 |
-| hantian/v8-x | 40 | 0.426 | 0.518 | 1289 |
-| hantian/y26-l | 40 | 0.443 | 0.496 | 693 |
-| hantian/y26-m | 40 | 0.449 | 0.508 | 431 |
-| hantian/y26-n | 40 | 0.440 | 0.492 | 99 |
-| hantian/y26-s | 40 | 0.431 | 0.492 | 183 |
-| omoured/v10-b (20.5M) | 40 | 0.353 | 0.404 | 561 |
-| omoured/v10-l | 40 | 0.322 | 0.391 | 783 |
-| omoured/v10-m | 40 | 0.359 | 0.423 | 377 |
-| omoured/v10-n | 40 | 0.410 | 0.456 | 95 |
-| omoured/v10-s | 40 | 0.381 | 0.423 | 178 |
-| omoured/v10-x (31.7M) | 40 | 0.421 | 0.500 | 896 |
-| omoured/v11-l | 40 | 0.292 | 0.335 | 533 |
-| omoured/v11-m | 40 | 0.318 | 0.383 | 492 |
-| omoured/v11-n | 40 | 0.381 | 0.436 | 144 |
-| omoured/v11-s | 40 | 0.389 | 0.446 | 194 |
-| omoured/v11-x | 40 | 0.287 | 0.323 | 984 |
-| pp-doclayoutv3 (130M) | 40 | 0.669 | 0.706 | 528 |
+| armaggheddon/y26-n (2.6M) | 40 | 0.521 | 0.588 | **94** |
+| armaggheddon/y26-s | 40 | 0.418 | 0.463 | 191 |
+| docling-layout-heron-101 (default) | 40 | **0.747** | **0.939** | 1794 |
+| hantian/v10-b | 40 | 0.446 | 0.495 | 548 |
+| hantian/v10-l | 40 | 0.466 | 0.523 | 789 |
+| hantian/v10-m | 40 | 0.497 | 0.548 | 404 |
+| hantian/v10-n | 40 | 0.443 | 0.494 | 102 |
+| hantian/v10-s | 40 | 0.455 | 0.511 | 181 |
+| hantian/v11-l | 40 | 0.468 | 0.535 | 499 |
+| hantian/v11-m (21.8M) | 40 | 0.442 | 0.499 | 421 |
+| hantian/v11-n (2.6M) | 40 | 0.457 | 0.520 | 104 |
+| hantian/v11-s | 40 | 0.438 | 0.505 | 183 |
+| hantian/v12-l | 40 | 0.483 | 0.529 | 683 |
+| hantian/v12-m | 40 | 0.459 | 0.522 | 465 |
+| hantian/v12-n | 40 | 0.489 | 0.526 | 114 |
+| hantian/v12-s | 40 | 0.473 | 0.542 | 219 |
+| hantian/v8-l | 40 | 0.449 | 0.517 | 808 |
+| hantian/v8-m | 40 | 0.461 | 0.537 | 437 |
+| hantian/v8-n | 40 | 0.473 | 0.540 | 114 |
+| hantian/v8-s | 40 | 0.451 | 0.522 | 224 |
+| hantian/v8-x | 40 | 0.426 | 0.518 | 1295 |
+| hantian/y26-l | 40 | 0.443 | 0.496 | 587 |
+| hantian/y26-m | 40 | 0.449 | 0.508 | 470 |
+| hantian/y26-n | 40 | 0.440 | 0.492 | 174 |
+| hantian/y26-s | 40 | 0.431 | 0.492 | 282 |
+| omoured/v10-b (20.5M) | 40 | 0.353 | 0.404 | 632 |
+| omoured/v10-l | 40 | 0.322 | 0.391 | 736 |
+| omoured/v10-m | 40 | 0.359 | 0.423 | 389 |
+| omoured/v10-n | 40 | 0.410 | 0.456 | 108 |
+| omoured/v10-s | 40 | 0.381 | 0.423 | 188 |
+| omoured/v10-x (31.7M) | 40 | 0.421 | 0.500 | 832 |
+| omoured/v11-l | 40 | 0.292 | 0.335 | 513 |
+| omoured/v11-m | 40 | 0.318 | 0.383 | 412 |
+| omoured/v11-n | 40 | 0.381 | 0.436 | 99 |
+| omoured/v11-s | 40 | 0.389 | 0.446 | 188 |
+| omoured/v11-x | 40 | 0.287 | 0.323 | 1021 |
+| pp-doclayoutv3 (130M) | 40 | 0.669 | 0.706 | 3988 |
+| pp_structurev3 (default) | 40 | 0.638 | 0.662 | 9890 |
 
-> En negrita, el mejor de cada métrica entre los motores **medidos** de `layout`. `N/A` = no evaluada (sin GT de esa columna), nunca un `0.0` inventado.
+> En negrita, el mejor de cada métrica entre los motores **medidos** de `layout`. `N/A` = no evaluada (sin GT de esa columna **o** el motor no emite esa estructura), nunca un `0.0` inventado.
 
 ## Saltados (`skipped`) — no cuentan como ejecutados
 
 - `deformable_detr` — pesos de Aryn/deformable-detr-DocLayNet no estan en la cache HF local (OSError: Can't load image processor for 'Aryn/deformable-detr-DocLayNet'. If you were trying to load it from 'https://huggingface.co/models', make sure you don't have a local directory with the same name. Otherwise, make sure 'Aryn/deformable-detr-DocLayNet' is the correct path to a directory containing a preprocessor_config.json file)
+
+## Procedencia de las alternativas
+
+- `armaggheddon/y26-m (21.8M)` — modelo **independiente** (otro proyecto/checkpoint)
+- `armaggheddon/y26-n (2.6M)` — modelo **independiente** (otro proyecto/checkpoint)
+- `docling-layout-heron-101 (default)` — modelo **independiente** (otro proyecto/checkpoint)
+- `hantian/v11-m (21.8M)` — modelo **independiente** (otro proyecto/checkpoint)
+- `hantian/v11-n (2.6M)` — modelo **independiente** (otro proyecto/checkpoint)
+- `omoured/v10-b (20.5M)` — modelo **independiente** (otro proyecto/checkpoint)
+- `omoured/v10-x (31.7M)` — modelo **independiente** (otro proyecto/checkpoint)
+
+> El motor de referencia (`pyocrust`) no se lista: es el que define el resultado base. Una alternativa con **mismo peso, distinta vía** mide el mismo modelo con otro runtime; **no** aporta un competidor independiente y así queda declarado.
 
 ## Nota de honestidad
 
@@ -74,53 +88,54 @@
 
 | Motor (variante) | mAP@IoU 0.5 ↑ (CPU) | mAP@IoU 0.5 ↑ (GPU) | ms CPU | ms GPU | provider GPU |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| armaggheddon/y11-m | 0.472 | 0.472 | 380 | 64 | cuda |
-| armaggheddon/y11-n | 0.461 | 0.461 | 89 | 57 | cuda |
-| armaggheddon/y11-s | 0.459 | 0.459 | 162 | 60 | cuda |
+| armaggheddon/y11-m | 0.472 | 0.472 | 442 | 64 | cuda |
+| armaggheddon/y11-n | 0.461 | 0.461 | 96 | 57 | cuda |
+| armaggheddon/y11-s | 0.459 | 0.459 | 176 | 60 | cuda |
 | armaggheddon/y26-m (21.8M) | 0.494 | 0.494 | 401 | 65 | cuda |
-| armaggheddon/y26-n (2.6M) | 0.521 | 0.521 | 93 | 64 | cuda |
-| armaggheddon/y26-s | 0.418 | 0.418 | 169 | 62 | cuda |
-| docling-layout-heron-101 (default) | 0.747 | N/A | 985 | N/A | n/a (no corre en GPU) |
-| hantian/v10-b | 0.446 | 0.446 | 520 | 66 | cuda |
-| hantian/v10-l | 0.466 | 0.466 | 598 | 73 | cuda |
-| hantian/v10-m | 0.497 | 0.495 | 342 | 68 | cuda |
-| hantian/v10-n | 0.443 | 0.443 | 88 | 60 | cuda |
-| hantian/v10-s | 0.455 | 0.455 | 175 | 63 | cuda |
-| hantian/v11-l | 0.468 | 0.468 | 509 | 71 | cuda |
-| hantian/v11-m (21.8M) | 0.442 | 0.442 | 410 | 69 | cuda |
-| hantian/v11-n (2.6M) | 0.457 | 0.457 | 98 | 63 | cuda |
-| hantian/v11-s | 0.438 | 0.438 | 180 | 63 | cuda |
-| hantian/v12-l | 0.483 | 0.483 | 685 | 82 | cuda |
-| hantian/v12-m | 0.459 | 0.459 | 541 | 73 | cuda |
-| hantian/v12-n | 0.489 | 0.489 | 137 | 67 | cuda |
-| hantian/v12-s | 0.473 | 0.473 | 239 | 66 | cuda |
-| hantian/v8-l | 0.449 | 0.449 | 864 | 71 | cuda |
-| hantian/v8-m | 0.461 | 0.461 | 442 | 60 | cuda |
-| hantian/v8-n | 0.473 | 0.473 | 138 | 55 | cuda |
-| hantian/v8-s | 0.451 | 0.451 | 213 | 61 | cuda |
-| hantian/v8-x | 0.426 | 0.426 | 1289 | 81 | cuda |
-| hantian/y26-l | 0.443 | 0.443 | 693 | 76 | cuda |
-| hantian/y26-m | 0.449 | 0.449 | 431 | 69 | cuda |
-| hantian/y26-n | 0.440 | 0.440 | 99 | 65 | cuda |
-| hantian/y26-s | 0.431 | 0.431 | 183 | 69 | cuda |
-| omoured/v10-b (20.5M) | 0.353 | 0.353 | 561 | 74 | cuda |
-| omoured/v10-l | 0.322 | 0.322 | 783 | 79 | cuda |
-| omoured/v10-m | 0.359 | 0.359 | 377 | 66 | cuda |
-| omoured/v10-n | 0.410 | 0.410 | 95 | 58 | cuda |
-| omoured/v10-s | 0.381 | 0.381 | 178 | 59 | cuda |
-| omoured/v10-x (31.7M) | 0.421 | 0.421 | 896 | 72 | cuda |
-| omoured/v11-l | 0.292 | 0.292 | 533 | 72 | cuda |
-| omoured/v11-m | 0.318 | 0.318 | 492 | 59 | cuda |
-| omoured/v11-n | 0.381 | 0.381 | 144 | 55 | cuda |
-| omoured/v11-s | 0.389 | 0.389 | 194 | 56 | cuda |
-| omoured/v11-x | 0.287 | 0.287 | 984 | 70 | cuda |
-| pp-doclayoutv3 (130M) | 0.669 | N/A | 528 | N/A | n/a (no corre en GPU) |
+| armaggheddon/y26-n (2.6M) | 0.521 | 0.521 | 94 | 64 | cuda |
+| armaggheddon/y26-s | 0.418 | 0.418 | 191 | 62 | cuda |
+| docling-layout-heron-101 (default) | 0.747 | N/A | 1794 | N/A | n/a (no corre en GPU) |
+| hantian/v10-b | 0.446 | 0.446 | 548 | 66 | cuda |
+| hantian/v10-l | 0.466 | 0.466 | 789 | 73 | cuda |
+| hantian/v10-m | 0.497 | 0.495 | 404 | 68 | cuda |
+| hantian/v10-n | 0.443 | 0.443 | 102 | 60 | cuda |
+| hantian/v10-s | 0.455 | 0.455 | 181 | 63 | cuda |
+| hantian/v11-l | 0.468 | 0.468 | 499 | 71 | cuda |
+| hantian/v11-m (21.8M) | 0.442 | 0.442 | 421 | 69 | cuda |
+| hantian/v11-n (2.6M) | 0.457 | 0.457 | 104 | 63 | cuda |
+| hantian/v11-s | 0.438 | 0.438 | 183 | 63 | cuda |
+| hantian/v12-l | 0.483 | 0.483 | 683 | 82 | cuda |
+| hantian/v12-m | 0.459 | 0.459 | 465 | 73 | cuda |
+| hantian/v12-n | 0.489 | 0.489 | 114 | 67 | cuda |
+| hantian/v12-s | 0.473 | 0.473 | 219 | 66 | cuda |
+| hantian/v8-l | 0.449 | 0.449 | 808 | 71 | cuda |
+| hantian/v8-m | 0.461 | 0.461 | 437 | 60 | cuda |
+| hantian/v8-n | 0.473 | 0.473 | 114 | 55 | cuda |
+| hantian/v8-s | 0.451 | 0.451 | 224 | 61 | cuda |
+| hantian/v8-x | 0.426 | 0.426 | 1295 | 81 | cuda |
+| hantian/y26-l | 0.443 | 0.443 | 587 | 76 | cuda |
+| hantian/y26-m | 0.449 | 0.449 | 470 | 69 | cuda |
+| hantian/y26-n | 0.440 | 0.440 | 174 | 65 | cuda |
+| hantian/y26-s | 0.431 | 0.431 | 282 | 69 | cuda |
+| omoured/v10-b (20.5M) | 0.353 | 0.353 | 632 | 74 | cuda |
+| omoured/v10-l | 0.322 | 0.322 | 736 | 79 | cuda |
+| omoured/v10-m | 0.359 | 0.359 | 389 | 66 | cuda |
+| omoured/v10-n | 0.410 | 0.410 | 108 | 58 | cuda |
+| omoured/v10-s | 0.381 | 0.381 | 188 | 59 | cuda |
+| omoured/v10-x (31.7M) | 0.421 | 0.421 | 832 | 72 | cuda |
+| omoured/v11-l | 0.292 | 0.292 | 513 | 72 | cuda |
+| omoured/v11-m | 0.318 | 0.318 | 412 | 59 | cuda |
+| omoured/v11-n | 0.381 | 0.381 | 99 | 55 | cuda |
+| omoured/v11-s | 0.389 | 0.389 | 188 | 56 | cuda |
+| omoured/v11-x | 0.287 | 0.287 | 1021 | 70 | cuda |
+| pp-doclayoutv3 (130M) | 0.669 | N/A | 3988 | N/A | n/a (no corre en GPU) |
+| pp_structurev3 (default) | 0.638 | N/A | 9890 | N/A | n/a (no corre en GPU) |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.
 
 ## Por estrato (`data_source × layout`)
 
-> mAP/recall@IoU 0.5 **por motor y estrato** de la página (muestra estratificada, `page_info.page_attribute`). Motores medidos: 41 · estratos cubiertos: 39. `—` = ese motor no tiene medición en ese estrato.
+> mAP/recall@IoU 0.5 **por motor y estrato** de la página (muestra estratificada, `page_info.page_attribute`). Motores medidos: 42 · estratos cubiertos: 39. `—` = ese motor no tiene medición en ese estrato.
 
 > **Estratos (n de páginas en la muestra)**: `PPT2PDF×1andmore_column` (2), `PPT2PDF×double_column` (1), `PPT2PDF×other_layout` (1), `PPT2PDF×single_column` (1), `academic_literature×1andmore_column` (1), `academic_literature×double_column` (1), `academic_literature×other_layout` (1), `academic_literature×single_column` (1), `academic_literature×three_column` (1), `book×1andmore_column` (1), `book×double_column` (1), `book×other_layout` (1), `book×single_column` (1), `book×three_column` (1), `colorful_textbook×1andmore_column` (1), `colorful_textbook×double_column` (1), `colorful_textbook×other_layout` (1), `colorful_textbook×single_column` (1), `colorful_textbook×three_column` (1), `exam_paper×1andmore_column` (1), `exam_paper×double_column` (1), `exam_paper×other_layout` (1), `exam_paper×single_column` (1), `exam_paper×three_column` (1), `historical_document×other_layout` (1), `historical_document×single_column` (1), `magazine×1andmore_column` (1), `magazine×double_column` (1), `magazine×other_layout` (1), `magazine×single_column` (1), `magazine×three_column` (1), `newspaper×other_layout` (1), `newspaper×three_column` (1), `note×other_layout` (1), `note×single_column` (1), `research_report×1andmore_column` (1), `research_report×double_column` (1), `research_report×other_layout` (1), `research_report×single_column` (1).
 
@@ -169,6 +184,7 @@
 | omoured/v11-s | 0.233 | 0.000 | 0.018 | 0.000 | 0.356 | 0.700 | 0.750 | 0.667 | 0.681 | 0.625 | 0.716 | 0.150 | 0.489 | 0.622 | 0.519 | 0.201 | 0.354 | 0.292 | 0.320 | 0.143 | 0.326 | 0.389 | 0.048 | 0.248 | 0.013 | 0.528 | 1.000 | 0.312 | 0.125 | 0.375 | 0.667 | 0.494 | 0.831 | 0.433 | 0.000 | 0.488 | 0.481 | 0.400 | 0.333 |
 | omoured/v11-x | 0.117 | 0.000 | 0.111 | 0.000 | 0.334 | 0.680 | 0.250 | 0.250 | 0.753 | 0.375 | 0.472 | 0.000 | 0.238 | 0.433 | 0.500 | 0.125 | 0.196 | 0.250 | 0.212 | 0.110 | 0.225 | 0.401 | 0.000 | 0.028 | 0.000 | 0.000 | 0.833 | 0.312 | 0.062 | 0.417 | 1.000 | 0.490 | 0.848 | 0.178 | 0.000 | 0.374 | 0.464 | 0.200 | 0.111 |
 | pp-doclayoutv3 (130M) | 0.775 | 0.495 | 0.667 | 0.557 | 0.850 | 0.792 | 1.000 | 1.000 | 0.964 | 0.700 | 0.812 | 0.445 | 0.887 | 1.000 | 0.892 | 0.700 | 0.459 | 0.591 | 0.295 | 0.710 | 0.488 | 0.725 | 0.114 | 0.343 | 0.015 | 0.667 | 0.750 | 0.500 | 0.111 | 0.562 | 0.917 | 0.757 | 0.768 | 0.750 | 0.556 | 0.781 | 0.769 | 0.917 | 0.896 |
+| pp_structurev3 (default) | 0.767 | 0.000 | 0.667 | 0.539 | 0.855 | 0.749 | 1.000 | 0.958 | 0.784 | 0.700 | 0.812 | 0.424 | 0.846 | 1.000 | 0.846 | 0.700 | 0.422 | 0.568 | 0.306 | 0.578 | 0.546 | 0.689 | 0.016 | 0.327 | 0.309 | 1.000 | 0.500 | 0.500 | 0.062 | 0.562 | 1.000 | 0.757 | 0.707 | 0.694 | 0.625 | 0.638 | 0.769 | 0.917 | 0.625 |
 
 ### recall@IoU 0.5 por estrato
 
@@ -215,4 +231,5 @@
 | omoured/v11-s | 0.250 | 0.000 | 0.056 | 0.000 | 0.450 | 0.744 | 0.800 | 0.667 | 0.800 | 0.625 | 0.750 | 0.150 | 0.667 | 0.667 | 0.538 | 0.500 | 0.480 | 0.292 | 0.467 | 0.267 | 0.380 | 0.492 | 0.048 | 0.378 | 0.026 | 0.833 | 1.000 | 0.312 | 0.125 | 0.417 | 0.667 | 0.527 | 0.875 | 0.433 | 0.000 | 0.500 | 0.517 | 0.400 | 0.500 |
 | omoured/v11-x | 0.150 | 0.000 | 0.111 | 0.000 | 0.408 | 0.705 | 0.300 | 0.250 | 0.890 | 0.375 | 0.472 | 0.000 | 0.238 | 0.722 | 0.500 | 0.125 | 0.196 | 0.250 | 0.300 | 0.183 | 0.241 | 0.431 | 0.000 | 0.122 | 0.000 | 0.000 | 0.833 | 0.312 | 0.125 | 0.417 | 1.000 | 0.514 | 0.912 | 0.233 | 0.000 | 0.417 | 0.502 | 0.200 | 0.333 |
 | pp-doclayoutv3 (130M) | 0.817 | 0.500 | 0.667 | 0.683 | 0.895 | 0.867 | 1.000 | 1.000 | 0.992 | 0.700 | 0.812 | 0.500 | 0.900 | 1.000 | 0.897 | 0.700 | 0.490 | 0.667 | 0.454 | 0.757 | 0.516 | 0.795 | 0.333 | 0.343 | 0.026 | 0.667 | 0.750 | 0.500 | 0.237 | 0.562 | 0.917 | 0.765 | 0.783 | 0.750 | 0.625 | 0.786 | 0.771 | 1.000 | 1.000 |
+| pp_structurev3 (default) | 0.817 | 0.000 | 0.667 | 0.617 | 0.895 | 0.749 | 1.000 | 1.000 | 0.817 | 0.700 | 0.812 | 0.467 | 0.900 | 1.000 | 0.846 | 0.700 | 0.471 | 0.611 | 0.324 | 0.629 | 0.608 | 0.731 | 0.048 | 0.380 | 0.397 | 1.000 | 0.500 | 0.500 | 0.062 | 0.562 | 1.000 | 0.765 | 0.712 | 0.694 | 0.625 | 0.643 | 0.771 | 1.000 | 0.625 |
 

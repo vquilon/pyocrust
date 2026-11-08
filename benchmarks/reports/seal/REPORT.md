@@ -4,23 +4,31 @@
 
 ## Provenance
 
-- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/seal/bank.py --limit 20 --device cpu`
+- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/seal/bank.py --backends pyocrust_seal,onnx_seal_det,paddleocr,doctrl --limit 20`
 - **dataset**: `synthetic_seal` · **n** (por motor): `20` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **seed**: no aplica (banco determinista, sin aleatoriedad)
-- **run**: `benchmarks/results/seal/2026-11-06_23-08-24` · **fecha**: `2026-11-06_23-08-24`
+- **run**: `benchmarks/results/seal/2026-11-08_15-28-48` · **fecha**: `2026-11-08_15-28-48`
 - **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': []}
 
 ## Comparativa (media por motor)
 
 | Motor (variante) | n | recall@IoU 0.5 ↑ | IoU medio ↑ | ms/imagen ↓ |
 | :--- | ---: | ---: | ---: | ---: |
-| pp-ocrv4_mobile_seal_det (4.8M) | 20 | 0.750 | 0.686 | 641 |
+| pp-ocrv4_mobile_seal_det (4.8M) | 20 | 0.750 | **0.686** | 643 |
+| pp-ocrv4_mobile_seal_det (onnxruntime) | 20 | 0.750 | 0.607 | **217** |
 
-> En negrita, el mejor de cada métrica entre los motores **medidos** de `seal`. `N/A` = no evaluada (sin GT de esa columna), nunca un `0.0` inventado.
+> En negrita, el mejor de cada métrica entre los motores **medidos** de `seal`. `N/A` = no evaluada (sin GT de esa columna **o** el motor no emite esa estructura), nunca un `0.0` inventado.
 
 ## Saltados (`skipped`) — no cuentan como ejecutados
 
-- (ninguno)
+- `doctrl` — pip install doctrl
+- `paddleocr` — NotImplementedError: adaptador paddleocr pendiente de integrar
+
+## Procedencia de las alternativas
+
+- `pp-ocrv4_mobile_seal_det (onnxruntime)` — **mismo peso, distinta vía** (el MISMO `.onnx` de PaddleOCR por otro runtime — NO es un modelo distinto)
+
+> El motor de referencia (`pyocrust`) no se lista: es el que define el resultado base. Una alternativa con **mismo peso, distinta vía** mide el mismo modelo con otro runtime; **no** aporta un competidor independiente y así queda declarado.
 
 ## Nota de honestidad
 
@@ -34,7 +42,8 @@
 
 | Motor (variante) | recall@IoU 0.5 ↑ (CPU) | recall@IoU 0.5 ↑ (GPU) | ms CPU | ms GPU | provider GPU |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| pp-ocrv4_mobile_seal_det (4.8M) | 0.750 | 0.750 | 641 | 120 | directml |
+| pp-ocrv4_mobile_seal_det (4.8M) | 0.750 | 0.750 | 643 | 120 | directml |
+| pp-ocrv4_mobile_seal_det (onnxruntime) | 0.750 | N/A | 217 | N/A | n/a (no corre en GPU) |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.
 

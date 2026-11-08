@@ -5,8 +5,9 @@ Orientación de la página completa (0/90/180/270°) antes de OCR. Mide la
 **accuracy** de las 4 clases.
 
 Dataset por defecto: `synthetic_orientation` — **GT sintético determinista**. Se
-toman las páginas de OmniDocBench ya presentes en `benchmarks/data_cache` (sin
-descargar nada) y se rotan 0/90/180/270; el GT es la etiqueta de corrección que el
+toman las páginas de OmniDocBench si están en `benchmarks/data_cache` y, si no
+(checkout limpio o sin red), páginas sintéticas deterministas generadas con PIL;
+en ambos casos se rotan 0/90/180/270 y el GT es la etiqueta de corrección que el
 clasificador debe emitir para esa rotación, `(360 - a) mod 360`, comprobada sobre
 las cuatro clases en una página real antes de escribir el banco.
 
@@ -37,16 +38,22 @@ SPEC = FeatureSpec(
     summary="Orientación de la página completa (0/90/180/270°) antes de OCR.",
     pyocrust_task="document_orientation (TaskPredictor; PP-LCNet)",
     metric="accuracy de la rotación (4 clases)",
-    dataset="synthetic_orientation: páginas cacheadas rotadas 0/90/180/270; GT = etiqueta de corrección ((360-a) mod 360)",
+    dataset="synthetic_orientation: páginas de OmniDocBench (o sintéticas sin caché) rotadas 0/90/180/270; GT = etiqueta de corrección ((360-a) mod 360)",
     alternatives={
-        "paddleocr": ("paddleocr", "paddleocr paddlepaddle"),
-        "docling": ("docling", "docling"),
+        "paddleocr (mismo peso, otra via)": ("paddleocr", "paddleocr paddlepaddle"),
+        "easyocr_rotation (independiente)": ("easyocr", "easyocr"),
+        "docling": ("docling", "docling (sin modelo de orientacion dedicado)"),
         "surya": ("surya", "surya-ocr (requiere torch)"),
     },
     status="implemented",
     note="GT sintético determinista y reproducible: la rotación aplicada es conocida y su etiqueta esperada también.",
     provenance="valores MEDIDOS por este banco (accuracy sobre GT sintético determinista, sin descargar nada)",
 )
+
+# `easyocr_rotation` es un tercero INDEPENDIENTE (no pesos PaddleOCR): el
+# recognizer de EasyOCR elige la rotación de mayor confianza, no un PP-LCNet.
+# `lcnet_doc_ori` se mantiene pero es el MISMO peso del banco por otro runtime.
+DEFAULT_BACKENDS = "pyocrust_orientation,lcnet_doc_ori,easyocr_rotation"
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -58,7 +65,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     out_dir = feature_out_dir(args.output_dir, SPEC) / timestamp
     run_backends(
         samples,
-        [b.strip() for b in (args.backends or "pyocrust_orientation").split(",") if b.strip()],
+        [b.strip() for b in (args.backends or DEFAULT_BACKENDS).split(",") if b.strip()],
         dataset, out_dir, timestamp,
         warmup=args.warmup, repeats=args.repeats, device=args.device,
         feature=SPEC.feature, scorer=orientation_accuracy,

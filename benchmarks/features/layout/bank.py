@@ -35,10 +35,21 @@ if __package__ in (None, ""):
 from datetime import datetime
 
 from common import OcrOutput, Sample, load_dataset, run_backends
-from common.datasets import LAYOUT_MODEL_TO_GT, layout_gt_classes
+from common.datasets import LAYOUT_MODEL_TO_GT, STRUCTURE_KIND_TO_GT, layout_gt_classes
 from common.metrics import detection_map
 from common.runner import YOLO_LAYOUT_MODELS
 from features._base import FeatureSpec, common_argparser, feature_out_dir
+
+# Vocabulario -> categoría OmniDocBench para puntuar las cajas de **cualquier**
+# motor de este banco. Union de los dos vocabularios reales:
+#   * `pp_doclayoutv3` (detector especializado, `pyocrust_layout`): dice
+#     `display_formula`;
+#   * pipeline completo (`pyocrust_structure`, `pp_structurev3`): dice `formula`,
+#     y ademas `list`, `chart_title`... (ver `STRUCTURE_KIND_TO_GT`).
+# Las claves en comun mapean al MISMO destino (comprobado), asi que la union no
+# reasigna nada: solo evita que las cajas de formula del pipeline se caigan en
+# silencio (su `formula` no esta en `LAYOUT_MODEL_TO_GT`).
+_LAYOUT_KIND_TO_GT = {**STRUCTURE_KIND_TO_GT, **LAYOUT_MODEL_TO_GT}
 
 SPEC = FeatureSpec(
     feature="layout",
@@ -58,11 +69,14 @@ SPEC = FeatureSpec(
     provenance="valores MEDIDOS por este banco (mAP/recall@IoU sobre las cajas anotadas de OmniDocBench)",
 )
 
-# Orden: detector propio de `pyocrust` y, después, las alternativas reales
-# (`transformers`, offline desde la cache HF). Las que no tengan pesos en caché
-# quedan `skipped` con su motivo — nunca `ok`.
+# Orden: detector propio de `pyocrust`, la alternativa real, y — cerrando la
+# lista — el **pipeline completo** (`pyocrust_structure`, `pp_structurev3`), cuyas
+# cajas de layout salen de `extra["elements"]`: la compara cruzada del pipeline
+# contra el detector especializado con el MISMO GT de layout. Las que no tengan
+# pesos en caché quedan `skipped` con su motivo — nunca `ok`.
 DEFAULT_BACKENDS = ",".join(
-    ["pyocrust_layout", "docling_heron_101", "deformable_detr", *sorted(YOLO_LAYOUT_MODELS)]
+    ["pyocrust_layout", "docling_heron_101", "deformable_detr", *sorted(YOLO_LAYOUT_MODELS),
+     "pyocrust_structure"]
 )
 
 
@@ -99,7 +113,7 @@ def score_layout(sample: Sample, output: OcrOutput) -> dict:
     """
     predicted: dict[str, list[tuple[float, tuple[float, float, float, float]]]] = {}
     for element in output.extra.get("elements") or []:
-        category = LAYOUT_MODEL_TO_GT.get(str(element.get("element_type")))
+        category = _LAYOUT_KIND_TO_GT.get(str(element.get("element_type")))
         box = _model_bbox(element)
         if category is None or box is None:
             continue
@@ -166,6 +180,14 @@ def _self_check() -> None:
     assert score_layout(page, yolo) == {"layout_map": "", "layout_recall": ""}
     # …pero el mismo GT SI se evalua para el detector propio, que si lo emite.
     assert score_layout(page, hit) == {"layout_map": 0.0, "layout_recall": 0.0}
+    # El **pipeline completo** dice `formula` (no `display_formula`): con la union
+    # de vocabularios su caja SI puntua contra el GT `equation_isolated`.
+    eq = Sample("e", Image.new("RGB", (10, 10)), "",
+                gt_layout={"equation_isolated": ((0.0, 0.0, 10.0, 5.0),)})
+    struct = OcrOutput("", extra={"elements": [
+        {"element_type": "formula", "score": 0.9, "bbox": [[0, 0], [10, 0], [10, 5], [0, 5]]},
+    ]})
+    assert score_layout(eq, struct) == {"layout_map": 1.0, "layout_recall": 1.0}
     print("features.layout self-check OK")
 
 

@@ -86,7 +86,7 @@ def load_catalog() -> dict[str, dict[str, Any]]:
 
 
 def feature_status(feature: str) -> dict[str, Any]:
-    """Estado real de una feature: banco, runs `medido` y referencias externas."""
+    """Estado real de una feature: banco y runs `medido`."""
     import importlib
 
     try:
@@ -99,15 +99,13 @@ def feature_status(feature: str) -> dict[str, Any]:
                   if p.is_dir() and any(p.glob("*.csv"))) if (RESULTS_DIR / feature).is_dir() else []
     if runs:
         latest = runs[-1].name
-    report_md = REPORTS_DIR / feature / "REPORT.md"
-    references = report_md.is_file() and "Referencias externas" in report_md.read_text(encoding="utf-8")
     if latest:
         estado = "medido"
     elif status == "implemented":
         estado = "documentado"
     else:
         estado = "esqueleto"
-    return {"status": status, "latest": latest, "references": references, "estado": estado}
+    return {"status": status, "latest": latest, "estado": estado}
 
 
 def catalog_tasks(catalog: dict[str, dict[str, Any]]) -> list[str]:
@@ -176,7 +174,7 @@ def render_markdown(statuses: dict[str, dict[str, Any]], catalog: dict[str, dict
         f"> **Un solo paquete** cubre **{len(FEATURE_ORDER)} features** en "
         f"**{len(capabilities)} capacidades** y **descarga y cachea sus propios "
         "modelos** (`ensure_models`), sin servicios externos ni pesos versionados "
-        "a mano. Lo `medido` se separa siempre de lo `referencia` y lo `esqueleto`.",
+        "a mano. Lo `medido` se separa siempre de lo `esqueleto`.",
         "",
         "![Cobertura feature × capacidad](../figures/FEATURES_OVERVIEW.png)",
         "",
@@ -229,9 +227,6 @@ def render_markdown(statuses: dict[str, dict[str, Any]], catalog: dict[str, dict
         f"- **`esqueleto`** ({n_skeleton}): " + ", ".join(
             f"`{f}`" for f in FEATURE_ORDER if statuses[f]["estado"] != "medido")
         + " — banco y README documentados, sin cifras.",
-        "- **`referencia`**: " + ", ".join(
-            f"`{f}`" for f in FEATURE_ORDER if statuses[f]["references"])
-        + " citan tablas externas **con URL** en su `REPORT.md` (no comparables 1:1).",
         "",
     ]
     return "\n".join(lines)
