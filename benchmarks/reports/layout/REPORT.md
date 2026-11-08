@@ -114,10 +114,7 @@
 | omoured/v11-n | 0.381 | 0.381 | 144 | 55 | cuda |
 | omoured/v11-s | 0.389 | 0.389 | 194 | 56 | cuda |
 | omoured/v11-x | 0.287 | 0.287 | 984 | 70 | cuda |
-| pp-doclayoutv3 (130M) | 0.669 | 0.827 | 528 | 434 | directml |
-| yolo26m (doc-layout) (21.8M) | N/A | 0.467 | N/A | 44 | cuda |
-| yolov10b (DocLayNet) (20.5M) | N/A | 0.344 | N/A | 33 | cuda |
-| yolov10x (DocLayNet) (31.7M) | N/A | 0.381 | N/A | 44 | cuda |
+| pp-doclayoutv3 (130M) | 0.669 | N/A | 528 | N/A | n/a (no corre en GPU) |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.
 

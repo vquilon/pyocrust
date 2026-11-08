@@ -57,7 +57,6 @@
 | hantian/y26-m | gpu | 69 | 0.449 | AGPL-3.0 |
 | hantian/v11-l | gpu | 71 | 0.468 | AGPL-3.0 |
 | hantian/v8-x | gpu | 81 | 0.426 | AGPL-3.0 |
-| **pp-doclayoutv3 (130M)** | gpu | 434 | 0.827 | Apache-2.0 |
 
 ## orientation — sintético — device `cpu+gpu` · motores medidos
 
