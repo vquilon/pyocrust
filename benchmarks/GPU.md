@@ -221,3 +221,59 @@ $ .venv/Scripts/python.exe benchmarks/features/text/bank.py --limit 3 --device g
 
 Es decir, **nunca** aparece una fila `ok` con `provider_effective=cpu` bajo un
 device GPU.
+
+## Cómo ejecutar con CUDA (CUDA 13)
+
+> Estado: causa raíz **verificada** (2026-11-08); el build + runtime están
+> **pendientes de confirmar** end-to-end (tarjeta de CUDA del board).
+
+En este host el único EP acelerador que registra *por defecto* es **DirectML**
+(`--features directml`; va compilado dentro de la ORT, no hay nada que cargar).
+`--features cuda` **compila pero no registra**. La causa NO es que falte la
+librería: es de **carga en runtime**.
+
+1. El `.pyd` enlaza **estáticamente** su ORT (crate Rust `ort` 2.0.0-rc.13 vía
+   `oar-ocr`), que descarga **ORT 1.28.0** (`cdn.pyke.io/.../ms@1.28.0`) en
+   `%LOCALAPPDATA%\ort.pyke.io`. Para `--features cuda` usa el set Windows
+   `cuda13,tensorrt,nvrtx,directml`.
+2. El provider CUDA vive en una DLL **aparte** (`onnxruntime_providers_cuda.dll`)
+   que la ORT carga en runtime. Esa DLL importa **`cublas64_13.dll` +
+   `cublasLt64_13.dll`** (CUDA 13). Esas DLL **están** en el venv pero en rutas que
+   el proceso no mira:
+   - `.venv/Lib/site-packages/nvidia/cu13/bin/x86_64/`
+   - `.venv/Lib/site-packages/torch/lib/` (trae además cudnn9, cudart13, nvJitLink)
+3. Sin esas rutas en el *search path*, el provider no carga → el EP CUDA no
+   registra → `available_providers()` sale `[]`. DirectML no necesita DLL extra,
+   por eso sí registra.
+
+**Ojo:** desde Python 3.8, `LoadLibrary`/`ctypes` **ignoran `PATH`** (búsqueda
+"segura") — hay que usar `os.add_dll_directory()`. Y la lib de
+`D:\Environments\onnxruntime-win-x64-gpu_cuda13-1.24.4` es ORT **1.24** → **no
+vale** (el crate usa 1.28; ABI distinto).
+
+### Receta
+
+```bash
+cd D:/workspace/Plaiground/ac_documentalia/rust-bindings/pyocrust
+export VIRTUAL_ENV="D:/workspace/Plaiground/ac_documentalia/rust-bindings/pyocrust/.venv"
+
+# 1) Build con CUDA. Si el .pyd esta bloqueado por otro proceso, maturin pode
+#    fallar al copiar; entonces: cp -f target/maturin/pyocrust_core.dll pyocrust/_pyocrust_core.pyd
+.venv/Scripts/maturin.exe develop --features cuda
+```
+
+```python
+# 2) Registrar el runtime CUDA 13 ANTES de importar pyocrust (Windows ignora PATH)
+import os
+for d in (r"D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Lib\site-packages\torch\lib",
+          r"D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Lib\site-packages\nvidia\cu13\bin\x86_64"):
+    if os.path.isdir(d):
+        os.add_dll_directory(d)
+import pyocrust
+print(pyocrust.available_providers())   # ['cuda']  (con directml: ['directml']; sin EP: [])
+```
+
+Con `available_providers()==['cuda']`, la campaña GPU se lanza igual que la de
+DirectML (`--device gpu`) y cada fila `ok` lleva `provider_effective='cuda'`.
+Recomendado: encapsular el `add_dll_directory` en un helper del runner
+(`benchmarks/`), no repetir el bloque en cada banco.
