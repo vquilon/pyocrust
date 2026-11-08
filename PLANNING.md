@@ -48,7 +48,7 @@ como backlog: el dispatcher no las toma hasta que se desbloqueen.
 | `t_065205ea` | GPU real: `available_providers()` es `[]` en el wheel actual; validar el EP acelerador | `probador` |
 | `t_2766a41a` | `pp_ocrv6_small` y `pp_ocrv6_medium` nunca ejecutados (0/3 y 0/3 artefactos; ningún test los corre) | `probador` |
 | `t_052d7c9c` | Test de descarga **fría** por HuggingFace (indra): `test_models.py` solo cubre la caché fría de ModelScope | `probador` |
-| `t_a62cc581` | Fase 11 (L621) / `t_b304e350`: referencias externas que no están medidas sobre el mismo dataset/GT | `hefesto` |
+| ~~`t_a62cc581`~~ | **Cerrada (2026-11-08)**: Fase 11 — «referencias externas» retirado de todos los artefactos publicados (4 guardas nuevas; `benchmarks/tests` 149 passed/2 skipped) | `hefesto` |
 | ~~`t_5366b7ce`~~ | **Cerrada (2026-11-08)**: `OcrTask` era un enum muerto —eliminado junto a su re-export (despacho real por cadena de preset y `task: &str`) | `hefesto` |
 
 **Deuda registrada sin tarjeta:**
@@ -665,7 +665,7 @@ Dependencias: `L1` → `L2` → `L3` → `L4` → `L5` → `L6`.
 * **Licencias informativas:** `EXTERNAL_LICENSE` (verificada en HF `cardData.license`) señala las no permisivas (AGPL-3.0) en los informes de comparación. La **puerta** (`license_commercial_use` / `license_acknowledge`) sigue solo en los modelos que usa `pyocrust` (ADR-017).
 * **Layout:** `yolov10x`, `yolov10b` y `yolo26m` aparecen en los informes generados desde sus runs; se conserva la comprobación de vocabulario DocLayNet (11 clases) descrita a continuación.
 * **Solo DocLayNet en `layout`:** las filas YOLOv10 de referencia llevan mAP de DocLayNet y los YOLO medidos exponen las **11 clases de DocLayNet** (validado sobre `model.names`), nunca las 80 de COCO.
-* **Pendiente (`t_b304e350`, archivada):** retirar las referencias externas que no están medidas sobre el mismo dataset/GT y re-eecutarlas en CPU+GPU. No se publica calidad entre datasets distintos.
+* **Cerrada (2026-11-08, tarjeta `t_a62cc581`):** el concepto de «referencias externas» se retiró de **todos** los artefactos publicados (maquinaria de `summary.py`, notas `ref:` fabricadas, barras grises del `SUMMARY.svg`, bullet de `overview.py`); las `REFERENCES.md` se conservan como documentación de candidatos y sin cifras, pero ya nada las parsea hacia tablas ni gráficas. Verificado: 4 guardas nuevas en `benchmarks/tests/test_report_consistency.py`, 9/9 `REPORT.md` con sección de saltados con motivo y `benchmarks/tests` en **149 passed, 2 skipped**.
 
 ### Revisión final pendiente (tarjetas archivadas; retomar en la siguiente sesión)
 
