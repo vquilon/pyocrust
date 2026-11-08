@@ -219,3 +219,34 @@ def test_models_status_refleja_el_modo_offline(tmp_path, monkeypatch):
 
     monkeypatch.setenv("PYOCRUST_OFFLINE", "0")
     assert pyocrust.models_status()["offline"] is False
+
+
+# ---------------------------------------------------------------------------
+# 5. Integridad ModelScope: tamaño correcto + contenido alterado → ausente
+# ---------------------------------------------------------------------------
+
+
+def test_models_status_rechaza_un_artefacto_modelscope_alterado_a_tamano_correcto(
+    tmp_path, monkeypatch
+):
+    """Un ModelScope con el tamaño correcto pero contenido distinto no está presente.
+
+    Escribe los 3 artefactos de Tiny rellenando con bytes nulos hasta su tamaño
+    real (sin red): el tamaño cuadra, el SHA-256 no. Los 3 deben reportarse
+    `present=False` en `models_status()`.
+    """
+    cache = tmp_path / "oar_home"
+    cache.mkdir()
+    for nombre, tamano in TAMANOS_TINY.items():
+        (cache / nombre).write_bytes(b"\x5a" * tamano)
+    monkeypatch.setenv("OAR_HOME", str(cache))
+    monkeypatch.delenv("PYOCRUST_OFFLINE", raising=False)
+
+    tiny = pyocrust.models_status()["presets"]["pp_ocrv6_tiny"]
+
+    for artefacto in tiny:
+        assert artefacto["size"] == TAMANOS_TINY[artefacto["name"]], "el tamaño cuadra"
+        assert artefacto["present"] is False, (
+            f"{artefacto['name']}: tamaño correcto no sustituye la validación SHA-256"
+        )
+

@@ -147,8 +147,9 @@ pub fn preflight_paths(paths: &ModelPaths) -> PreflightReport {
 
 /// Cruza las rutas esperadas con el registro para decidir qué está presente.
 ///
-/// El hash se comprueba para Indra, que usa un registro HF fijado; para los
-/// modelos ModelScope se mantiene el preflight barato por tamaño.
+/// Se exige **tamaño y SHA-256** para todo preset: un artefacto ModelScope
+/// alterado que conserve el tamaño se marca ausente, disparando la descarga
+/// que vuelve a verificar el hash (`L4`).
 fn artifact_statuses(paths: &ModelPaths, expected: &[PathBuf]) -> Vec<ArtifactStatus> {
     let registered = registry::artifacts_for(&paths.spec);
     expected
@@ -173,11 +174,7 @@ fn artifact_statuses(paths: &ModelPaths, expected: &[PathBuf]) -> Vec<ArtifactSt
             let present = path.is_file()
                 && expected_size > 0
                 && size == expected_size
-                && (paths.spec != ModelSpec::Indra
-                    || integrity.is_some_and(|(sha256, _)| {
-                        download::compute_sha256(path)
-                            .is_ok_and(|actual| actual.eq_ignore_ascii_case(sha256))
-                    }));
+                && integrity.is_some_and(|(sha256, _)| hash_matches(path, sha256));
             ArtifactStatus {
                 name,
                 path: path.clone(),
@@ -197,15 +194,10 @@ pub fn artifact_status(path: &Path, artifact: &registry::Artifact) -> ArtifactSt
     let integrity = artifact.integrity().ok();
     let expected_size = integrity.map(|(_, size)| size).unwrap_or(0);
     let size = path.metadata().map(|m| m.len()).unwrap_or(0);
-    let verify_hash = matches!(artifact.source, registry::Source::HuggingFace { .. });
     let present = path.is_file()
         && expected_size > 0
         && size == expected_size
-        && (!verify_hash
-            || integrity.is_some_and(|(sha256, _)| {
-                download::compute_sha256(path)
-                    .is_ok_and(|actual| actual.eq_ignore_ascii_case(sha256))
-            }));
+        && integrity.is_some_and(|(sha256, _)| hash_matches(path, sha256));
     ArtifactStatus {
         name: artifact.name.to_string(),
         path: path.to_path_buf(),
@@ -214,6 +206,16 @@ pub fn artifact_status(path: &Path, artifact: &registry::Artifact) -> ArtifactSt
         present,
         required: artifact.required,
     }
+}
+
+/// `true` si el fichero coincide con `expected_sha256`.
+///
+/// Solo hashea en caliente cuando no hay sidecar: `download::fetch` deja
+/// `.<name>.sha256` tras verificar la descarga, así que el camino caliente
+/// (preflight tras una descarga correcta) no re-hashea los cientos de MB.
+fn hash_matches(path: &Path, expected_sha256: &str) -> bool {
+    download::sidecar_matches(path, expected_sha256)
+        || download::compute_sha256(path).is_ok_and(|actual| actual.eq_ignore_ascii_case(expected_sha256))
 }
 
 /// Preflight → descarga en paralelo de lo que falta → re-preflight.
@@ -346,15 +348,24 @@ mod tests {
         path
     }
 
-    /// Los tamaños reales del registro de `oar-ocr` para PP-OCRv6 Tiny.
+    /// Tamaños reales del registro de `oar-ocr` para PP-OCRv6 Tiny.
     const TINY_DET: u64 = 1_780_590;
     const TINY_REC: u64 = 4_462_639;
     const TINY_DICT: u64 = 27_156;
 
-    /// Crea un fichero **con el tamaño esperado**: el preflight decide por
-    /// existencia + tamaño, no por existencia a secas (`S2.0`).
-    fn crear_con_tamano(path: &Path, size: u64) {
+    /// Crea un fichero **presente** con el tamaño esperado.
+    ///
+    /// Escribe además su sidecar `.<name>.sha256` con el hash del registro: es
+    /// exactamente lo que deja `download::fetch` tras verificar, y el camino que
+    /// el preflight usa para no re-hashear cientos de MB. Los bytes no pueden
+    /// coincidir con el hash real (preimagen); el sidecar es el testigo legítimo.
+    fn crear_presente(path: &Path, size: u64) {
         std::fs::write(path, vec![0u8; size as usize]).unwrap();
+        let name = path.file_name().unwrap().to_str().unwrap();
+        let (sha256, _) = oar_ocr::download::find(name)
+            .map(|entry| (entry.sha256, entry.size))
+            .expect("artefacto Tiny en el registro de oar-ocr");
+        download::write_sidecar(path, sha256).unwrap();
     }
 
     #[test]
@@ -441,7 +452,7 @@ mod tests {
         let spec = ModelSpec::PpOcrV6(OcrSize::Tiny);
 
         // Crear solo 1 de los 3 ficheros
-        crear_con_tamano(&temp_dir.join("pp-ocrv6_tiny_det.onnx"), TINY_DET);
+        crear_presente(&temp_dir.join("pp-ocrv6_tiny_det.onnx"), TINY_DET);
 
         let report = preflight(&temp_dir, &spec);
         assert_eq!(report.expected.len(), 3);
@@ -462,9 +473,9 @@ mod tests {
         let spec = ModelSpec::PpOcrV6(OcrSize::Tiny);
 
         // Crear los 3 ficheros requeridos
-        crear_con_tamano(&temp_dir.join("pp-ocrv6_tiny_det.onnx"), TINY_DET);
-        crear_con_tamano(&temp_dir.join("pp-ocrv6_tiny_rec.onnx"), TINY_REC);
-        crear_con_tamano(&temp_dir.join("ppocrv6_tiny_dict.txt"), TINY_DICT);
+        crear_presente(&temp_dir.join("pp-ocrv6_tiny_det.onnx"), TINY_DET);
+        crear_presente(&temp_dir.join("pp-ocrv6_tiny_rec.onnx"), TINY_REC);
+        crear_presente(&temp_dir.join("ppocrv6_tiny_dict.txt"), TINY_DICT);
 
         let report = preflight(&temp_dir, &spec);
         assert_eq!(report.expected.len(), 3);
@@ -482,8 +493,8 @@ mod tests {
 
         // El detector existe pero con 1 byte: debe contar como ausente.
         std::fs::write(temp_dir.join("pp-ocrv6_tiny_det.onnx"), b"x").unwrap();
-        crear_con_tamano(&temp_dir.join("pp-ocrv6_tiny_rec.onnx"), TINY_REC);
-        crear_con_tamano(&temp_dir.join("ppocrv6_tiny_dict.txt"), TINY_DICT);
+        crear_presente(&temp_dir.join("pp-ocrv6_tiny_rec.onnx"), TINY_REC);
+        crear_presente(&temp_dir.join("ppocrv6_tiny_dict.txt"), TINY_DICT);
 
         let report = preflight(&temp_dir, &spec);
         assert_eq!(report.missing.len(), 1);
@@ -527,6 +538,42 @@ mod tests {
         let report = preflight_paths(&paths);
         assert!(report.missing_filenames().contains(&artifact.name.to_string()));
         assert!(!report.artifacts[0].present);
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn modelscope_rechaza_cache_con_tamano_correcto_y_hash_incorrecto() {
+        let temp_dir = create_temp_dir("modelscope_hash");
+        let artifact = crate::storage::registry::artifacts_for(&ModelSpec::PpOcrV6(OcrSize::Tiny))[0];
+        let path = temp_dir.join(artifact.name);
+        let (sha256, size) = artifact.integrity().unwrap();
+        // Contenido alterado que conserva el tamaño: sin el hash pasaría por presente.
+        std::fs::write(&path, vec![0x5a; size as usize]).unwrap();
+        assert!(!download::sidecar_matches(&path, sha256), "sin sidecar no hay falso positivo");
+
+        let status = artifact_status(&path, &artifact);
+        assert_eq!(status.size, size, "el tamaño es el esperado");
+        assert!(!status.present, "tamaño correcto no sustituye la validación SHA-256");
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn modelscope_preflight_rechaza_hash_incorrecto_a_tamano_correcto() {
+        let temp_dir = create_temp_dir("modelscope_preflight_hash");
+        let spec = ModelSpec::PpOcrV6(OcrSize::Tiny);
+        let paths = ModelPaths::new(&temp_dir, &spec);
+        let registro = crate::storage::registry::artifacts_for(&spec);
+        for (ruta, artifact) in paths.all().iter().zip(registro) {
+            let (_, size) = artifact.integrity().unwrap();
+            std::fs::write(ruta, vec![0x5a; size as usize]).unwrap();
+        }
+
+        let report = preflight_paths(&paths);
+        assert_eq!(report.missing.len(), 3, "ninguno tiene el hash del registro");
+        assert!(report.artifacts.iter().all(|a| !a.present));
+        assert!(!report.is_ready());
 
         let _ = std::fs::remove_dir_all(&temp_dir);
     }
