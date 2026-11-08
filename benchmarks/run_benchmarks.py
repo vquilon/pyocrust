@@ -320,6 +320,10 @@ def load_funsd(split: str = "train", limit: int | None = None) -> list[Sample]:
 # tarea `formula` via `gt_by_task`.
 
 OMNIDOCBENCH_REPO = "opendatalab/OmniDocBench"
+# Revision **fijada** (misma que `common/datasets.OMNIDOCBENCH_REVISION`): este
+# driver historico no puede bajar la revision vigente de cada fecha, o dos runs
+# medirian sobre datos distintos sin que nadie lo note.
+OMNIDOCBENCH_REVISION = "aa1ee96d106dbe53d0ae59474d75c6e6d9b53fec"
 
 
 def _odb_block_content(det: dict) -> str:
@@ -365,7 +369,8 @@ def load_omnidocbench(limit: int | None = None, cache_dir: Path | None = None) -
     cache = cache_dir or (HERE / "data_cache")
     cache.mkdir(parents=True, exist_ok=True)
     ann = hf_hub_download(OMNIDOCBENCH_REPO, "OmniDocBench.json",
-                          repo_type="dataset", cache_dir=str(cache))
+                          repo_type="dataset", revision=OMNIDOCBENCH_REVISION,
+                          cache_dir=str(cache))
     pages = json.loads(Path(ann).read_text(encoding="utf-8"))
 
     def kinds(page: dict) -> set[str]:
@@ -382,7 +387,8 @@ def load_omnidocbench(limit: int | None = None, cache_dir: Path | None = None) -
     for page in ordered:
         name = str(page["page_info"]["image_path"])
         path = hf_hub_download(OMNIDOCBENCH_REPO, f"images/{name}",
-                               repo_type="dataset", cache_dir=str(cache))
+                               repo_type="dataset", revision=OMNIDOCBENCH_REVISION,
+                               cache_dir=str(cache))
         formulas = _odb_page_formulas(page)
         samples.append(Sample(
             image_id=name,
@@ -446,13 +452,15 @@ def load_omnidocbench_formulas(limit: int | None = None, cache_dir: Path | None 
     cache = cache_dir or (HERE / "data_cache")
     cache.mkdir(parents=True, exist_ok=True)
     ann = hf_hub_download(OMNIDOCBENCH_REPO, "OmniDocBench.json",
-                          repo_type="dataset", cache_dir=str(cache))
+                          repo_type="dataset", revision=OMNIDOCBENCH_REVISION,
+                          cache_dir=str(cache))
     pages = json.loads(Path(ann).read_text(encoding="utf-8"))
 
     samples: list[Sample] = []
     for name, _page, dets in _odb_formula_pages(pages, limit):
         path = hf_hub_download(OMNIDOCBENCH_REPO, f"images/{name}",
-                               repo_type="dataset", cache_dir=str(cache))
+                               repo_type="dataset", revision=OMNIDOCBENCH_REVISION,
+                               cache_dir=str(cache))
         image = Image.open(path).convert("RGB")
         for det in dets:
             # GT sin delimitadores `$`: el motor de formulas emite LaTeX "desnudo".

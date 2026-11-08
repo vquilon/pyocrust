@@ -16,15 +16,23 @@ from __future__ import annotations
 from common.datasets import (  # noqa: F401
     DATA_CACHE,
     DATASETS,
+    DATASETS_MANIFEST,
     LAYOUT_DOCLAYNET_LABEL_TO_GT,
     LAYOUT_MODEL_TO_GT,
     ODB_CATEGORY_TO_KIND,
+    OMNIDOCBENCH_REPO,
+    OMNIDOCBENCH_REVISION,
+    PROVENANCE_DATASET,
+    PROVENANCE_FIXTURE,
+    DatasetOffline,
     DatasetUnavailable,
     Sample,
+    fixture_provenance,
     layout_gt_classes,
     load_dataset,
     load_funsd,
     load_local,
+    load_manifest,
     load_omnidocbench,
     load_omnidocbench_formulas,
     load_omnidocbench_full_page,
@@ -33,6 +41,8 @@ from common.datasets import (  # noqa: F401
     load_synthetic_orientation,
     load_synthetic_rectification,
     load_synthetic_text_line,
+    prepare_datasets,
+    verify_file,
 )
 from common.metrics import (  # noqa: F401
     block_f1,
@@ -83,9 +93,12 @@ from common.runner import (  # noqa: F401
 
 __all__ = [
     # datasets
-    "DATA_CACHE", "DATASETS", "LAYOUT_DOCLAYNET_LABEL_TO_GT", "LAYOUT_MODEL_TO_GT",
-    "ODB_CATEGORY_TO_KIND", "layout_gt_classes",
-    "DatasetUnavailable", "Sample", "load_dataset",
+    "DATA_CACHE", "DATASETS", "DATASETS_MANIFEST", "LAYOUT_DOCLAYNET_LABEL_TO_GT",
+    "LAYOUT_MODEL_TO_GT", "ODB_CATEGORY_TO_KIND", "layout_gt_classes",
+    "OMNIDOCBENCH_REPO", "OMNIDOCBENCH_REVISION", "load_manifest", "verify_file",
+    "prepare_datasets",
+    "PROVENANCE_DATASET", "PROVENANCE_FIXTURE", "fixture_provenance",
+    "DatasetOffline", "DatasetUnavailable", "Sample", "load_dataset",
     "load_funsd", "load_local", "load_omnidocbench", "load_omnidocbench_formulas",
     "load_omnidocbench_full_page", "load_omnidocbench_layout", "load_omnidocbench_tables",
     "load_synthetic_orientation", "load_synthetic_rectification", "load_synthetic_text_line",

@@ -1,0 +1,12 @@
+{
+  "comment": "Manifiesto de checksums del dataset OmniDocBench usado por los bancos. La revision es INMUTABLE (commit HF pinnado): los ficheros que descargue cualquier maquina con esta revision son identicos byte a byte. `files` pinnea el sha256 de los ficheros que SIEMPRE se usan y que definen el GT (la anotacion). Las imagenes se garantizan por la revision (no se listean las 1024 para no inflar el manifiesto); si se anade un fichero al GT, se a~nade aqui. Regenerar con: python benchmarks/prepare_datasets.py --update-manifest",
+  "repository": "opendatalab/OmniDocBench",
+  "repo_type": "dataset",
+  "revision": "aa1ee96d106dbe53d0ae59474d75c6e6d9b53fec",
+  "files": {
+    "OmniDocBench.json": {
+      "sha256": "a45cd84b04ad8b793e775089640e6b681209abea33ead54c1828ddca35fae496",
+      "size": 42208096
+    }
+  }
+}
