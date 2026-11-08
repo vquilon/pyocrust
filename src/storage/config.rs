@@ -114,14 +114,7 @@ where
     // Nivel 2: OAR_HOME
     if let Some(val) = get_env(OAR_HOME_ENV) {
         if !val.is_empty() {
-            let p = Path::new(&val);
-            let normalized = normalize_path(p);
-            if !p.is_absolute() {
-                unsafe {
-                    env::set_var(OAR_HOME_ENV, &normalized);
-                }
-            }
-            return normalized;
+            return normalize_path(Path::new(&val));
         }
     }
 
@@ -140,19 +133,25 @@ where
 }
 
 /// Resuelve la ruta del directorio de modelos consultando el entorno del proceso.
+///
+/// El directorio resuelto es la fuente de verdad de todo el proceso y se
+/// reexporta **siempre** como `OAR_HOME` absoluta, no solo cuando el propio
+/// `OAR_HOME` era relativo. Motivo: `oar-ocr-core` decide su caché de
+/// auto-descarga leyendo únicamente `OAR_HOME`
+/// (`oar_ocr_core::core::download::cache_dir`). Sin esta reexportación, un
+/// directorio fijado por parámetro (`custom_path` desde Python) o por
+/// `OCR_MODELS_CACHE_DIR` resolvería bien para nuestro descargador pero el de
+/// `oar-ocr` seguiría escribiendo en `~/.oar` (la caché de C:).
 pub fn resolve_models_dir(custom_path: Option<&Path>) -> PathBuf {
-    if let Some(val) = env::var_os(OAR_HOME_ENV) {
-        if !val.is_empty() {
-            let p = Path::new(&val);
-            if !p.is_absolute() {
-                let normalized = normalize_path(p);
-                unsafe {
-                    env::set_var(OAR_HOME_ENV, &normalized);
-                }
-            }
+    let resolved = resolve_models_dir_from(custom_path, |k| env::var_os(k));
+    let already_exported =
+        env::var_os(OAR_HOME_ENV).is_some_and(|current| Path::new(&current) == resolved.as_path());
+    if !already_exported {
+        unsafe {
+            env::set_var(OAR_HOME_ENV, &resolved);
         }
     }
-    resolve_models_dir_from(custom_path, |k| env::var_os(k))
+    resolved
 }
 
 /// Configuración de almacenamiento y rutas para el pipeline OCR (§3.2).
@@ -263,7 +262,31 @@ mod tests {
         assert!(resolved.is_absolute());
         assert!(resolved.starts_with(&cwd));
         assert!(resolved.ends_with(Path::new("relative/sub/dir")));
-        assert_eq!(env::var(OAR_HOME_ENV).unwrap(), resolved.to_string_lossy());
+    }
+
+    #[test]
+    fn resolve_models_dir_reexporta_el_directorio_resuelto_como_oar_home() {
+        // El resultado de la resolución es la fuente de verdad del proceso:
+        // `oar-ocr-core` solo lee `OAR_HOME` para su caché de auto-descarga, así
+        // que un `custom_path` (o `OCR_MODELS_CACHE_DIR`) debe reexportarse.
+        let previo = env::var_os(OAR_HOME_ENV);
+        unsafe {
+            env::set_var(OAR_HOME_ENV, "/env/oar_home");
+        }
+
+        let propio = std::env::temp_dir().join("pyocrust_modelos_propios");
+        let resuelto = resolve_models_dir(Some(&propio));
+
+        assert_eq!(resuelto, normalize_path(&propio));
+        assert_eq!(
+            env::var_os(OAR_HOME_ENV).as_deref(),
+            Some(resuelto.as_os_str())
+        );
+
+        match previo {
+            Some(valor) => unsafe { env::set_var(OAR_HOME_ENV, valor) },
+            None => unsafe { env::remove_var(OAR_HOME_ENV) },
+        }
     }
 
     #[test]

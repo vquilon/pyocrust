@@ -93,6 +93,22 @@ def directorios_candidatos() -> list[Path]:
     return [Path(c) for c in candidatos if c]
 
 
+@pytest.fixture(autouse=True)
+def entorno_de_modelos_aislado(monkeypatch):
+    """Ningún test filtra `OAR_HOME`/`OCR_MODELS_CACHE_DIR` al siguiente.
+
+    `resolve_models_dir` reexporta el directorio resuelto como `OAR_HOME` —lo lee
+    `oar-ocr-core` para decidir su caché de auto-descarga—, así que un
+    `custom_path` temporal (o un `OAR_HOME` de prueba) deja el entorno del
+    proceso sucio y contamina a los módulos que se ejecutan después:
+    `test_tasks.py` deriva su `models_dir` de `os.environ["OAR_HOME"]` y
+    terminaba viendo solo los modelos de un `tmp_path`. `monkeypatch` restaura
+    el valor original al terminar cada test.
+    """
+    for variable in ("OAR_HOME", "OCR_MODELS_CACHE_DIR"):
+        monkeypatch.delenv(variable, raising=False)
+
+
 def _motivo_faltantes(nombres: tuple[str, ...]) -> str:
     buscados = " o ".join(str(d) for d in directorios_candidatos())
     return (

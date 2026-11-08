@@ -181,10 +181,33 @@ def test_concurrencia_python_no_bloqueada_por_constructor(modelos_tiny):
     assert len(instancias) == 2
 
 
+def test_el_custom_path_se_reexporta_como_oar_home_para_oar_ocr(tmp_path, monkeypatch):
+    """El parámetro del wrapper redirige también el auto-download de `oar-ocr`.
+
+    `oar-ocr-core` decide su caché (`download::cache_dir`) leyendo solo
+    `OAR_HOME`, así que el directorio resuelto debe quedar reexportado.
+    """
+    monkeypatch.setenv("OAR_HOME", str(tmp_path / "oar_home"))
+    propio = tmp_path / "modelos_propios"
+
+    assert Path(resolve_models_dir(str(propio))) == propio
+    assert os.environ.get("OAR_HOME") == str(propio)
+
+
+def test_ocr_models_cache_dir_se_reexporta_como_oar_home_para_oar_ocr(tmp_path, monkeypatch):
+    """Nivel 2b: `OCR_MODELS_CACHE_DIR` sin `OAR_HOME` no debe caer en `~/.oar`."""
+    cache = tmp_path / "cache_compartida"
+    monkeypatch.setenv("OCR_MODELS_CACHE_DIR", str(cache))
+
+    assert Path(resolve_models_dir()) == cache
+    assert os.environ.get("OAR_HOME") == str(cache)
+
+
 def test_la_resolucion_no_depende_del_estado_de_disco(tmp_path, monkeypatch):
     """`resolve_models_dir` no crea ni exige directorios (§7.1: sin I/O ni red)."""
     fantasma = tmp_path / "todavia_no_existe"
 
     assert Path(resolve_models_dir(str(fantasma))) == fantasma
     assert not fantasma.exists()
-    assert os.environ.get("OAR_HOME") is None
+    # El directorio resuelto manda para todo el proceso: se reexporta aunque no exista.
+    assert os.environ.get("OAR_HOME") == str(fantasma)
