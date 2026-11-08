@@ -461,6 +461,8 @@ El componente `OcrConfig` resuelve la ubicación física del modelo en disco con
 
 Verificado en `src/storage/config.rs:103-133` y por los tests `test_nivel_1..3` de `tests/test_config.py`.
 
+**Reexportación de la ruta resuelta (`OAR_HOME`).** El directorio que gana la resolución se reexporta **siempre** como `OAR_HOME` absoluta al entorno del proceso, gane quien gane (nivel 1, 2a, 2b o 3). Motivo: la caché de autodescarga de `oar-ocr-core` se decide leyendo **solo** `OAR_HOME` (`oar_ocr_core::core::download::cache_dir`, `oar-ocr-core-0.10.1/src/core/download/mod.rs:84`), de modo que sin la reexportación un `custom_path` desde Python o un `OCR_MODELS_CACHE_DIR` resolvían bien para el descargador propio pero el de `oar-ocr` seguía escribiendo en `~/.oar` (caché en `C:`). Implementado en `src/storage/config.rs:143-158`; cubierto por `resolve_models_dir_reexporta_el_directorio_resuelto_como_oar_home` (Rust) y `test_el_custom_path_se_reexporta_como_oar_home_para_oar_ocr` / `test_ocr_models_cache_dir_se_reexporta_como_oar_home_para_oar_ocr` (`tests/test_config.py`). Efecto colateral asumido: el último directorio resuelto manda para el resto del proceso, igual que `S1.5` ya hacía con la `OAR_HOME` relativa.
+
 *Comportamiento de descarga:* la v1 tenía previstos **dos** caminos: (1) `auto-download` de `oar-ocr` desde ModelScope hacia `$OAR_HOME`; (2) descargador propio desde Hugging Face cuando ModelScope no es alcanzable o el entorno es corporativo/offline, con el contrato de §7.3. Si el fichero existe y su tamaño/hash es correcto, **no** se hace ninguna petición de red.
 
 > **Estado real (D1).** Solo el camino (1) está activo: `oar-ocr` trae
