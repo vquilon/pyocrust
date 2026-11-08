@@ -43,20 +43,20 @@
 
 | Motor | Device | ms/imagen ↓ | calidad ↑ | license |
 | :--- | :--- | ---: | ---: | :--- |
-| hantian/v8-n | cpu | 84 | 0.508 | AGPL-3.0 |
-| hantian/y26-s | cpu | 128 | 0.471 | AGPL-3.0 |
-| hantian/v11-s | cpu | 145 | 0.429 | AGPL-3.0 |
-| hantian/v12-s | cpu | 197 | 0.494 | AGPL-3.0 |
-| hantian/v10-m | cpu | 274 | 0.499 | AGPL-3.0 |
-| **pp-doclayoutv3 (130M)** | cpu | 776 | 0.827 | Apache-2.0 |
-| hantian/v8-x | cpu | 1147 | 0.497 | AGPL-3.0 |
-| docling-layout-heron-101 (default) | cpu | 1575 | 0.843 |  |
-| hantian/v8-n | gpu | 29 | 0.508 | AGPL-3.0 |
-| hantian/y26-s | gpu | 30 | 0.471 | AGPL-3.0 |
-| hantian/v11-s | gpu | 32 | 0.429 | AGPL-3.0 |
-| hantian/v12-s | gpu | 39 | 0.494 | AGPL-3.0 |
-| hantian/v10-m | gpu | 43 | 0.499 | AGPL-3.0 |
-| hantian/v8-x | gpu | 52 | 0.497 | AGPL-3.0 |
+| hantian/v12-n | cpu | 137 | 0.489 | AGPL-3.0 |
+| hantian/v8-n | cpu | 138 | 0.473 | AGPL-3.0 |
+| hantian/v10-m | cpu | 342 | 0.497 | AGPL-3.0 |
+| hantian/y26-m | cpu | 431 | 0.449 | AGPL-3.0 |
+| hantian/v11-l | cpu | 509 | 0.468 | AGPL-3.0 |
+| **pp-doclayoutv3 (130M)** | cpu | 528 | 0.669 | Apache-2.0 |
+| docling-layout-heron-101 (default) | cpu | 985 | 0.747 |  |
+| hantian/v8-x | cpu | 1289 | 0.426 | AGPL-3.0 |
+| hantian/v8-n | gpu | 55 | 0.473 | AGPL-3.0 |
+| hantian/v12-n | gpu | 67 | 0.489 | AGPL-3.0 |
+| hantian/v10-m | gpu | 68 | 0.495 | AGPL-3.0 |
+| hantian/y26-m | gpu | 69 | 0.449 | AGPL-3.0 |
+| hantian/v11-l | gpu | 71 | 0.468 | AGPL-3.0 |
+| hantian/v8-x | gpu | 81 | 0.426 | AGPL-3.0 |
 | **pp-doclayoutv3 (130M)** | gpu | 434 | 0.827 | Apache-2.0 |
 
 ## orientation — sintético — device `cpu+gpu` · motores medidos

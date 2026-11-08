@@ -132,6 +132,10 @@ CSV_FIELDS = [
     # Additive: métricas de las features de layout/tabla/orientación/rectificado
     # (vacías — no evaluadas — en los bancos que no las producen).
     "layout_map", "layout_recall", "table_teds", "ori_acc", "rect_sim",
+    # Additive: estrato de la página (`data_source × layout`) cuando el dataset
+    # lo anota (`Sample.stratum`); vacío en el resto. Permite el informe "por
+    # estrato" sin releer la anotación del dataset.
+    "stratum",
 ]
 
 
@@ -1366,6 +1370,8 @@ def run_benchmark(
             "device_requested": device, "provider_effective": provider_effective,
             # Métricas por feature: "" = no evaluada; el `scorer` las sobreescribe.
             "layout_map": "", "layout_recall": "", "table_teds": "", "ori_acc": "", "rect_sim": "",
+            # Estrato de la página (`data_source × layout`) cuando el dataset lo anota.
+            "stratum": sample.stratum or "",
         }
         # Métrica propia de la feature (layout/tabla/orientación/rectificado).
         if scorer is not None:

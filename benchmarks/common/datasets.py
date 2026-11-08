@@ -55,6 +55,10 @@ class Sample:
     gt_label: str | None = None
     # GT de **rectificación**: la imagen limpia de la que se partió.
     gt_image: Image.Image | None = None
+    # **Estrato** de la página (`data_source × layout`) cuando el dataset anota
+    # `page_attribute`: viaja con la muestra para que el informe pueda desglosar
+    # la métrica *por estrato* sin volver a leer la anotación.
+    stratum: str | None = None
 
 
 def load_local(manifest: Path, limit: int | None = None) -> list[Sample]:
@@ -173,6 +177,49 @@ def _odb_rich_first(pages: list) -> list:
 def _odb_kinds(page: dict) -> set[str]:
     """Categorías anotadas (no ignoradas) de la página."""
     return {d["category_type"] for d in page["layout_dets"] if not d.get("ignore")}
+
+
+def _odb_page_attribute(page: dict) -> dict:
+    """`page_info.page_attribute` de una página (atributos anotados del dataset)."""
+    return (page.get("page_info") or {}).get("page_attribute") or {}
+
+
+def _odb_stratum(page: dict, keys: Sequence[str] = ("data_source", "layout")) -> str:
+    """Estrato de una página: valores de `keys` (p. ej. `data_source × layout`)."""
+    attribute = _odb_page_attribute(page)
+    return " × ".join(str(attribute.get(key) or "?") for key in keys)
+
+
+def _odb_stratified(pages: list, limit: int | None = None,
+                    keys: Sequence[str] = ("data_source", "layout")) -> list:
+    """Orden determinista **estratificado** por `keys` (round-robin balanceado).
+
+    Agrupa las páginas por estrato (`data_source × layout`) y las reparte por
+    rondas: primero una de cada estrato, luego la segunda, etc. Así la muestra
+    cubre todos los estratos posibles con el mismo peso y **ningún estrato
+    domina** — con `n`=40 y 39 estratos el mayor pesa ~5%, muy lejos del sesgo
+    de `_odb_rich_first`, que arranca con las páginas ricas en tabla/fórmula
+    (20/20 `equation_hard` en la muestra de `layout`). El orden es
+    **determinista** (estratos ordenados por clave, páginas en orden de
+    anotación): dos ejecuciones dan la misma muestra.
+    """
+    groups: dict[str, list] = {}
+    for page in pages:
+        groups.setdefault(_odb_stratum(page, keys), []).append(page)
+    picked: list = []
+    round_index = 0
+    while True:
+        added = False
+        for key in sorted(groups):
+            stratum_pages = groups[key]
+            if round_index < len(stratum_pages):
+                picked.append(stratum_pages[round_index])
+                added = True
+                if limit is not None and len(picked) >= limit:
+                    return picked
+        if not added:
+            return picked
+        round_index += 1
 
 
 def load_omnidocbench(limit: int | None = None, cache_dir: Path | None = None) -> list[Sample]:
@@ -448,9 +495,16 @@ def _odb_page_layout(page: dict) -> dict[str, tuple[tuple[float, float, float, f
 
 
 def load_omnidocbench_layout(limit: int | None = None, cache_dir: Path | None = None) -> list[Sample]:
-    """Paginas con GT de **layout** (cajas anotadas por clase de bloque)."""
+    """Paginas con GT de **layout** (cajas anotadas por clase de bloque).
+
+    Muestreo **estratificado** por `page_attribute` (`data_source × layout`,
+    round-robin balanceado -> ver `_odb_stratified`): cubre la heterogeneidad
+    real de los documentos en vez de sesgar la muestra hacia páginas ricas en
+    tabla/fórmula. El estrato viaja en `Sample.stratum` para el informe
+    "por estrato".
+    """
     cache = cache_dir or DATA_CACHE
-    pages = _odb_rich_first(_load_omnidocbench_pages(cache_dir))
+    pages = _odb_stratified(_load_omnidocbench_pages(cache_dir))
     samples: list[Sample] = []
     for page in pages:
         layout = _odb_page_layout(page)
@@ -458,7 +512,8 @@ def load_omnidocbench_layout(limit: int | None = None, cache_dir: Path | None = 
             continue
         name = str(page["page_info"]["image_path"])
         samples.append(Sample(image_id=name, image=_odb_image(name, cache),
-                              gt_text="", gt_layout=layout))
+                              gt_text="", gt_layout=layout,
+                              stratum=_odb_stratum(page)))
         if limit is not None and len(samples) >= limit:
             break
     return samples
@@ -825,6 +880,34 @@ def _self_check() -> None:
         ((500.0, 260.0, 920.0, 420.0),),
     ], [s.gt_boxes for s in seals]
     assert seals[0].image.size == SEAL_DOC_SIZE
+    # Selector estratificado: cubre ≥6 estratos (`data_source × layout`), ninguno
+    # domina (>40%) y el orden es determinista (misma muestra en dos llamadas).
+    def _attr_page(data_source, layout, eq=False, path="p"):
+        return {"layout_dets": [], "page_info": {
+            "image_path": path,
+            "page_attribute": {"data_source": data_source, "layout": layout,
+                               "subset": "equation_hard" if eq else "v1.5"},
+        }}
+
+    strat_pages = (
+        [_attr_page("book", "single_column")] * 5
+        + [_attr_page("book", "double_column")] * 4
+        + [_attr_page("newspaper", "other_layout")] * 3
+        + [_attr_page("exam_paper", "single_column")] * 2
+        + [_attr_page("note", "single_column")] * 2
+        + [_attr_page("magazine", "three_column")] * 1
+        + [_attr_page("PPT2PDF", "1andmore_column")] * 1
+    )
+    picked = _odb_stratified(strat_pages, limit=12)
+    assert len(picked) == 12
+    strata_counts: dict[str, int] = {}
+    for page in picked:
+        key = _odb_stratum(page)
+        strata_counts[key] = strata_counts.get(key, 0) + 1
+    assert len(strata_counts) == 7, strata_counts          # ≥6 estratos cubiertos
+    assert max(strata_counts.values()) <= 12 * 0.4, strata_counts  # ninguno >40%
+    assert _odb_stratified(strat_pages, limit=12) == picked        # determinista
+    assert _odb_stratum(_attr_page("book", "single_column")) == "book × single_column"
     print("common.datasets self-check OK")
 
 

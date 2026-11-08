@@ -180,6 +180,16 @@ _REPLACEMENTS = {
     "Métricas copiadas de `REPORT.md` (run CPU `": "Metrics copied from `REPORT.md` (CPU run `",
     "), con `n=20` por motor.": "), with `n=20` per engine.",
     "`deformable_detr` quedó `skipped` por falta de pesos y no se presenta como medido. Licencias informativas.": "`deformable_detr` is `skipped` because weights are missing and is not reported as measured. Licenses are informational.",
+    # Sección "Por estrato" (muestra estratificada por `data_source × layout`).
+    "## Por estrato (`data_source × layout`)": "## Per stratum (`data_source × layout`)",
+    "### mAP@IoU 0.5 por estrato": "### mAP@IoU 0.5 per stratum",
+    "### recall@IoU 0.5 por estrato": "### recall@IoU 0.5 per stratum",
+    "**por motor y estrato**": "**per engine and stratum**",
+    " de la página (muestra estratificada,": " of the page (stratified sample,",
+    "Motores medidos: ": "Engines measured: ",
+    " · estratos cubiertos: ": " · strata covered: ",
+    "`—` = ese motor no tiene medición en ese estrato.": "`—` = this engine has no measurement in that stratum.",
+    "**Estratos (n de páginas en la muestra)**: ": "**Strata (pages in the sample)**: ",
 }
 
 

@@ -45,7 +45,7 @@ SPEC = FeatureSpec(
     summary="Detección de layout de página: cada bloque (título, párrafo, tabla, figura, fórmula, encabezado...) con su clase y su caja.",
     pyocrust_task="layout_detection (TaskPredictor, pp_doclayoutv3)",
     metric="mAP@IoU 0.5 y recall@IoU 0.5 macro por clase de bloque (emparejado 1-a-1)",
-    dataset="omnidocbench_layout: OmniDocBench anota `category_type` + `poly` por bloque (GT real, no inventado)",
+    dataset="omnidocbench_layout: OmniDocBench anota `category_type` + `poly` por bloque (GT real, no inventado); muestra estratificada por `data_source × layout`",
     alternatives={
         "layoutparser": ("layoutparser", "layoutparser"),
         "docling": ("docling", "docling"),
@@ -116,10 +116,16 @@ def score_layout(sample: Sample, output: OcrOutput) -> dict:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    args = common_argparser(SPEC.feature, SPEC.summary).parse_args(argv)
+    parser = common_argparser(SPEC.feature, SPEC.summary)
+    # Muestra **estratificada** por `data_source × layout` (n ≤ 40): cubre la
+    # heterogeneidad real y evita el sesgo de `_odb_rich_first` (ricas en
+    # tabla/fórmula -> casi todo `equation_hard`). Ver `common.datasets._odb_stratified`.
+    parser.set_defaults(limit=40)
+    args = parser.parse_args(argv)
     dataset = args.dataset or "omnidocbench_layout"
     samples = load_dataset(dataset, limit=args.limit, split=args.split)
-    print(f"[layout] dataset={dataset} muestras={len(samples)}")
+    strata = sorted({s.stratum for s in samples if s.stratum})
+    print(f"[layout] dataset={dataset} muestras={len(samples)} estratos={len(strata)}")
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     out_dir = feature_out_dir(args.output_dir, SPEC) / timestamp
     run_backends(

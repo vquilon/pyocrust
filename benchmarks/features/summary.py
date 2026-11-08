@@ -231,7 +231,10 @@ def summary_yolo_layout_backends(rows: dict[tuple[str, str, str], list[dict]] | 
     Tres cortes, en orden:
 
     1. **Un solo proveedor.** Gana el autor (hantian/omoured/armaggheddon) con el
-       mejor mAP@0.5, del tamaño que sea; los otros dos no entran en el resumen.
+       mejor mAP@0.5 **que cubra todas las versiones** (v8/v10/v11/v12/y26). Un
+       autor pequeño como `armaggheddon` solo tiene v11/y26 y dejaría fuera
+       v8/v10/v12, rompiendo el corte 2; si ningún autor las cubre todas, manda
+       el mejor global.
     2. **Uno por versión.** Dentro de ese proveedor, el mejor modelo de cada
        versión de YOLO (v8, v10, v11, v12, y26).
     3. **El de tamaño similar a `pyocrust`.** Se añade aunque repita versión.
@@ -248,7 +251,16 @@ def summary_yolo_layout_backends(rows: dict[tuple[str, str, str], list[dict]] | 
                 means[backend] = mean
     if not means:
         return set()
-    provider = max(means, key=lambda backend: (means[backend], backend)).split("_", 1)[0]
+    # El resumen lleva **un YOLO por versión** (v8/v10/v11/v12/y26), así que el
+    # proveedor se elige entre los que cubren **todas** las versiones; si ninguno
+    # las cubre, manda el mejor global.
+    authors = {backend.split("_", 1)[0] for backend in means}
+    covering = [author for author in authors
+                if all(any(b.startswith(f"{author}_") and b in models for b in means)
+                       for models in scores.values())]
+    provider = max(covering or authors,
+                   key=lambda author: (max(means[b] for b in means
+                                          if b.startswith(f"{author}_")), author))
     winners: set[str] = set()
     for models in scores.values():
         pool = {backend: means[backend] for backend in means
