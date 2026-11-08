@@ -51,3 +51,20 @@ python benchmarks/build_funsd_fixture.py  # funsd_mini
 python benchmarks/verify_fixture_offline.py   # 9 features -> >=2 muestras desde la fixture
 pytest benchmarks/tests/test_fixture_fallback.py -q
 ```
+
+## Fetch reproducible (revision fijada + checksums)
+
+La fuente real (HF) se baja **siempre** con `revision=` fijada
+(`OMNIDOCBENCH_REVISION` en `common/datasets.py`): dos maquinas bajan la MISMA
+revision. El sha256 de los ficheros que definen el GT va en
+`benchmarks/datasets_manifest.json` (versionado) y se **verifica al cargar**: si no
+cuadra, `DatasetUnavailable` con el hash esperado y el obtenido.
+
+```bash
+python benchmarks/prepare_datasets.py --fetch         # puebla data_cache una vez (~545 MB)
+python benchmarks/prepare_datasets.py --fetch --update-manifest   # refresca el sha256
+```
+
+Sin red y con el cache vacio, `--fetch` (o `common.runner --fetch`) falla con **un
+unico error claro** y la instruccion de como poblarlo — no deja N muestras en
+`skipped`. La revision usada aparece en el `provenance` de cada `REPORT.md`.
