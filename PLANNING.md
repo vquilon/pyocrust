@@ -49,7 +49,7 @@ como backlog: el dispatcher no las toma hasta que se desbloqueen.
 | `t_2766a41a` | `pp_ocrv6_small` y `pp_ocrv6_medium` nunca ejecutados (0/3 y 0/3 artefactos; ningún test los corre) | `probador` |
 | `t_052d7c9c` | Test de descarga **fría** por HuggingFace (indra): `test_models.py` solo cubre la caché fría de ModelScope | `probador` |
 | `t_a62cc581` | Fase 11 (L621) / `t_b304e350`: referencias externas que no están medidas sobre el mismo dataset/GT | `hefesto` |
-| `t_5366b7ce` | `OcrTask` sin uso en el pipeline (§I2) | `hefesto` |
+| ~~`t_5366b7ce`~~ | **Cerrada (2026-11-08)**: `OcrTask` era un enum muerto —eliminado junto a su re-export (despacho real por cadena de preset y `task: &str`) | `hefesto` |
 
 **Deuda registrada sin tarjeta:**
 
@@ -249,11 +249,11 @@ Los 8 puntos del dictamen consolidado (`A1`, comentario del 2026-10-25) y dónde
 ### `I2` — Core
 
 * **Tarjeta:** `t_629765fb`. **Responsable:** `coder`. **Estado:** Hecho (2026-10-25, commits `4ede5c7`, `d45d86c`, `e7cf9fa`).
-* **Contenido:** `src/core/types.rs` (`OcrResult`, `TextRegion` con `#[pyclass]`/`#[pyo3(get)]`, enums `OcrTask`, `OcrSize`, `ModelSpec`, `ModelPaths`); `src/core/mod.rs` (trait `OcrEngineBackend`); `src/core/error.rs` (`OcrError` y su traducción a excepciones Python); `src/core/image_processor.rs` (`ScaleDown` y `FullPageTiling` como funciones puras sobre `image::RgbImage`, sin I/O y sin conocer `oar-ocr`).
+* **Contenido:** `src/core/types.rs` (`OcrResult`, `TextRegion` con `#[pyclass]`/`#[pyo3(get)]`, enums `OcrSize`, `ModelSpec`, `ModelPaths`); `src/core/mod.rs` (trait `OcrEngineBackend`); `src/core/error.rs` (`OcrError` y su traducción a excepciones Python); `src/core/image_processor.rs` (`ScaleDown` y `FullPageTiling` como funciones puras sobre `image::RgbImage`, sin I/O y sin conocer `oar-ocr`).
 * **Criterio de aceptación:** (1) `cargo check` termina sin errores; (2) un test ejecutable en Rust demuestra el tiling: una imagen sintética de 1200x900 con mosaico 512 y solapamiento 64 produce exactamente los mosaicos y offsets esperados, y ningún mosaico se solapa por debajo de 64px en los bordes de corte. Salida real adjunta.
 * **Evidencia:** tests `tiling_1200x900_512_64_produces_the_expected_tiles` y `tiling_overlap_is_never_below_the_requested_value` (`src/core/image_processor.rs:269-372`); 36/36 tests Rust en verde (`S1`).
 * **Coherencia con el diseño:** el diseño (ADR-009) declara el tiling **opt-in**: las funciones existen y se testean, pero el pipeline general no las aplica. El caso degenerado `overlap >= tamaño de mosaico` se rechaza con error (`ImageProcessError::OverlapTooLarge`), no con bucle degenerado.
-* **Deuda declarada:** `OcrTask` se define con solo las variantes `Text`/`Structure` y **no** se usa en ningún punto del pipeline; su variante `Formula` no existe, por eso el escenario LaTeX de `V1` queda `skip` (ver §6).
+* **Deuda resuelta:** `OcrTask` era un enum muerto (solo re-exportado, nunca construido: la fachada `I4` mapea cadenas de preset → `ModelSpec` en `src/lib.rs:58-63` y `TaskPredictor` despacha por `task: &str` en `src/tasks/mod.rs`). Eliminado el 2026-11-08 en `t_5366b7ce`, junto a su re-export y las referencias en docs.
 
 ## Fase 3: Gestión de Almacenamiento, Paths y Descargas
 
