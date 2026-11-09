@@ -104,8 +104,19 @@ def parse_quality_time(feature: str, titular: str | None) -> tuple[list[tuple[st
 
             def col_quality(device: str) -> int | None:
                 d, t = _norm(f"({device})"), _norm(titular)
-                return next((i for i, key in enumerate(gpu_header)
-                             if _norm(key).endswith(d) and _norm(key).startswith(t)), None)
+                # Columnas de CALIDAD de ese device: acaban en «(gpu)»/«(cpu)» y no
+                # son tiempos. El titular de FEATURES es una pista, no un requisito:
+                # se desfasa del encabezado real del informe («F1 palabra» vs
+                # «Word F1», «Similitud LaTeX» vs «LaTeX similarity») y con el
+                # `startswith` obligatorio se perdían enteras las filas GPU.
+                cands = [i for i, key in enumerate(gpu_header)
+                         if _norm(key).endswith(d) and "ms" not in _norm(key)]
+                con_titular = [i for i in cands if _norm(gpu_header[i]).startswith(t)]
+                if con_titular:
+                    return con_titular[0]
+                # Sin titular que case solo se acepta si hay UNA columna de calidad;
+                # con varias, adivinar sería inventar la métrica.
+                return cands[0] if len(cands) == 1 else None
 
             def col_suffix(suffix: str) -> int | None:
                 s = _norm(suffix)
