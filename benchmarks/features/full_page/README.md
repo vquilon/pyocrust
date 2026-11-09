@@ -88,18 +88,18 @@ uv pip install --python benchmarks/.venv_docling/Scripts/python.exe \
 sobre las páginas anotadas y publica `markdown_f1`/`block_f1`. Si Indra no tiene
 sus 9 artefactos en disco, queda **`skipped` con su motivo** (no se mide a medias).
 
-**Alternativa externa medida**: `docling` (MIT) n=20 CPU → `markdown_f1` **0.354**
-frente a **0.270** de `pp_structurev3`, con CER 0.518 vs 2.190. Run
-`results/full_page/2026-11-08_17-40-47` (20/20 `ok`). Ahora `full_page` **ya no
+**Alternativa externa medida**: `docling` (MIT) n=6 CPU → `markdown_f1` **0.204**
+frente a **0.083** de `pp_structurev3`, con CER 1.119 vs 5.737. Run
+`results/full_page/2026-11-09_14-28-38` (6/6 `ok`). Ahora `full_page` **ya no
 tiene 0 externos medidos**.
 
 > **Límite honesto de docling en este banco**: el adaptador devuelve **solo el
 > Markdown** (`export_to_markdown`), sin cajas ni tipos de bloque. Por eso sus
-> columnas de estructura (`block_f1`, `layout_map`, `title_recall`,
-> `figure_recall`) salen **`0.000` medido** —el motor no emite esa modalidad—,
-> no `N/A`. La comparación justa con `pyocrust_structure` es la columna
-> `markdown_f1`/`CER`; desgranar layout/tabla/fórmula de docling exigiría un
-> adaptador sobre `export_to_dict` (fuera del alcance de esta tarjeta).
+> columnas de estructura (`block_f1`, `layout mAP`, `title_recall`,
+> `figure_recall`) salen **`N/A`** —el motor no emite esa modalidad y el informe
+> no la evalúa—, nunca un `0.000`. La comparación justa con `pyocrust_structure`
+> es la columna `markdown_f1`/`CER`; desgranar layout/tabla/fórmula de docling
+> exigiría un adaptador sobre `export_to_dict` (fuera del alcance de esta tarjeta).
 
 ## Provenance
 

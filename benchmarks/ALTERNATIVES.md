@@ -117,14 +117,15 @@ docling (`runner._docling_tableformer_backend`). Declarados: `docling`,
 | Candidato | Peso / enlace | Licencia | Dep. y estado | Coste | Veredicto |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **TATR** (medido) | `microsoft/table-transformer-structure-recognition` — `model.safetensors` **115 434 268 B (≈110 MB)** en caché HF | **MIT** (comercial) [ref: https://github.com/microsoft/table-transformer/blob/main/LICENSE] | `transformers`+`torch` instalados; adaptador **existe** | ~110 MB; CPU | `medido` |
-| **PaddleOCR SLANet** (medido) | `PaddlePaddle/SLANet_plus` en `~/.paddlex/official_models/SLANet_plus` | **Apache-2.0** | `paddleocr` 3.7.0 instalado; adaptador **existe** (`TableStructureRecognition`) | CPU; 71 ms/tabla | `medido` |
-| **docling TableFormer** (medido) | `docling-project/docling-models` — `tableformer_accurate.safetensors` **212 758 388 B (≈203 MB)** en caché HF | **MIT** [ref: id.] | `docling` 2.149.0 en venv aislado; adaptador **existe** | 203 MB; CPU; 33 s/tabla | `medido` |
+| **PaddleOCR SLANet** (medido) | `PaddlePaddle/SLANet_plus` en `~/.paddlex/official_models/SLANet_plus` | **Apache-2.0** | `paddleocr` 3.7.0 instalado; adaptador **existe** (`TableStructureRecognition`) | CPU; 72 ms/tabla | `medido` |
+| **docling TableFormer** (medido) | `docling-project/docling-models` — `tableformer_accurate.safetensors` **212 758 388 B (≈203 MB)** en caché HF | **MIT** [ref: id.] | `docling` 2.149.0 en venv aislado; adaptador **existe** | 203 MB; CPU; 28,6 s/tabla | `medido` |
 | **PP-Structure (SLANet)** | `pyocrust_table` ya usa `slanext_wired.onnx` (**367 743 373 B ≈351 MB**) en `~/.oar` | Apache-2.0 | motor propio | ~351 MB | `medido` (propio) |
 
-**Resultado (n=20, CPU, run `2026-11-08_18-43-55`).** TEDS-S medio:
-`paddleocr_slanet` **0.828** (71 ms) > `docling_tableformer` 0.807 (33 s, 14/20
-evaluadas) > `pyocrust_table` 0.780 (796 ms) > `tatr` 0.698 (760 ms). El SLANet
-oficial de PaddleOCR supera al propio; TATR va último con la rejilla simple.
+**Resultado (n=8, CPU, run `2026-11-09_14-22-58`).** TEDS estrut. medio:
+`slanet_plus` **0.914** (1103 ms) > `tableformer (docling)` 0.905 (28 609 ms) >
+`SLANet_plus (paddleocr)` 0.889 (72 ms) > `table-transformer-structure-recognition`
+0.790 (131 ms) > `pp_structurev3` 0.753 (3530 ms). El SLANet **propio** gana; el
+SLANet oficial de PaddleOCR queda segundo y TATR (rejilla simple) cuarto.
 
 **Trade-off rechazado.** TableFormer daría un TEDS de **árbol completo** (con
 texto de celda) frente al TEDS-S del banco actual, que solo puntúa la gramática

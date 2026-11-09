@@ -1,5 +1,10 @@
 # Comparativa de OCR de fórmulas — `pyocrust` vs otros motores (métrica normalizada)
 
+> **Histórico (pre-estratificado).** Reporte legado de `report_formula.py` para la
+> run `2026-11-01_22-14-47` (n=50), cuya carpeta ya no está en `results/`. La run
+> de referencia vigente es `reports/formula/REPORT.md` (`2026-11-09_14-13-57`,
+> n=10, muestra estratificada). Este fichero no se regenera con la cadena de informes.
+
 Run `benchmarks/results/2026-11-01_22-14-47`. Dataset **`omnidocbench_formula`**: `opendatalab/OmniDocBench` v1.6, **una muestra por fórmula** (bloque `equation_isolated`): el adaptador recibe el **recorte** de la fórmula y el GT es el **LaTeX anotado** de ese bloque (sin los `$` de delimitador). Entrada idéntica (mismo recorte PNG) para todos los motores; un motor a la vez, CPU, `warmup=1`, `repeats=1`.
 
 | Motor (variante; tarea) | n | LaTeX exacto ↑ | LaTeX exacto norm. ↑ | Similitud ↑ | Similitud norm. ↑ | F1 tokens LaTeX ↑ | Levenshtein norm. ↓ | Salidas con LaTeX ↑ | ms/fórmula ↓ | p95 ms ↓ |
