@@ -29,6 +29,29 @@ pub fn provider_name(provider: &OrtExecutionProvider) -> &'static str {
     }
 }
 
+/// Adelanta el workaround de CUDA de PP-FormulaNet **antes** de sondear el EP.
+///
+/// `ensure_cuda_launch_blocking()` (de `oar-ocr-core`) fija
+/// `CUDA_LAUNCH_BLOCKING=1`, que serializa los lanzamientos CUDA y evita la
+/// carrera del `Loop` autorregresivo de PP-FormulaNet sobre los buffers de
+/// arena de ONNX Runtime (onnxruntime#4829). Sin él, bajo CUDA la 1ª inferencia
+/// devuelve el LaTeX correcto y **todas las siguientes salen vacías** (estado
+/// por sesión, medido en `t_e1630cbe`). El crate ya llama a esa función dentro
+/// de `OARStructureBuilder::build` y del adaptador de fórmulas, pero la runtime
+/// CUDA lee la variable **una sola vez**, al inicializar el contexto — y para
+/// entonces `resolve_auto()` (que construye una sesión de sonda con el EP CUDA)
+/// ya lo inicializó. Por eso el workaround hay que aplicarlo aquí, en la
+/// resolución de `device`, antes de cualquier sonda.
+///
+/// Solo actúa en builds con `feature = "cuda"`: en CPU/DirectML no hay CUDA que
+/// serializar y forzarlo degradaría los kernels CUDA de terceros (p. ej. torch)
+/// que convivan en el proceso. La función del crate es idempotente y respeta un
+/// `CUDA_LAUNCH_BLOCKING` ya presente en el entorno.
+fn ensure_cuda_launch_blocking() {
+    #[cfg(feature = "cuda")]
+    oar_ocr::core::inference::ensure_cuda_launch_blocking();
+}
+
 /// EPs aceleradores que **registran de verdad** en este host, o `[]` si ninguno.
 ///
 /// `auto()` arma los candidatos según las features compiladas (`cuda`,
@@ -36,6 +59,9 @@ pub fn provider_name(provider: &OrtExecutionProvider) -> &'static str {
 /// se devuelven los supervivientes, sin el `CPU` de respaldo. Es la única fuente
 /// honesta de "¿hay GPU para ONNX Runtime aquí?", no el inventario físico.
 pub fn available_providers() -> Vec<String> {
+    // El sondeo inicializa el runtime CUDA: el workaround de PP-FormulaNet debe
+    // estar puesto ANTES, o `enable_cuda()` (que llama aquí) lo deja tarde.
+    ensure_cuda_launch_blocking();
     OrtSessionConfig::auto()
         .resolve_auto()
         .get_execution_providers()
@@ -59,6 +85,12 @@ pub struct DeviceSelection {
 /// * `"auto"` — CUDA > DirectML entre los candidatos compilados; CPU si ninguno registra.
 /// * `"cuda"` / `"directml"` — exige que ese EP registre; si no, error honesto.
 pub fn resolve_device(device: &str) -> Result<DeviceSelection, OcrError> {
+    // Pedir un acelerador dispara un sondeo de EP dentro de este match
+    // (`resolve_auto`), y el sondeo arranca el runtime CUDA. El workaround de
+    // PP-FormulaNet tiene que estar puesto ANTES de ese arranque.
+    if device != "cpu" {
+        ensure_cuda_launch_blocking();
+    }
     match device {
         "cpu" => Ok(DeviceSelection {
             config: OrtSessionConfig::new()

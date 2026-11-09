@@ -32,6 +32,7 @@ from pyocrust import (
     PyOcrValueError,
     StructureResult,
     VeloceOCR,
+    available_providers,
 )
 
 from conftest import (
@@ -256,6 +257,45 @@ def test_el_latex_de_una_formula_es_accesible_desde_python():
     import re
     assert re.search(latex_pattern, markdown, re.DOTALL) is not None, (
         "el Markdown debe contener al menos una fórmula en LaTeX (entre $$...$$)"
+    )
+
+
+def test_cuda_pp_formulanet_da_el_mismo_latex_no_vacio_en_inferencias_seguidas():
+    """Regresión onnxruntime#4829: bajo CUDA, dos inferencias seguidas del MISMO
+    motor sobre la MISMA imagen deben dar el mismo LaTeX no vacío.
+
+    Antes del arreglo, la 1ª inferencia de un motor PP-FormulaNet recién
+    construido devolvía el LaTeX correcto y **todas las siguientes salían
+    vacías** (estado por sesión, determinista): `pyocrust` sondeaba el EP CUDA
+    (`resolve_auto`) al resolver `device` —inicializando el contexto— *antes* de
+    que el crate aplicase su workaround `CUDA_LAUNCH_BLOCKING=1`, que la runtime
+    CUDA solo lee al arrancar el contexto. Con el workaround adelantado a la
+    resolución de `device`, la 2ª inferencia vuelve a coincidir con la 1ª.
+
+    Se marca `skip` cuando ningún EP CUDA registra: la regresión es específica de
+    la ruta CUDA (CPU nunca se degradó).
+    """
+    if "cuda" not in available_providers():
+        pytest.skip("ningún EP CUDA registra en este host; regresión específica de CUDA")
+
+    modelos = _directorio_structurev3()
+    fixture = Path(__file__).parent / "data" / "sample_formula.png"
+    if not fixture.is_file():
+        pytest.skip("falta el fixture con fórmula (tests/data/sample_formula.png)")
+
+    ocr = VeloceOCR("pp_structurev3", custom_path=str(modelos), device="cuda")
+    assert ocr.provider_effective == "cuda", "el escenario real debe correr en CUDA"
+
+    primero = ocr.recognize(str(fixture))
+    segundo = ocr.recognize(str(fixture))
+
+    assert primero.formulas, "la 1ª inferencia CUDA debe emitir LaTeX de fórmula"
+    assert all(f.strip() for f in primero.formulas), (
+        f"LaTeX vacío ya en la 1ª inferencia: {primero.formulas!r}"
+    )
+    assert segundo.formulas == primero.formulas, (
+        "la 2ª inferencia por sesión devuelve LaTeX vacío o distinto "
+        f"(onnxruntime#4829): 1ª={primero.formulas!r} 2ª={segundo.formulas!r}"
     )
 
 
