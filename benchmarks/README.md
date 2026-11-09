@@ -26,9 +26,10 @@ su `bank.py`. El reporte **por feature** se genera con
 
 ## Resultados medidos (resumen)
 
-> **`medido`** = ejecutado en este repo (`--limit 20`, CPU, `warmup=1`, `repeats=1`,
-> pyocrust 0.1.0; campaña 2026-11-06/07); detalle por motor, provenance completa y la
-> columna `license` por motor en `reports/<feature>/REPORT.md`.
+> **`medido`** = ejecutado en este repo (muestra estratificada: `formula` n=10,
+> `table` n=8, `full_page` n=6, `layout` n=40; resto n=20 · CPU, `warmup=1`,
+> `repeats=1`, pyocrust 0.1.0; campaña 2026-11-08/09); detalle por motor,
+> provenance completa y la columna `license` por motor en `reports/<feature>/REPORT.md`.
 > **`referencia`** = valor de paper (con URL, panel aparte, **no comparable 1:1**).
 > **`pendiente`** = sin datos aún (nunca ceros).
 >
@@ -41,14 +42,14 @@ Tabla consolidada generada por `features/summary.py`: [`reports/SUMMARY.md`](rep
 | Feature | Métrica titular ↑ | pyocrust (medido) | Mejor alternativa medida | Run | Estado |
 | :--- | :--- | ---: | :--- | :--- | :--- |
 | `text` | F1 palabra | 0.717 | rapidocr 0.585 | [text/2026-11-06_22-46-46](results/text/2026-11-06_22-46-46) | medido |
-| `formula` | Similitud LaTeX | 0.497 | paddle_latex_ocr 0.694 | [formula/2026-11-06_22-42-36](results/formula/2026-11-06_22-42-36) | medido |
-| `layout` | mAP@IoU 0.5 | 0.827 | docling_heron_101 0.843 | [layout/2026-11-06_22-53-15](results/layout/2026-11-06_22-53-15) | medido |
-| `orientation` | accuracy | 0.950 | lcnet_doc_ori 0.950 | [orientation/2026-11-06_23-05-36](results/orientation/2026-11-06_23-05-36) | medido |
-| `rectification` | SSIM | 0.707 | uvdoc 0.707 | [rectification/2026-11-06_23-06-42](results/rectification/2026-11-06_23-06-42) | medido |
-| `text_line` | accuracy | 1.000 | lcnet_textline_ori 1.000 | [text_line/2026-11-06_23-07-36](results/text_line/2026-11-06_23-07-36) | medido |
-| `seal` | recall@IoU 0.5 | 0.750 | — | [seal/2026-11-06_23-08-24](results/seal/2026-11-06_23-08-24) | medido |
-| `table` | TEDS | 0.780 | paddleocr_slanet 0.828 | [table/2026-11-08_18-43-55](results/table/2026-11-08_18-43-55) | medido |
-| `full_page` | Markdown F1 | 0.231 | — | [full_page/2026-11-06_23-31-43](results/full_page/2026-11-06_23-31-43) | medido |
+| `formula` | Similitud LaTeX | 0.499 | paddle_latex_ocr 0.653 | [formula/2026-11-09_14-13-57](results/formula/2026-11-09_14-13-57) | medido |
+| `layout` | mAP@IoU 0.5 | 0.796 | docling-layout-heron-101 0.818 | [layout/2026-11-09_14-32-35](results/layout/2026-11-09_14-32-35) | medido |
+| `orientation` | accuracy | 1.000 | pp-lcnet_x1_0_doc_ori (onnxruntime) 1.000 | [orientation/2026-11-08_19-54-17](results/orientation/2026-11-08_19-54-17) | medido |
+| `rectification` | SSIM | 0.597 | uvdoc (onnxruntime) 0.604 | [rectification/2026-11-08_19-53-54](results/rectification/2026-11-08_19-53-54) | medido |
+| `text_line` | accuracy | 1.000 | pp-lcnet_x1_0_textline_ori (onnxruntime) 1.000 | [text_line/2026-11-06_23-57-00](results/text_line/2026-11-06_23-57-00) | medido |
+| `seal` | recall@IoU 0.5 | 0.750 | pp-ocrv4_mobile_seal_det (onnxruntime) 0.750 | [seal/2026-11-08_15-28-48](results/seal/2026-11-08_15-28-48) | medido |
+| `table` | TEDS | 0.914 | tableformer (docling) 0.905 | [table/2026-11-09_14-22-58](results/table/2026-11-09_14-22-58) | medido |
+| `full_page` | Markdown F1 | 0.083 | docling-default (pipeline) 0.204 | [full_page/2026-11-09_14-28-38](results/full_page/2026-11-09_14-28-38) | medido |
 
 
 ### `text` — FUNSD, n=20 (detección + reconocimiento)
@@ -63,16 +64,19 @@ Tabla consolidada generada por `features/summary.py`: [`reports/SUMMARY.md`](rep
 
 ![Reporte text](figures/text/REPORT.png)
 
-### `formula` — OmniDocBench, n=20 (fórmula → LaTeX)
+### `formula` — OmniDocBench, n=10 (fórmula → LaTeX)
 
 | Motor | Similitud ↑ | F1 tokens ↑ | Salidas con LaTeX ↑ | ms/fórmula ↓ |
 | :--- | ---: | ---: | ---: | ---: |
-| **paddle_latex_ocr** (PP-FormulaNet_plus-M) | **0.694** | **0.839** | N/A | 12 490 |
-| pyocrust_formulanet (directo) | 0.497 | 0.622 | N/A | **979** |
-| pix2tex (LaTeX-OCR) | 0.486 | 0.682 | N/A | 7 484 |
-| pyocrust_formula (pipeline) | 0.196 | 0.295 | N/A | 3 464 |
+| **paddle_latex_ocr** (default) | **0.653** | **0.799** | N/A | 16 326 |
+| pix2tex (default) | 0.552 | 0.777 | N/A | 5 500 |
+| pp-formulanet-s (direct) | 0.499 | 0.652 | N/A | 998 |
+| pp_structurev3 (pp-formulanet-s) | 0.497 | 0.708 | N/A | 2 474 |
+| pp_structurev3 (default) | 0.398 | 0.613 | N/A | 2 774 |
+| indra (math) | 0.326 | 0.575 | N/A | **141** |
+| unimernet (tiny) | 0.260 | 0.385 | N/A | 17 493 |
 
-> Run: `benchmarks/results/formula/2026-11-06_22-42-36` (CPU, n=20, warmup=1, repeats=1)
+> Run: `benchmarks/results/formula/2026-11-09_14-13-57` (CPU, n=10, warmup=1, repeats=1)
 
 ![Reporte formula](figures/formula/REPORT.png)
 
@@ -85,9 +89,9 @@ de modelos: [`reports/FEATURES_OVERVIEW.md`](reports/FEATURES_OVERVIEW.md).
 
 ### Resto de features (gráfica por feature)
 
-`layout` (mAP@IoU 0.5 0.827), `orientation` (acc 0.950), `rectification` (SSIM 0.707),
-`text_line` (acc 1.000), `seal` (recall@IoU 0.5 0.750), `table` (TEDS 0.854) y
-`full_page` (Markdown F1 0.231) tienen su propio `REPORT.md` + gráfica:
+`layout` (mAP@IoU 0.5 0.796), `orientation` (acc 1.000), `rectification` (SSIM 0.597),
+`text_line` (acc 1.000), `seal` (recall@IoU 0.5 0.750), `table` (TEDS 0.914) y
+`full_page` (Markdown F1 0.083) tienen su propio `REPORT.md` + gráfica:
 
 | Feature | Gráfica |
 | :--- | :--- |
@@ -198,7 +202,12 @@ El resto de features (`layout`, `table`, `full_page`, `orientation`, `text_line`
 `rectification`) se reproduce siguiendo la misma pauta; los comandos completos
 están en [`GPU.md`](GPU.md) §Reproducir.
 
-## Estado vigente B10 — dataset documental (2026-11-01; prevalece sobre lo anterior)
+## Estado anterior B10 — dataset documental (2026-11-01; superado por la muestra estratificada de 2026-11-09)
+
+> **Histórico.** Esta sección es la primera comparativa multi-tarea sobre
+> OmniDocBench; el estado vigente es la muestra estratificada de 2026-11-09
+> (`reports/SUMMARY.md` y `reports/<feature>/REPORT.md`). La run `2026-11-01_15-13-03`
+> se conserva como registro, no como referencia vigente.
 
 Primera comparativa sobre un **dataset documental** (páginas de documentos
 reales, no formularios FUNSD): **`opendatalab/OmniDocBench`** v1.6 — 1651 páginas

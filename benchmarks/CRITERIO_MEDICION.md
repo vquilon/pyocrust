@@ -67,7 +67,10 @@ Comprobar con:
 | table | 2026-11-08_18-43-55 | 20 | 4 | 2026-11-07_14-58-46 | 20 | 1 | OK | REHACER: motor desemparejado (docling_tableformer) |
 | full_page | 2026-11-08_17-40-47 | 20 | 2 | 2026-11-07_14-59-12 | 19/20 | 2 | **NO** | REHACER: `n` distinto CPU/GPU |
 
-### Tras la pata GPU en DirectML (2026-11-08)
+### Histórico — tras la pata GPU en DirectML (2026-11-08, muestra n=20)
+
+> **Ya no vigente.** La muestra estratificada de 2026-11-09 sustituyó a las runs
+> n=20 de `formula`/`table`/`full_page`; el estado actual está al pie de esta sección.
 
 | feature | run CPU | n | run GPU | n | estado |
 | :--- | :--- | ---: | :--- | ---: | :--- |
@@ -92,7 +95,31 @@ la run de referencia: eso es justo lo que producía el `n` mezclado. Medido:
   La referencia CPU tiene 2; `pyocrust_indra` vive en runs de 2 motores, y `pp_structurev3_api`
   y `pdf_extract_kit` **no están medidos en CPU**.
 
-**Pendiente (otro día): una run CPU y otra GPU COMPLETAS por feature** — todos los motores de
+### Estado vigente (2026-11-09, muestra estratificada)
+
+> Fuente: salida real de `benchmarks/validez_medicion.py` (2026-11-09). Las runs
+> n=20 de `formula`/`table`/`full_page` se relocalizaron a
+> `results/_superseded_pre_stratified/`; la muestra vigente es `formula` n=10,
+> `table` n=8, `full_page` n=6, `layout` n=40.
+
+| feature | run CPU | n | motores | run GPU | n | motores | par CPU/GPU | estado |
+| :--- | :--- | ---: | ---: | :--- | ---: | ---: | :--- | :--- |
+| text | 2026-11-06_22-46-46 | 20 | 3 | 2026-11-08_22-36-55 | 20 | 3 | OK | VALIDA |
+| formula | 2026-11-09_14-13-57 | 10 | 7 | 2026-11-09_15-10-51 | 9/10 | 5 | NO | REHACER: n distinto CPU/GPU |
+| layout | 2026-11-09_14-32-35 | 40 | 42 | 2026-11-09_15-17-40 | 40 | 41 | OK | VALIDA |
+| orientation | 2026-11-08_19-54-17 | 20 | 3 | 2026-11-08_23-01-31 | 20 | 1 | OK | VALIDA |
+| rectification | 2026-11-08_19-53-54 | 20 | 3 | 2026-11-08_23-02-26 | 20 | 1 | OK | VALIDA |
+| text_line | 2026-11-06_23-57-00 | 20 | 2 | 2026-11-08_23-02-51 | 20 | 1 | OK | VALIDA |
+| seal | 2026-11-08_15-28-48 | 20 | 2 | 2026-11-08_23-03-03 | 20 | 1 | OK | VALIDA |
+| table | 2026-11-09_14-22-58 | 8 | 5 | 2026-11-09_15-14-53 | 8 | 2 | OK | VALIDA |
+| full_page | 2026-11-09_14-28-38 | 6 | 3 | 2026-11-09_15-16-00 | 6 | 2 | OK | VALIDA |
+
+**8/9 VALIDA.** `formula` queda **REHACER**: la run GPU `2026-11-09_15-10-51` no es
+uniforme (`pyocrust_indra` 9 `ok` + 1 error bajo DirectML), así que su `n` (9/10)
+no casa con la run CPU (10). Seguimiento: `t_c7188477`.
+
+**Pendiente:** (1) re-medir la pata GPU de `formula` con una run uniforme (mismo `n`
+que la CPU) y (2) una run CPU y otra GPU COMPLETAS por feature — todos los motores de
 `DEFAULT_BACKENDS` ( `ok` o `skipped` con motivo ) — con la pata GPU **priorizando CUDA**
 (tarjeta *[bench][gpu] Campaña GPU en modo CUDA 13*), que por la regla 9 obliga de todos modos a
 re-medir **toda** la pata GPU. Cierre: `validez_medicion.py` → **9/9 VALIDA** con
@@ -107,7 +134,8 @@ Por cada feature, y **una cada vez**:
 .venv/Scripts/python.exe benchmarks/features/<feature>/bank.py --limit <N> --device gpu
 ```
 
-`<N>` = el mismo de la tabla (`20`; `40` en `layout`) y **el mismo en CPU y GPU**.
+`<N>` = el de la muestra estratificada vigente (`formula` 10, `table` 8,
+`full_page` 6, `layout` 40; resto 20) y **el mismo en CPU y GPU**.
 Al terminar cada par: regenerar la cadena en este orden y volver a comprobar.
 
 ```bash

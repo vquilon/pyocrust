@@ -72,6 +72,10 @@ EP GPU válido para comparar, medido por separado.
 
 ## Comparativa CPU vs GPU (`text` y `formula`)
 
+> **Histórico (pre-estratificado, n=5, 2026-11-02).** Estos valores ya no son la
+> referencia vigente. La comparativa CPU vs GPU con la muestra estratificada
+> (2026-11-09) está en [`reports/CPU_VS_GPU.md`](reports/CPU_VS_GPU.md).
+
 Valores **medidos** por nosotros (`n=5`, `warmup=1`, `repeats=1`, un modelo a la
 vez). El provider lo confirma `pyocrust` fila a fila.
 
@@ -119,6 +123,9 @@ CPU-only bajo `--device gpu` quedan `skipped` con `provider_effective=n/a` y su
 motivo. No hay ninguna fila `ok` con `provider_effective=cpu` bajo device GPU.
 
 ## Comparativa CPU vs GPU (resto de features: `layout`, `table`, `full_page`, `orientation`, `text_line`, `rectification`)
+
+> **Histórico (pre-estratificado, 2026-11-02).** La comparativa vigente con la
+> muestra estratificada (2026-11-09) está en [`reports/CPU_VS_GPU.md`](reports/CPU_VS_GPU.md).
 
 Mismo método que arriba: valores **medidos** (`warmup=1`, `repeats=1`, un modelo a la
 vez); el provider lo confirma `pyocrust` fila a fila. En este host el único EP
