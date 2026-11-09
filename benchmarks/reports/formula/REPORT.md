@@ -57,3 +57,21 @@
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.
 
+## Por estrato (`data_source × layout`)
+
+> LaTeX sim **por motor y estrato** de la página (muestra estratificada, `page_info.page_attribute`). Motores medidos: 7 · estratos cubiertos: 12. `—` = ese motor no tiene medición en ese estrato.
+
+> **Estratos (n de páginas en la muestra)**: `PPT2PDF×other_layout` (2), `PPT2PDF×single_column` (1), `academic_literature×1andmore_column` (2), `academic_literature×double_column` (1), `academic_literature×single_column` (3), `book×other_layout` (3), `book×single_column` (2), `colorful_textbook×double_column` (1), `colorful_textbook×other_layout` (1), `exam_paper×double_column` (2), `exam_paper×other_layout` (1), `note×single_column` (1).
+
+### LaTeX sim por estrato
+
+| Motor (variante) | PPT2PDF×other_layout | PPT2PDF×single_column | academic_literature×1andmore_column | academic_literature×double_column | academic_literature×single_column | book×other_layout | book×single_column | colorful_textbook×double_column | colorful_textbook×other_layout | exam_paper×double_column | exam_paper×other_layout | note×single_column |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| indra (math) | 0.169 | 0.262 | 0.249 | — | 0.377 | 0.167 | 0.288 | 0.288 | 0.054 | 0.110 | 0.070 | 0.185 |
+| paddle_latex_ocr (default) | 0.748 | 0.684 | 0.714 | 0.835 | 0.764 | 0.710 | 0.721 | 0.514 | 0.168 | 0.843 | 1.000 | 0.632 |
+| pix2tex (default) | 0.723 | 0.643 | 0.484 | 0.720 | 0.638 | 0.516 | 0.677 | 0.810 | 0.314 | 0.791 | 0.233 | 0.207 |
+| pp-formulanet-s (direct) | 0.533 | 0.684 | 0.376 | 0.667 | 0.696 | 0.587 | 0.478 | 0.545 | 0.206 | 0.653 | 0.605 | 0.889 |
+| pp_structurev3 (default) | 0.279 | 0.410 | 0.352 | 0.667 | 0.615 | 0.514 | 0.350 | 0.308 | 0.149 | 0.486 | 0.093 | 0.259 |
+| pp_structurev3 (pp-formulanet-s) | 0.210 | 0.410 | 0.639 | 0.667 | 0.798 | 0.690 | 0.492 | — | — | 0.870 | — | — |
+| unimernet (tiny) | 0.137 | 0.328 | 0.247 | 0.432 | 0.262 | 0.275 | 0.218 | 0.187 | 0.235 | 0.245 | 0.161 | 0.105 |
+

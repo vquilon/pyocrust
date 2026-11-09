@@ -291,8 +291,8 @@ def _short_stratum(stratum: str) -> str:
     return stratum.replace(" × ", "×")
 
 
-def strata_summary(rows: Sequence[dict]) -> dict[tuple[str, str], dict[str, Any]]:
-    """`(motor, estrato) -> {layout_map, layout_recall, n}` desde las filas de layout.
+def strata_summary(rows: Sequence[dict], metrics: Sequence[str]) -> dict[tuple[str, str], dict[str, Any]]:
+    """`(motor, estrato) -> {<metrica>: [...], n}` desde las filas del banco.
 
     El `stratum` (columna aditiva del CSV, `data_source × layout`) viaja con cada
     fila; los motores y estratos se etiquetan como en la comparativa
@@ -307,8 +307,8 @@ def strata_summary(rows: Sequence[dict]) -> dict[tuple[str, str], dict[str, Any]
         variant = row.get("model_variant")
         name = f"{motor} ({variant})" if variant else motor
         entry = grouped.setdefault(
-            (name, stratum), {"layout_map": [], "layout_recall": [], "n": 0})
-        for key in ("layout_map", "layout_recall"):
+            (name, stratum), {**{m: [] for m in metrics}, "n": 0})
+        for key in metrics:
             value = row.get(key)
             if isinstance(value, float):
                 entry[key].append(value)
@@ -332,8 +332,18 @@ def _strata_pivot(motors: Sequence[str], strata: Sequence[str],
     return lines
 
 
+# Métricas que se desglosan por estrato, por feature: la primaria de cada banco
+# (layout publica además el recall). Comparten el esquema de columnas del CSV.
+_STRATA_METRICS: dict[str, tuple[tuple[str, str], ...]] = {
+    "layout": (("layout_map", "mAP@IoU 0.5"), ("layout_recall", "recall@IoU 0.5")),
+    "formula": (("latex_sim", "LaTeX sim"),),
+    "table": (("table_teds", "TEDS tabla"),),
+    "full_page": (("markdown_f1", "Markdown F1"),),
+}
+
+
 def render_strata(feature: str, rows: Sequence[dict]) -> list[str]:
-    """Sección "Por estrato": mAP/recall@IoU 0.5 por motor y estrato anotado.
+    """Sección "Por estrato": métrica primaria por motor y estrato anotado.
 
     Desglosa la media global por el estrato (`data_source × layout`) de cada
     página para medir la **heterogeneidad real** de los motores: un mismo motor
@@ -341,9 +351,10 @@ def render_strata(feature: str, rows: Sequence[dict]) -> list[str]:
     `newspaper × other_layout`. Sin `stratum` en las filas (features cuyo dataset
     no anota `page_attribute`) no se emite sección.
     """
-    if feature != "layout":
+    metrics = _STRATA_METRICS.get(feature)
+    if not metrics:
         return []
-    grouped = strata_summary(rows)
+    grouped = strata_summary(rows, [key for key, _label in metrics])
     if not grouped:
         return []
     strata = sorted({stratum for _motor, stratum in grouped})
@@ -352,20 +363,18 @@ def render_strata(feature: str, rows: Sequence[dict]) -> list[str]:
     lines = [
         "## Por estrato (`data_source × layout`)",
         "",
-        f"> mAP/recall@IoU 0.5 **por motor y estrato** de la página (muestra estratificada, "
+        f"> {metrics[0][1]} **por motor y estrato** de la página (muestra estratificada, "
         f"`page_info.page_attribute`). Motores medidos: {len(motors)} · estratos cubiertos: "
         f"{len(strata)}. `—` = ese motor no tiene medición en ese estrato.",
         "",
         "> **Estratos (n de páginas en la muestra)**: "
         + ", ".join(f"`{_short_stratum(s)}` ({counts[s]})" for s in strata) + ".",
         "",
-        "### mAP@IoU 0.5 por estrato",
-        "",
     ]
-    lines += _strata_pivot(motors, strata, grouped, "layout_map")
-    lines += ["", "### recall@IoU 0.5 por estrato", ""]
-    lines += _strata_pivot(motors, strata, grouped, "layout_recall")
-    lines.append("")
+    for key, label in metrics:
+        lines += [f"### {label} por estrato", ""]
+        lines += _strata_pivot(motors, strata, grouped, key)
+        lines.append("")
     return lines
 
 
