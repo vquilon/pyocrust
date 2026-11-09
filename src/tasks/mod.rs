@@ -263,7 +263,7 @@ impl TaskPredictor {
             Predictor::TextLineOrientation(p) => p.predict(batch).map(|r| TaskOutput::LineOrientation(r.orientations)),
             Predictor::SealTextDetection(p) => p.predict(batch).map(|r| TaskOutput::SealDetection(r.detections)),
             Predictor::FormulaRecognition(p) => p.predict(batch).map(|r| TaskOutput::Formula((r.formulas, r.scores))),
-        }).map_err(|error| OcrError::Inference { message: error.to_string(), source: None }.into())
+        }).map_err(|error| OcrError::Inference { message: chain_message(&error), source: None }.into())
     }
 }
 
@@ -408,6 +408,21 @@ fn option<T: for<'a, 'py> FromPyObject<'a, 'py, Error = PyErr>>(options: Option<
 
 fn model_error(path: &Path, error: impl std::fmt::Display) -> PyErr {
     OcrError::ModelLoad { model_path: path.display().to_string(), reason: error.to_string() }.into()
+}
+
+/// Mensaje con toda la cadena de causas.
+///
+/// El `Display` de `oar_ocr::OCRError` oculta su `source`, así que sin recorrer
+/// la cadena un fallo del EP (p. ej. "adapter execution failed") llega a Python
+/// sin la causa real. Esto no sustituye el error tipado: solo lo hace legible.
+fn chain_message(error: &dyn std::error::Error) -> String {
+    let mut message = error.to_string();
+    let mut source = error.source();
+    while let Some(cause) = source {
+        message.push_str(&format!(": {cause}"));
+        source = cause.source();
+    }
+    message
 }
 
 fn existing_asset(path: &Path) -> PyResult<PathBuf> {

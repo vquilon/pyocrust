@@ -42,24 +42,32 @@ en los bancos (tarjeta `t_13a1b2b7`: `VeloceOCR`/`TaskPredictor` aceptan
 
 ### Estado de EPs en este host
 
-`--features cuda` compila pero **no registra** el EP CUDA (desajuste de runtime
-de `onnxruntime_providers_cuda.dll` / cuDNN). `--features directml` **sí**
-registra DirectML (`onnxruntime` lo trae estáticamente). Verificado con salida
-real:
+`--features directml` **sí** registra DirectML (`onnxruntime` lo trae
+estáticamente) y **es el EP GPU que se publica**. `--features cuda` compila y,
+con las DLL del provider en el sitio correcto, **registra** CUDA — pero **no
+ejecuta** en este host. Verificado con salida real (2026-11-09):
 
 ```
-$ .venv/Scripts/python.exe -m maturin develop --features cuda     # EXIT=0
-$ probe: available_providers() -> []
-         device='auto'     -> provider_effective='cpu'      # sin acelerador
-         device='cuda'     -> PyOcrValueError (cuda does not register;
-                              CPU is never reported as an accelerator)
-
-$ .venv/Scripts/python.exe -m maturin develop --features directml # EXIT=0
+$ maturin develop --features directml                              # EXIT=0
 $ probe: available_providers() -> ['directml']
          device='auto'     -> provider_effective='directml'
          device='directml' -> provider_effective='directml'
          device='cuda'     -> PyOcrValueError (no registra)
+
+$ maturin develop --features cuda                                  # EXIT=0
+$ probe (DLL del provider copiadas junto a _pyocrust_core.pyd):
+         available_providers() -> ['cuda']          # registra
+         device='auto' -> provider_effective='cuda' # pero:
+         inference -> PyOCRRuntimeError:
+           "... Non-zero status code returned while running HardSigmoid node.
+            Status Message: CUDA error cudaErrorNoKernelImageForDevice:
+            no kernel image is available for execution on the device"
 ```
+
+La causa del fallo de **ejecución** está en §«Cómo ejecutar con CUDA»: la GPU es
+Blackwell **sm_120** y la ORT 1.28 que enlaza el crate no trae kernels para esa
+arquitectura. CUDA registra, pero **ninguna inferencia CUDA puede correr**.
+
 
 ## Comparativa CPU vs GPU (`text` y `formula`)
 
@@ -207,30 +215,33 @@ Sobre las 6 runs GPU (8 + 8 + 6 + 8 + 8 + 6 = **44 filas `ok`**), las 44 tienen
 .venv/Scripts/python.exe benchmarks/features/rectification/bank.py --limit 6 --device gpu --backends pyocrust_rectify     --output-dir benchmarks/results/_gpu
 ```
 
-Con el build CUDA (que no registra en este host), `--device gpu` sale **todo
-`skipped`** — comprobado de extremo a extremo:
-
-```
-$ .venv/Scripts/python.exe -m maturin develop --features cuda      # EXIT=0
-$ .venv/Scripts/python.exe benchmarks/features/text/bank.py --limit 3 --device gpu --backends pyocrust
-[run] pyocrust ...
-  skipped: device=gpu pedido pero el motor corre en 'cpu' (sin acelerador confirmado;
-  available_providers()=[]); se niega a etiquetar CPU como GPU
-# CSV: 1 línea (solo cabecera, 0 filas `ok`)
-```
+Con el build CUDA y las DLL del provider **no** colocadas junto al `.pyd`,
+`available_providers()` sale `[]` y `--device gpu` sale **todo `skipped`** (el
+banco se niega a etiquetar CPU como GPU). Con las DLL colocadas, CUDA **registra**
+y las filas salen con `provider_effective='cuda'`, pero **toda inferencia falla**
+(`cudaErrorNoKernelImageForDevice`, ver §«Cómo ejecutar con CUDA») — así que CUDA
+no produce ninguna fila `ok` válida en este host.
 
 Es decir, **nunca** aparece una fila `ok` con `provider_effective=cpu` bajo un
-device GPU.
+device GPU; y en este host tampoco una fila `ok` con `provider_effective=cuda`.
+
 
 ## Cómo ejecutar con CUDA (CUDA 13)
 
-> Estado: causa raíz **verificada** (2026-11-08); el build + runtime están
-> **pendientes de confirmar** end-to-end (tarjeta de CUDA del board).
+> Estado (2026-11-09): build y **registro** resueltos y verificados. La
+> **ejecución** NO funciona en este host: la GPU es Blackwell **sm_120** y la
+> ORT 1.28 que enlaza el crate no trae kernels para esa arquitectura
+> (`cudaErrorNoKernelImageForDevice`). El EP GPU que se publica es **DirectML**.
+> Para números CUDA reales hace falta una ORT con kernels sm_120 (subir el crate
+> `ort`/`ort-sys` a una versión con ORT ≥ la que introdujo Blackwell, o compilar
+> ORT con `CMAKE_CUDA_ARCHITECTURES=120`).
 
-En este host el único EP acelerador que registra *por defecto* es **DirectML**
+En este host el EP acelerador que registra *por defecto* es **DirectML**
 (`--features directml`; va compilado dentro de la ORT, no hay nada que cargar).
-`--features cuda` **compila pero no registra**. La causa NO es que falte la
-librería: es de **carga en runtime**.
+CUDA necesita un par de pasos extra y aun así no ejecuta aquí. La causa del
+registro NO es que falte la librería: es **dónde busca el provider**; la del
+fallo de ejecución es la **arquitectura de la GPU**.
+
 
 1. El `.pyd` enlaza **estáticamente** su ORT (crate Rust `ort` 2.0.0-rc.13 vía
    `oar-ocr`), que descarga **ORT 1.28.0** (`cdn.pyke.io/.../ms@1.28.0`) en
@@ -242,9 +253,11 @@ librería: es de **carga en runtime**.
    el proceso no mira:
    - `.venv/Lib/site-packages/nvidia/cu13/bin/x86_64/`
    - `.venv/Lib/site-packages/torch/lib/` (trae además cudnn9, cudart13, nvJitLink)
-3. Sin esas rutas en el *search path*, el provider no carga → el EP CUDA no
-   registra → `available_providers()` sale `[]`. DirectML no necesita DLL extra,
-   por eso sí registra.
+3. El provider CUDA no lo carga el proceso por `PATH`/`add_dll_directory`, sino
+   que ORT lo busca en el **directorio del módulo** (el del `.pyd`). Por eso
+   `add_dll_directory` **no** basta para que registre: hay que poner
+   `onnxruntime_providers_cuda.dll` junto al `.pyd` (ver §Receta). DirectML no
+   necesita DLL extra, por eso sí registra.
 
 **Ojo:** desde Python 3.8, `LoadLibrary`/`ctypes` **ignoran `PATH`** (búsqueda
 "segura") — hay que usar `os.add_dll_directory()`. Y la lib de
@@ -257,23 +270,48 @@ vale** (el crate usa 1.28; ABI distinto).
 cd D:/workspace/Plaiground/ac_documentalia/rust-bindings/pyocrust
 export VIRTUAL_ENV="D:/workspace/Plaiground/ac_documentalia/rust-bindings/pyocrust/.venv"
 
-# 1) Build con CUDA. Si el .pyd esta bloqueado por otro proceso, maturin pode
+# 1) Build con CUDA. Si el .pyd está bloqueado por otro proceso, maturin puede
 #    fallar al copiar; entonces: cp -f target/maturin/pyocrust_core.dll pyocrust/_pyocrust_core.pyd
 .venv/Scripts/maturin.exe develop --features cuda
 ```
 
 ```python
-# 2) Registrar el runtime CUDA 13 ANTES de importar pyocrust (Windows ignora PATH)
-import os
-for d in (r"D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Lib\site-packages\torch\lib",
-          r"D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Lib\site-packages\nvidia\cu13\bin\x86_64"):
-    if os.path.isdir(d):
-        os.add_dll_directory(d)
+# 2) Registrar el runtime CUDA 13 (Windows Py3.8+ ignora PATH → add_dll_directory).
+#    Helper del paquete (una sola versión, no un bloque por banco):
 import pyocrust
-print(pyocrust.available_providers())   # ['cuda']  (con directml: ['directml']; sin EP: [])
+print(pyocrust.available_providers())
 ```
 
-Con `available_providers()==['cuda']`, la campaña GPU se lanza igual que la de
-DirectML (`--device gpu`) y cada fila `ok` lleva `provider_effective='cuda'`.
-Recomendado: encapsular el `add_dll_directory` en un helper del runner
-(`benchmarks/`), no repetir el bloque en cada banco.
+Paso 2 (las dependencias del provider) es barato y se hace con
+`pyocrust.enable_cuda()` (`pyocrust/gpu.py`, idempotente).
+
+**El paso que de verdad decide el registro** es distinto: ORT carga
+`onnxruntime_providers_cuda.dll` con búsqueda restringida al **directorio del
+módulo** (el del `.pyd`), y ese directorio NO incluye lo que se añada por
+`os.add_dll_directory`. Medido: con los directorios del runtime añadidos por
+`add_dll_directory` y sin las DLL del provider junto al `.pyd`,
+`available_providers()` sale `[]`; copiando `onnxruntime_providers_cuda.dll` y
+`onnxruntime_providers_shared.dll` **a `pyocrust/`** (los mismos que `ort-sys`
+deja en `target/<perfil>/`) sale `['cuda']`. `maturin develop` solo instala el
+`.pyd`, así que en un empaquetado real esas DLL tienen que viajar con él.
+
+Con `available_providers()==['cuda']` el motor se construye con
+`provider_effective='cuda'` — **pero en este host la inferencia falla**:
+
+```
+CUDA error cudaErrorNoKernelImageForDevice:
+no kernel image is available for execution on the device
+```
+
+Causa: la GPU es **RTX PRO 4000 Blackwell, compute capability 12.0 (sm_120)** y
+las kernels precompiladas de la ORT 1.28 del crate no cubren sm_120. Prueba
+independiente: el `onnxruntime` **1.31.1** del propio venv corre el MISMO `.onnx`
+en `CUDAExecutionProvider` sin error (la ORT 1.31 sí trae kernels Blackwell). Es
+decir: driver, GPU y runtime CUDA 13 funcionan; lo que falta son kernels de la
+versión de ORT que enlaza `pyocrust`.
+
+**Conclusión de este host:** CUDA **registra pero no ejecuta**; la pata GPU se
+mide con **DirectML** (`--features directml`, ya re-medida). Cerrar CUDA exige un
+build de ORT con sm_120 (subir `ort`/`ort-sys`, o compilar ORT con
+`CMAKE_CUDA_ARCHITECTURES=120`) — no es un problema de rutas ni de DLLs.
+
