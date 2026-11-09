@@ -11,9 +11,10 @@
 | `formula` | pp_structurev3 (default) | 0.398 | 2774 | 2236 | cuda |
 | `formula` | pp_structurev3 (pp-formulanet-s) | 0.497 | 2474 | 2254 | cuda |
 | `formula` | unimernet (tiny) | 0.260 | 17493 | N/A | n/a (no corre en GPU) |
-| `full_page` | docling-default (pipeline) | 0.204 | 25723 | N/A | n/a (no corre en GPU) |
-| `full_page` | indra (math) | 0.029 | 607 | 1118 | cuda |
-| `full_page` | pp_structurev3 (default) | 0.083 | 5865 | 1805 | cuda |
+| `full_page` | PP-StructureV3 (paddleocr) | 0.086 | 124261 | N/A | n/a (no corre en GPU) |
+| `full_page` | docling-default (pipeline) | 0.204 | 27542 | N/A | n/a (no corre en GPU) |
+| `full_page` | indra (math) | 0.029 | 200 | 1118 | cuda |
+| `full_page` | pp_structurev3 (default) | 0.083 | 2181 | 1805 | cuda |
 | `layout` | armaggheddon/y11-m | 0.542 | 365 | 42 | cuda |
 | `layout` | armaggheddon/y11-n | 0.522 | 65 | 30 | cuda |
 | `layout` | armaggheddon/y11-s | 0.516 | 167 | 29 | cuda |

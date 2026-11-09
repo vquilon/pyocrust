@@ -67,30 +67,23 @@ SPEC = FeatureSpec(
 # Pipelines **externos reales** que emiten el Markdown del documento que consume
 # `markdown_f1`/`block_f1`:
 #   * `docling`            — docling (MIT), en su venv aislado por subproceso.
-# `pp_structurev3_api` (PaddleOCR PP-StructureV3, Apache-2.0) queda FUERA del
-# default: el pipeline en proceso **cuelga o segfaultea** (exit 139) en páginas
-# reales de la muestra (medido 2026-11-09: muere procesando una imagen grande,
-# 11112x7925, tras cargar sus 16 submodelos), así que no puede producir filas de
-# forma fiable en CPU. Sigue registrado en `PROVIDERS` (pedido explícito -> la
-# fila sale `error`/`skipped` con motivo, nunca cuelga el banco).
-# `pdf_extract_kit` sigue `skipped` con motivo honesto: sus pesos son un
-# **detector de layout**, no un pipeline de documento (ver ALTERNATIVES.md §7).
+#   * `pp_structurev3_api` — PaddleOCR PP-StructureV3 (Apache-2.0), por **subproceso
+#     con timeout** (antes corría en proceso y segfault/cuelgue abortaba el banco).
+#     Smoke real 2026-11-09 (3 páginas, rc=0, 3/3 `ok`, Markdown de 600+ chars) ->
+#     entra en el `DEFAULT_BACKENDS`. Es CPU-only (`device_outcome` lo salta en GPU).
+# `pdf_extract_kit` sigue **fuera del default** y `skipped` con motivo honesto: sus
+# pesos son un **detector de layout**, no un pipeline de documento (ALTERNATIVES.md §7).
 EXTRA_FACTORIES = {
     "pdf_extract_kit": unavailable_factory(
         "pdf_extract_kit",
         "pdf-extract-kit (opendatalab/PDF-Extract-Kit-1.0; pesos en cache HF, adaptador pendiente)",
         note="pdf_extract_kit solo publica un detector de layout, no un pipeline de documento",
     ),
-    "pp_structurev3_api": unavailable_factory(
-        "pp_structurev3_api",
-        "PaddleOCR PP-StructureV3 (cuelga/segfaultea en CPU sobre páginas reales; adaptador en proceso)",
-        note="el pipeline en proceso aborta el banco en páginas grandes; falta envolverlo en subproceso con timeout",
-    ),
 }
 EXTRA_MODELS = {name: (name, "default") for name in EXTRA_FACTORIES}
 
 # `pyocrust_indra` se salta solo si sus 9 artefactos no están en disco (motivo en el informe).
-DEFAULT_BACKENDS = "pyocrust_structure,pyocrust_indra,docling,pdf_extract_kit"
+DEFAULT_BACKENDS = "pyocrust_structure,pyocrust_indra,docling,pp_structurev3_api"
 
 
 def _emits(output: OcrOutput, channel: str) -> bool:

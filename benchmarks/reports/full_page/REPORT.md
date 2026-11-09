@@ -4,29 +4,31 @@
 
 ## Provenance
 
-- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe features/full_page/bank.py --limit 6 --device cpu --output-dir results`
+- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/full_page/bank.py --limit 6 --device cpu --output-dir benchmarks/results`
 - **dataset**: `omnidocbench_full_page` · **n** (por motor): `6` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **revision HF (fijada)**: `aa1ee96d106dbe53d0ae59474d75c6e6d9b53fec` — misma revision en cualquier maquina; los bytes se verifican contra `benchmarks/datasets_manifest.json`
 - **seed**: no aplica (banco determinista, sin aleatoriedad)
-- **run**: `benchmarks/results/full_page/2026-11-09_14-28-38` · **fecha**: `2026-11-09_14-28-38`
+- **run**: `benchmarks/results/full_page/2026-11-09_17-15-04` · **fecha**: `2026-11-09_17-15-04`
 - **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['cuda']}
 
 ## Comparativa (media por motor)
 
 | Motor (variante) | n | Markdown F1 ↑ | F1 bloques ↑ | layout mAP ↑ | TEDS tabla ↑ | LaTeX sim ↑ | títulos recall ↑ | títulos prec. ↑ | F1 texto títulos ↑ | secuencia títulos τ ↑ | orden lectura τ ↑ | figuras recall ↑ | figuras prec. ↑ | captions recall ↑ | captions prec. ↑ | asoc. fig↔caption ↑ | F1 texto captions ↑ | CER ↓ | ms/página ↓ |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| docling-default (pipeline) | 6 | **0.204** | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | **1.119** | 25723 |
-| indra (math) | 6 | 0.029 | N/A | N/A | 0.276 | N/A | N/A | N/A | N/A | N/A | 0.190 | N/A | N/A | N/A | N/A | N/A | N/A | 3.102 | **607** |
-| pp_structurev3 (default) | 6 | 0.083 | 0.524 | 0.561 | **0.678** | 0.255 | 0.944 | 1.000 | 0.536 | 0.857 | **0.764** | 0.167 | 0.333 | 0.875 | 1.000 | 0.000 | 0.417 | 5.737 | 5865 |
+| PP-StructureV3 (paddleocr) | 6 | 0.086 | N/A | N/A | **0.957** | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | 2.494 | 124261 |
+| docling-default (pipeline) | 6 | **0.204** | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | **1.119** | 27542 |
+| indra (math) | 6 | 0.029 | N/A | N/A | 0.276 | N/A | N/A | N/A | N/A | N/A | 0.190 | N/A | N/A | N/A | N/A | N/A | N/A | 3.102 | **200** |
+| pp_structurev3 (default) | 6 | 0.083 | 0.524 | 0.561 | 0.678 | 0.255 | 0.944 | 1.000 | 0.536 | 0.857 | **0.764** | 0.167 | 0.333 | 0.875 | 1.000 | 0.000 | 0.417 | 5.737 | 2181 |
 
 > En negrita, el mejor de cada métrica entre los motores **medidos** de `full_page`. `N/A` = no evaluada (sin GT de esa columna **o** el motor no emite esa estructura), nunca un `0.0` inventado.
 
 ## Saltados (`skipped`) — no cuentan como ejecutados
 
-- `pdf_extract_kit` — pip install pdf-extract-kit (opendatalab/PDF-Extract-Kit-1.0; pesos en cache HF, adaptador pendiente)
+- (ninguno)
 
 ## Procedencia de las alternativas
 
+- `PP-StructureV3 (paddleocr)` — modelo **independiente** (otro proyecto/checkpoint)
 - `docling-default (pipeline)` — modelo **independiente** (otro proyecto/checkpoint)
 
 > El motor de referencia (`pyocrust`) no se lista: es el que define el resultado base. Una alternativa con **mismo peso, distinta vía** mide el mismo modelo con otro runtime; **no** aporta un competidor independiente y así queda declarado.
@@ -43,9 +45,10 @@
 
 | Motor (variante) | Markdown F1 ↑ (CPU) | Markdown F1 ↑ (GPU) | ms CPU | ms GPU | provider GPU |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| docling-default (pipeline) | 0.204 | N/A | 25723 | N/A | n/a (no corre en GPU) |
-| indra (math) | 0.029 | 0.029 | 607 | 1118 | cuda |
-| pp_structurev3 (default) | 0.083 | 0.085 | 5865 | 1805 | cuda |
+| PP-StructureV3 (paddleocr) | 0.086 | N/A | 124261 | N/A | n/a (no corre en GPU) |
+| docling-default (pipeline) | 0.204 | N/A | 27542 | N/A | n/a (no corre en GPU) |
+| indra (math) | 0.029 | 0.029 | 200 | 1118 | cuda |
+| pp_structurev3 (default) | 0.083 | 0.085 | 2181 | 1805 | cuda |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.
 
@@ -63,7 +66,7 @@
 
 ## Por estrato (`data_source × layout`)
 
-> Markdown F1 **por motor y estrato** de la página (muestra estratificada, `page_info.page_attribute`). Motores medidos: 3 · estratos cubiertos: 3. `—` = ese motor no tiene medición en ese estrato.
+> Markdown F1 **por motor y estrato** de la página (muestra estratificada, `page_info.page_attribute`). Motores medidos: 4 · estratos cubiertos: 3. `—` = ese motor no tiene medición en ese estrato.
 
 > **Estratos (n de páginas en la muestra)**: `PPT2PDF×1andmore_column` (1), `PPT2PDF×double_column` (2), `PPT2PDF×other_layout` (3).
 
@@ -71,6 +74,7 @@
 
 | Motor (variante) | PPT2PDF×1andmore_column | PPT2PDF×double_column | PPT2PDF×other_layout |
 | :--- | ---: | ---: | ---: |
+| PP-StructureV3 (paddleocr) | 0.100 | 0.017 | 0.128 |
 | docling-default (pipeline) | 0.438 | 0.188 | 0.138 |
 | indra (math) | 0.025 | 0.028 | 0.031 |
 | pp_structurev3 (default) | 0.115 | 0.000 | 0.127 |
@@ -83,6 +87,7 @@
 
 | Motor (variante) | páginas medidas | páginas con GT de títulos | cobertura títulos |
 | :--- | ---: | ---: | ---: |
+| PP-StructureV3 (paddleocr) | 6 | 4 | 67% |
 | docling-default (pipeline) | 6 | 4 | 67% |
 | indra (math) | 6 | 4 | 67% |
 | pp_structurev3 (default) | 6 | 4 | 67% |
@@ -97,6 +102,7 @@
 
 | Motor (variante) | páginas medidas | páginas con GT de figuras | cobertura figuras |
 | :--- | ---: | ---: | ---: |
+| PP-StructureV3 (paddleocr) | 6 | 3 | 50% |
 | docling-default (pipeline) | 6 | 3 | 50% |
 | indra (math) | 6 | 3 | 50% |
 | pp_structurev3 (default) | 6 | 3 | 50% |

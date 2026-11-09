@@ -61,8 +61,9 @@
 | table | tableformer (docling) | MIT | table | cpu | 8 | 0.905 | 28609 | cpu | omnidocbench_table |
 | table | slanet_plus | Apache-2.0 | table | cpu | 8 | 0.914 | 1103 | cpu | omnidocbench_table |
 | table | slanet_plus | Apache-2.0 | table | gpu | 8 | 0.914 | 172 | cuda | omnidocbench_table |
-| full_page | indra (math) | OpenRAIL-M-Mod | full_page | cpu | 6 | 0.029 | 607 | cpu | omnidocbench_full_page |
+| full_page | indra (math) | OpenRAIL-M-Mod | full_page | cpu | 6 | 0.029 | 200 | cpu | omnidocbench_full_page |
 | full_page | indra (math) | OpenRAIL-M-Mod | full_page | gpu | 6 | 0.029 | 1118 | cuda | omnidocbench_full_page |
-| full_page | pp_structurev3 | Apache-2.0 | structure | cpu | 6 | 0.083 | 5865 | cpu | omnidocbench_full_page |
+| full_page | pp_structurev3 | Apache-2.0 | structure | cpu | 6 | 0.083 | 2181 | cpu | omnidocbench_full_page |
 | full_page | pp_structurev3 | Apache-2.0 | structure | gpu | 6 | 0.085 | 1805 | cuda | omnidocbench_full_page |
-| full_page | docling-default (pipeline) | MIT | full_page | cpu | 6 | 0.204 | 25723 | cpu | omnidocbench_full_page |
+| full_page | PP-StructureV3 (paddleocr) | Apache-2.0 | full_page | cpu | 6 | 0.086 | 124261 | cpu | omnidocbench_full_page |
+| full_page | docling-default (pipeline) | MIT | full_page | cpu | 6 | 0.204 | 27542 | cpu | omnidocbench_full_page |

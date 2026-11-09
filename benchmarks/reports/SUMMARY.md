@@ -85,5 +85,6 @@
 | Motor | Valor | n | Origen | license |
 | :--- | ---: | ---: | :--- | :--- |
 | docling-default (pipeline) | 0.204 | 6 | medido | MIT |
+| PP-StructureV3 (paddleocr) | 0.086 | 6 | medido | Apache-2.0 |
 | **pp_structurev3** | 0.083 | 6 | medido | Apache-2.0 |
 | **indra (math)** | 0.029 | 6 | medido | OpenRAIL-M-Mod |

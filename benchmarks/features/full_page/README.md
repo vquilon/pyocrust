@@ -48,14 +48,20 @@ taxonomía en ambos lados. No se inventa contenido: solo se serializa lo anotado
 | paddleocr PP-StructureV3 | `paddleocr paddlepaddle` |
 | marker-pdf | `marker-pdf` |
 
-**Medidas hoy**: `docling` (MIT). PaddleOCR `pp_structurev3_api` (Apache-2.0) queda
-`skipped`: su pipeline en proceso **cuelga o segfaultea** (exit 139) en páginas reales
-de la muestra (medido 2026-11-09, imagen grande 11112x7925, tras cargar 16 submodelos),
-así que se retiró del `DEFAULT_BACKENDS` y se registra como `unavailable_factory`
-(pedido explícito → `skipped` con motivo, nunca cuelga el banco). Falta envolverlo en
-subproceso con timeout. `unstructured`, `marker-pdf` y `pdf_extract_kit` siguen
-`skipped` (adaptador pendiente / solo publican un detector de layout, no un pipeline
-de documento).
+**Medidas hoy**: `docling` (MIT). PaddleOCR `pp_structurev3_api` (Apache-2.0)
+**ya corre en subproceso con timeout** (mismo patrón que `docling`/`unimernet`):
+su pipeline en proceso **cuelga o segfaultea** (exit 139) en páginas reales
+(medido 2026-11-09, imagen grande 11112x7925, tras cargar 16 submodelos y en 4/5
+páginas), así que se aisló: un segfault o un cuelgue mata solo al hijo y la fila
+sale `error`/`skipped` con motivo, **sin abortar el banco**.
+
+**Smoke real 2026-11-09** (`--limit 3 --warmup 0 --backends pp_structurev3_api`,
+`.scratch/smoke`): **rc=0, 3/3 `ok`**, 0 `error`, Markdown **no vacío** (616 chars
+en la primera página) y 154 s/imagen. Por eso `pp_structurev3_api` **entra en el
+`DEFAULT_BACKENDS`**. Es **CPU-only** (`device_outcome` lo salta en las runs GPU).
+`unstructured`, `marker-pdf` y `pdf_extract_kit` siguen `skipped` (adaptador
+pendiente / solo publican un detector de layout, no un pipeline de documento);
+`pdf_extract_kit` queda fuera del default por eso mismo.
 
 ### docling — versión y entorno (reproducible)
 
@@ -88,10 +94,24 @@ uv pip install --python benchmarks/.venv_docling/Scripts/python.exe \
 sobre las páginas anotadas y publica `markdown_f1`/`block_f1`. Si Indra no tiene
 sus 9 artefactos en disco, queda **`skipped` con su motivo** (no se mide a medias).
 
-**Alternativa externa medida**: `docling` (MIT) n=6 CPU → `markdown_f1` **0.204**
-frente a **0.083** de `pp_structurev3`, con CER 1.119 vs 5.737. Run
-`results/full_page/2026-11-09_14-28-38` (6/6 `ok`). Ahora `full_page` **ya no
-tiene 0 externos medidos**.
+**Alternativas externas medidas** (n=6 CPU, run `results/full_page/2026-11-09_17-15-04`,
+24/24 filas `ok`, mismo `--limit` y misma muestra que la pata GPU):
+
+| Motor | `markdown_f1` | CER | ms/página |
+| :--- | ---: | ---: | ---: |
+| `pp_structurev3` (pyocrust) | 0.083 | 5.737 | 2 181 |
+| `indra` (pyocrust) | 0.029 | 3.102 | 200 |
+| `docling` (MIT) | **0.204** | **1.119** | 27 542 |
+| `PP-StructureV3` (paddleocr, Apache-2.0) | 0.086 | 2.494 | 124 261 |
+
+> El `markdown_f1` de los motores es **bajo en esta muestra** porque el GT se
+> tokeniza por espacios y estas 6 páginas son **chinas** (un párrafo = un token):
+> la LCS de tokens castiga cualquier diferencia de estructura (`## `, listas
+> `- `, `<div>`/`<img>` de PP-StructureV3). El orden de magnitud es real; el
+> valor absoluto no es comparable con una muestra latina. `PP-StructureV3`
+> **sí** emite tablas HTML: su `TEDS` es **0.957** (el mejor del panel).
+> Es **CPU-only** y su `ms` incluye *spawn* + carga de los 16 submodelos +
+> inferencia (mismo patrón `docling`/`unimernet`), no solo la inferencia.
 
 > **Límite honesto de docling en este banco**: el adaptador devuelve **solo el
 > Markdown** (`export_to_markdown`), sin cajas ni tipos de bloque. Por eso sus

@@ -5,10 +5,11 @@
 \toprule
 Engine (variant/size) & n & Markdown F1 $\uparrow$ & F1 bloques $\uparrow$ & layout mAP $\uparrow$ & TEDS tabla $\uparrow$ & LaTeX sim $\uparrow$ & títulos recall $\uparrow$ & títulos prec. $\uparrow$ & F1 texto títulos $\uparrow$ & secuencia títulos τ $\uparrow$ & orden lectura τ $\uparrow$ & figuras recall $\uparrow$ & figuras prec. $\uparrow$ & captions recall $\uparrow$ & captions prec. $\uparrow$ & asoc. fig↔caption $\uparrow$ & F1 texto captions $\uparrow$ & CER $\downarrow$ & ms/página $\downarrow$ & license \\
 \midrule
-docling-default (pipeline) & 6 & \textbf{0.204} & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & \textbf{1.119} & 25723 & MIT \\
-indra (math) & 6 & 0.029 & N/A & N/A & \underline{0.276} & N/A & N/A & N/A & N/A & N/A & \underline{0.190} & N/A & N/A & N/A & N/A & N/A & N/A & \underline{3.102} & \textbf{607} & OpenRAIL-M-Mod \\
-pp\_structurev3 (default) & 6 & \underline{0.083} & 0.524 & 0.561 & \textbf{0.678} & 0.255 & 0.944 & 1.000 & 0.536 & 0.857 & \textbf{0.764} & 0.167 & 0.333 & 0.875 & 1.000 & 0.000 & 0.417 & 5.737 & \underline{5865} & Apache-2.0 \\
+PP-StructureV3 (paddleocr) & 6 & \underline{0.086} & N/A & N/A & \textbf{0.957} & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & \underline{2.494} & 124261 & Apache-2.0 \\
+docling-default (pipeline) & 6 & \textbf{0.204} & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & N/A & \textbf{1.119} & 27542 & MIT \\
+indra (math) & 6 & 0.029 & N/A & N/A & 0.276 & N/A & N/A & N/A & N/A & N/A & \underline{0.190} & N/A & N/A & N/A & N/A & N/A & N/A & 3.102 & \textbf{200} & OpenRAIL-M-Mod \\
+pp\_structurev3 (default) & 6 & 0.083 & 0.524 & 0.561 & \underline{0.678} & 0.255 & 0.944 & 1.000 & 0.536 & 0.857 & \textbf{0.764} & 0.167 & 0.333 & 0.875 & 1.000 & 0.000 & 0.417 & 5.737 & \underline{2181} & Apache-2.0 \\
 \bottomrule
 \end{tabular}
-\par\smallskip{\footnotesize Note: N/A = not evaluated (no ground truth for that column, or the engine does not emit that structure, e.g. docling emits Markdown only); 0.000 = evaluated and the engine got it wrong, never an unmeasured 0.0. Values and n match REPORT.md (run 2026-11-09\_14-28-38, device cpu, n <= 6).}
+\par\smallskip{\footnotesize Note: N/A = not evaluated (no ground truth for that column, or the engine does not emit that structure, e.g. docling emits Markdown only); 0.000 = evaluated and the engine got it wrong, never an unmeasured 0.0. Values and n match REPORT.md (run 2026-11-09\_17-15-04, device cpu, n <= 6).}
 \end{document}

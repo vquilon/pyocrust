@@ -4,29 +4,31 @@
 
 ## Provenance
 
-- **command**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe features/full_page/bank.py --limit 6 --device cpu --output-dir results`
+- **command**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/full_page/bank.py --limit 6 --device cpu --output-dir benchmarks/results`
 - **dataset**: `omnidocbench_full_page` · **n** (per engine): `6` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **revision HF (fijada)**: `aa1ee96d106dbe53d0ae59474d75c6e6d9b53fec` — misma revision en cualquier maquina; los bytes se verifican contra `benchmarks/datasets_manifest.json`
 - **seed**: not applicable (deterministic benchmark, no randomness)
-- **run**: `benchmarks/results/full_page/2026-11-09_14-28-38` · **date**: `2026-11-09_14-28-38`
+- **run**: `benchmarks/results/full_page/2026-11-09_17-15-04` · **date**: `2026-11-09_17-15-04`
 - **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['cuda']}
 
 ## Comparison (mean by engine)
 
 | Engine (variant) | n | Markdown F1 ↑ | Block F1 ↑ | layout mAP ↑ | TEDS table ↑ | LaTeX sim ↑ | titles recall ↑ | titles prec. ↑ | titles text F1 ↑ | titles sequence τ ↑ | reading order τ ↑ | figures recall ↑ | figures prec. ↑ | captions recall ↑ | captions prec. ↑ | fig↔caption assoc. ↑ | captions text F1 ↑ | CER ↓ | ms/page ↓ |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| docling-default (pipeline) | 6 | **0.204** | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | **1.119** | 25723 |
-| indra (math) | 6 | 0.029 | N/A | N/A | 0.276 | N/A | N/A | N/A | N/A | N/A | 0.190 | N/A | N/A | N/A | N/A | N/A | N/A | 3.102 | **607** |
-| pp_structurev3 (default) | 6 | 0.083 | 0.524 | 0.561 | **0.678** | 0.255 | 0.944 | 1.000 | 0.536 | 0.857 | **0.764** | 0.167 | 0.333 | 0.875 | 1.000 | 0.000 | 0.417 | 5.737 | 5865 |
+| PP-StructureV3 (paddleocr) | 6 | 0.086 | N/A | N/A | **0.957** | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | 2.494 | 124261 |
+| docling-default (pipeline) | 6 | **0.204** | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | **1.119** | 27542 |
+| indra (math) | 6 | 0.029 | N/A | N/A | 0.276 | N/A | N/A | N/A | N/A | N/A | 0.190 | N/A | N/A | N/A | N/A | N/A | N/A | 3.102 | **200** |
+| pp_structurev3 (default) | 6 | 0.083 | 0.524 | 0.561 | 0.678 | 0.255 | 0.944 | 1.000 | 0.536 | 0.857 | **0.764** | 0.167 | 0.333 | 0.875 | 1.000 | 0.000 | 0.417 | 5.737 | 2181 |
 
 > Bold values mark the best result for each metric among the **measured** engines in `full_page`. `N/A` = not evaluated (no ground truth for that column **or** the engine does not emit that structure), never an invented `0.0`.
 
 ## Skipped — not counted as executed
 
-- `pdf_extract_kit` — pip install pdf-extract-kit (opendatalab/PDF-Extract-Kit-1.0; weights in the HF cache, adapter pending)
+- (none)
 
 ## Provenance of the alternatives
 
+- `PP-StructureV3 (paddleocr)` — an **independent** model (different project/checkpoint)
 - `docling-default (pipeline)` — an **independent** model (different project/checkpoint)
 
 > The reference engine (`pyocrust`) is not listed: it defines the base result. An alternative with **same weights, a different path** measures the same model through another runtime; it does **not** add an independent competitor, and it is stated as such.
@@ -43,9 +45,10 @@
 
 | Engine (variant) | Markdown F1 ↑ (CPU) | Markdown F1 ↑ (GPU) | ms CPU | ms GPU | GPU provider |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| docling-default (pipeline) | 0.204 | N/A | 25723 | N/A | n/a (does not run on GPU) |
-| indra (math) | 0.029 | 0.029 | 607 | 1118 | cuda |
-| pp_structurev3 (default) | 0.083 | 0.085 | 5865 | 1805 | cuda |
+| PP-StructureV3 (paddleocr) | 0.086 | N/A | 124261 | N/A | n/a (does not run on GPU) |
+| docling-default (pipeline) | 0.204 | N/A | 27542 | N/A | n/a (does not run on GPU) |
+| indra (math) | 0.029 | 0.029 | 200 | 1118 | cuda |
+| pp_structurev3 (default) | 0.083 | 0.085 | 2181 | 1805 | cuda |
 
 > The GPU provider comes from the actual `provider_effective` value in the GPU `summary.json` (`n/a` = the engine does not expose GPU execution in this benchmark). No GPU rows are invented: engines that did not run on an accelerator appear as `N/A`.
 
@@ -63,7 +66,7 @@
 
 ## Per stratum (`data_source × layout`)
 
-> Markdown F1 **per engine and stratum** of the page (stratified sample, `page_info.page_attribute`). Engines measured: 3 · strata covered: 3. `—` = this engine has no measurement in that stratum.
+> Markdown F1 **per engine and stratum** of the page (stratified sample, `page_info.page_attribute`). Engines measured: 4 · strata covered: 3. `—` = this engine has no measurement in that stratum.
 
 > **Strata (pages in the sample)**: `PPT2PDF×1andmore_column` (1), `PPT2PDF×double_column` (2), `PPT2PDF×other_layout` (3).
 
@@ -71,6 +74,7 @@
 
 | Engine (variant) | PPT2PDF×1andmore_column | PPT2PDF×double_column | PPT2PDF×other_layout |
 | :--- | ---: | ---: | ---: |
+| PP-StructureV3 (paddleocr) | 0.100 | 0.017 | 0.128 |
 | docling-default (pipeline) | 0.438 | 0.188 | 0.138 |
 | indra (math) | 0.025 | 0.028 | 0.031 |
 | pp_structurev3 (default) | 0.115 | 0.000 | 0.127 |
@@ -83,6 +87,7 @@
 
 | Engine (variant) | pages measured | pages with title GT | title coverage |
 | :--- | ---: | ---: | ---: |
+| PP-StructureV3 (paddleocr) | 6 | 4 | 67% |
 | docling-default (pipeline) | 6 | 4 | 67% |
 | indra (math) | 6 | 4 | 67% |
 | pp_structurev3 (default) | 6 | 4 | 67% |
@@ -97,6 +102,7 @@
 
 | Engine (variant) | pages measured | pages with figure GT | figure coverage |
 | :--- | ---: | ---: | ---: |
+| PP-StructureV3 (paddleocr) | 6 | 3 | 50% |
 | docling-default (pipeline) | 6 | 3 | 50% |
 | indra (math) | 6 | 3 | 50% |
 | pp_structurev3 (default) | 6 | 3 | 50% |
