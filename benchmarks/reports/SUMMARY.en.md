@@ -85,5 +85,6 @@
 | Engine | Value | n | Source | license |
 | :--- | ---: | ---: | :--- | :--- |
 | docling-default (pipeline) | 0.204 | 6 | measured | MIT |
+| PP-StructureV3 (paddleocr) | 0.086 | 6 | measured | Apache-2.0 |
 | **pp_structurev3** | 0.083 | 6 | measured | Apache-2.0 |
 | **indra (math)** | 0.029 | 6 | measured | OpenRAIL-M-Mod |

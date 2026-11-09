@@ -111,8 +111,9 @@
 
 | Engine | Device | ms/page ↓ | Quality ↑ | license |
 | :--- | :--- | ---: | ---: | :--- |
-| **indra (math)** | cpu | 607 | 0.029 | OpenRAIL-M-Mod |
-| **pp_structurev3 (default)** | cpu | 5865 | 0.083 | Apache-2.0 |
-| docling-default (pipeline) | cpu | 25723 | 0.204 | MIT |
+| **indra (math)** | cpu | 200 | 0.029 | OpenRAIL-M-Mod |
+| **pp_structurev3 (default)** | cpu | 2181 | 0.083 | Apache-2.0 |
+| docling-default (pipeline) | cpu | 27542 | 0.204 | MIT |
+| PP-StructureV3 (paddleocr) | cpu | 124261 | 0.086 | Apache-2.0 |
 | **indra (math)** | gpu | 1118 | 0.029 | OpenRAIL-M-Mod |
 | **pp_structurev3 (default)** | gpu | 1805 | 0.085 | Apache-2.0 |
