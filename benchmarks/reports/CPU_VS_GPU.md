@@ -4,12 +4,12 @@
 
 | Feature | Motor (variante) | Calidad (titular) | ms CPU | ms GPU | provider GPU |
 | :--- | :--- | ---: | ---: | ---: | :--- |
-| `formula` | indra (math) | 0.326 | 141 | 460 | cuda |
-| `formula` | paddle_latex_ocr (default) | 0.653 | 16326 | 2763 | cuda |
+| `formula` | indra (math) | 0.326 | 141 | 808 | cuda |
+| `formula` | paddle_latex_ocr (default) | 0.653 | 16326 | 4191 | cuda |
 | `formula` | pix2tex (default) | 0.552 | 5500 | N/A | n/a (no corre en GPU) |
-| `formula` | pp-formulanet-s (direct) | 0.499 | 998 | 1910 | cuda |
-| `formula` | pp_structurev3 (default) | 0.398 | 2774 | 2236 | cuda |
-| `formula` | pp_structurev3 (pp-formulanet-s) | 0.497 | 2474 | 2254 | cuda |
+| `formula` | pp-formulanet-s (direct) | 0.499 | 998 | 1603 | cuda |
+| `formula` | pp_structurev3 (default) | 0.398 | 2774 | 2553 | cuda |
+| `formula` | pp_structurev3 (pp-formulanet-s) | 0.497 | 2474 | 2221 | cuda |
 | `formula` | unimernet (tiny) | 0.260 | 17493 | N/A | n/a (no corre en GPU) |
 | `full_page` | PP-StructureV3 (paddleocr) | 0.086 | 124261 | N/A | n/a (no corre en GPU) |
 | `full_page` | docling-default (pipeline) | 0.204 | 27542 | N/A | n/a (no corre en GPU) |

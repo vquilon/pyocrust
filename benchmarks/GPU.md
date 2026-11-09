@@ -78,7 +78,7 @@ Campaña en serie, un banco a la vez y máquina libre:
 | feature | run GPU | n |
 | :--- | :--- | ---: |
 | `text` | `2026-11-09_16-19-13` | 20 |
-| `formula` | `2026-11-09_16-22-29` | 10 |
+| `formula` | `2026-11-09_17-54-04` | 10 |
 | `layout` | `2026-11-09_16-25-15` | 40 |
 | `orientation` | `2026-11-09_16-29-18` | 20 |
 | `rectification` | `2026-11-09_16-29-33` | 20 |
@@ -393,6 +393,18 @@ benchmarks/features/formula/bank.py --limit 10 --device gpu
 mismo LaTeX que CPU (`latex_sim` idéntico columna a columna). Regresión:
 `tests/test_recognize.py::test_cuda_pp_formulanet_da_el_mismo_latex_no_vacio_en_inferencias_seguidas`.
 
-**Pendiente:** re-medir las filas GPU de `formula` de la campaña CUDA vigente con
-este binario (las de `2026-11-09_16-22-29` son del defecto).
+**Re-medido** (tarjeta `t_5c3b7dfe`): la pata GPU de `formula` de la campaña CUDA
+vigente se volvió a medir con ese binario → run
+`benchmarks/results/_gpu/formula/2026-11-09_17-54-04` (los 7 backends del banco,
+`--limit 10`, un solo EP, un banco a la vez). CER medio por motor, **idéntico** al
+de CPU: `pyocrust_formulanet` 1.1641 · `pyocrust_formula` 1.4669 ·
+`pyocrust_indra` 0.6934 · `paddle_latex_ocr` 1.6036 · `pyocrust_structure`
+1.4481. `pyocrust_formula` cubre 7/10 y `pyocrust_formulanet` 10/10 —las **mismas**
+muestras que CPU— con `latex_sim`/`latex_exact` idénticos campo a campo (0
+diferencias en 50 filas × 5 campos). `pyocrust_structure` **también** sufría el
+defecto: pasa de CER 0.9583 y `latex_sim` 4/10 a 1.4481 y 10/10. Las 50 filas GPU
+`ok` salen con `provider_effective='cuda'` (0 filas `ok` en CPU). La run
+defectuosa `2026-11-09_16-22-29` se retiró a
+`benchmarks/results/_gpu/_superseded_pre_cuda_fix/formula/2026-11-09_16-22-29/`
+para que `report.py::latest_run` no la elija.
 
