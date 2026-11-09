@@ -20,9 +20,10 @@
 | :--- | ---: | ---: | :--- | :--- |
 | paddle_latex_ocr | 0.715 | 20 | measured | Apache-2.0 |
 | **pp_structurev3 (pp-formulanet-s)** | 0.607 | 20 | measured | Apache-2.0 |
-| pix2tex | 0.585 | 20 | measured | MIT |
+| pix2tex | 0.587 | 20 | measured | MIT |
 | **pp-formulanet-s (direct)** | 0.576 | 20 | measured | Apache-2.0 |
 | **pp_structurev3** | 0.399 | 20 | measured | Apache-2.0 |
+| unimernet (tiny) | 0.238 | 20 | measured | Apache-2.0 |
 | **indra (math)** | 0.211 | 20 | measured | OpenRAIL-M-Mod |
 
 ## layout — OmniDocBench — `measured` · **measured dataset**: `omnidocbench_layout`
@@ -77,6 +78,7 @@
 | tableformer (docling) | 0.807 | 20 | measured | MIT |
 | **slanet_plus** | 0.780 | 20 | measured | Apache-2.0 |
 | table-transformer-structure-recognition | 0.698 | 20 | measured | MIT |
+| **pp_structurev3** | 0.608 | 20 | measured | Apache-2.0 |
 
 ## full_page — OmniDocBench — `measured` · **measured dataset**: `omnidocbench_full_page`
 
@@ -84,4 +86,4 @@
 | :--- | ---: | ---: | :--- | :--- |
 | docling-default (pipeline) | 0.354 | 20 | measured | MIT |
 | **pp_structurev3** | 0.270 | 20 | measured | Apache-2.0 |
-| **indra (math)** | 0.242 | 19 | measured | OpenRAIL-M-Mod |
+| **indra (math)** | 0.265 | 20 | measured | OpenRAIL-M-Mod |

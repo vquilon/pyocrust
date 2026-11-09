@@ -41,7 +41,7 @@
 
 | Motor (variante) | accuracy ↑ (CPU) | accuracy ↑ (GPU) | ms CPU | ms GPU | provider GPU |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| pp-lcnet_x1_0_textline_ori (6.8M) | 1.000 | 1.000 | 26 | 5 | directml |
+| pp-lcnet_x1_0_textline_ori (6.8M) | 1.000 | 1.000 | 26 | 25 | directml |
 | pp-lcnet_x1_0_textline_ori (onnxruntime) | 1.000 | N/A | 5 | N/A | n/a (no corre en GPU) |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.

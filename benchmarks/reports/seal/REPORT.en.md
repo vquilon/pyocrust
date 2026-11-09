@@ -42,7 +42,7 @@
 
 | Engine (variant) | recall@IoU 0.5 ↑ (CPU) | recall@IoU 0.5 ↑ (GPU) | ms CPU | ms GPU | GPU provider |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| pp-ocrv4_mobile_seal_det (4.8M) | 0.750 | 0.750 | 643 | 120 | directml |
+| pp-ocrv4_mobile_seal_det (4.8M) | 0.750 | 0.750 | 643 | 608 | directml |
 | pp-ocrv4_mobile_seal_det (onnxruntime) | 0.750 | N/A | 217 | N/A | n/a (does not run on GPU) |
 
 > The GPU provider comes from the actual `provider_effective` value in the GPU `summary.json` (`n/a` = the engine does not expose GPU execution in this benchmark). No GPU rows are invented: engines that did not run on an accelerator appear as `N/A`.

@@ -33,12 +33,13 @@
 
 | Engine | Device | ms/formula ↓ | Quality ↑ | license |
 | :--- | :--- | ---: | ---: | :--- |
-| **indra (math)** | cpu | 147 | 0.211 | OpenRAIL-M-Mod |
-| **pp-formulanet-s (direct)** | cpu | 874 | 0.576 | Apache-2.0 |
-| **pp_structurev3 (pp-formulanet-s)** | cpu | 2191 | 0.607 | Apache-2.0 |
-| **pp_structurev3 (default)** | cpu | 2336 | 0.399 | Apache-2.0 |
-| paddle_latex_ocr (default) | cpu | 7397 | 0.715 | Apache-2.0 |
-| pix2tex (default) | cpu | 11452 | 0.585 | MIT |
+| **indra (math)** | cpu | 146 | 0.211 | OpenRAIL-M-Mod |
+| **pp-formulanet-s (direct)** | cpu | 854 | 0.576 | Apache-2.0 |
+| **pp_structurev3 (default)** | cpu | 2193 | 0.399 | Apache-2.0 |
+| **pp_structurev3 (pp-formulanet-s)** | cpu | 2247 | 0.607 | Apache-2.0 |
+| paddle_latex_ocr (default) | cpu | 3734 | 0.715 | Apache-2.0 |
+| pix2tex (default) | cpu | 5764 | 0.587 | MIT |
+| unimernet (tiny) | cpu | 18685 | 0.238 | Apache-2.0 |
 
 ## layout — OmniDocBench — device `cpu+gpu` · measured engines
 
@@ -53,12 +54,14 @@
 | docling-layout-heron-101 (default) | cpu | 1794 | 0.747 |  |
 | **pp-doclayoutv3 (130M)** | cpu | 3988 | 0.669 | Apache-2.0 |
 | **pp_structurev3 (default)** | cpu | 9890 | 0.638 | Apache-2.0 |
-| hantian/v8-n | gpu | 55 | 0.473 | AGPL-3.0 |
-| armaggheddon/y11-m | gpu | 64 | 0.472 | MIT |
-| armaggheddon/y26-n (2.6M) | gpu | 64 | 0.521 | MIT |
-| hantian/v12-n | gpu | 67 | 0.489 | AGPL-3.0 |
-| hantian/v10-m | gpu | 68 | 0.495 | AGPL-3.0 |
-| hantian/v8-x | gpu | 81 | 0.426 | AGPL-3.0 |
+| hantian/v8-n | gpu | 50 | 0.473 | AGPL-3.0 |
+| armaggheddon/y11-m | gpu | 53 | 0.472 | MIT |
+| armaggheddon/y26-n (2.6M) | gpu | 55 | 0.521 | MIT |
+| hantian/v12-n | gpu | 61 | 0.489 | AGPL-3.0 |
+| hantian/v10-m | gpu | 62 | 0.495 | AGPL-3.0 |
+| hantian/v8-x | gpu | 71 | 0.426 | AGPL-3.0 |
+| **pp-doclayoutv3 (130M)** | gpu | 3288 | 0.669 | Apache-2.0 |
+| **pp_structurev3 (default)** | gpu | 14190 | 0.639 | Apache-2.0 |
 
 ## orientation — Synthetic — device `cpu+gpu` · measured engines
 
@@ -67,7 +70,7 @@
 | **pp-lcnet_x1_0_doc_ori (onnxruntime)** | cpu | 5 | 1.000 | Apache-2.0 |
 | **pp-lcnet_x1_0_doc_ori (6.8M)** | cpu | 1448 | 1.000 | Apache-2.0 |
 | craft_mlt_25k+latin_g2 (easyocr) | cpu | 42794 | 0.350 | Apache-2.0 |
-| **pp-lcnet_x1_0_doc_ori (6.8M)** | gpu | 55 | 0.950 | Apache-2.0 |
+| **pp-lcnet_x1_0_doc_ori (6.8M)** | gpu | 1608 | 1.000 | Apache-2.0 |
 
 ## rectification — Synthetic — device `cpu+gpu` · measured engines
 
@@ -76,7 +79,7 @@
 | perspective-4corner (baseline (OpenCV, sin pesos)) | cpu | 11 | 0.491 | Apache-2.0 |
 | **uvdoc (onnxruntime)** | cpu | 78 | 0.604 | Apache-2.0 |
 | **uvdoc (31.7M)** | cpu | 297 | 0.597 | Apache-2.0 |
-| **uvdoc (31.7M)** | gpu | 53 | 0.707 | Apache-2.0 |
+| **uvdoc (31.7M)** | gpu | 298 | 0.597 | Apache-2.0 |
 
 ## text_line — Synthetic — device `cpu+gpu` · measured engines
 
@@ -84,7 +87,7 @@
 | :--- | :--- | ---: | ---: | :--- |
 | **pp-lcnet_x1_0_textline_ori (onnxruntime)** | cpu | 5 | 1.000 | Apache-2.0 |
 | **pp-lcnet_x1_0_textline_ori (6.8M)** | cpu | 26 | 1.000 | Apache-2.0 |
-| **pp-lcnet_x1_0_textline_ori (6.8M)** | gpu | 5 | 1.000 | Apache-2.0 |
+| **pp-lcnet_x1_0_textline_ori (6.8M)** | gpu | 25 | 1.000 | Apache-2.0 |
 
 ## seal — Synthetic — device `cpu+gpu` · measured engines
 
@@ -92,22 +95,24 @@
 | :--- | :--- | ---: | ---: | :--- |
 | **pp-ocrv4_mobile_seal_det (onnxruntime)** | cpu | 217 | 0.750 | Apache-2.0 |
 | **pp-ocrv4_mobile_seal_det (4.8M)** | cpu | 643 | 0.750 | Apache-2.0 |
-| **pp-ocrv4_mobile_seal_det (4.8M)** | gpu | 120 | 0.750 | Apache-2.0 |
+| **pp-ocrv4_mobile_seal_det (4.8M)** | gpu | 608 | 0.750 | Apache-2.0 |
 
 ## table — OmniDocBench — device `cpu` · measured engines
 
 | Engine | Device | ms/table ↓ | Quality ↑ | license |
 | :--- | :--- | ---: | ---: | :--- |
-| SLANet_plus (paddleocr) | cpu | 71 | 0.828 | Apache-2.0 |
-| table-transformer-structure-recognition (default) | cpu | 760 | 0.698 | MIT |
-| **slanet_plus (default)** | cpu | 796 | 0.780 | Apache-2.0 |
-| tableformer (docling) | cpu | 32806 | 0.807 | MIT |
+| SLANet_plus (paddleocr) | cpu | 87 | 0.828 | Apache-2.0 |
+| table-transformer-structure-recognition (default) | cpu | 198 | 0.698 | MIT |
+| **slanet_plus (default)** | cpu | 848 | 0.780 | Apache-2.0 |
+| **pp_structurev3 (default)** | cpu | 3245 | 0.608 | Apache-2.0 |
+| tableformer (docling) | cpu | 35699 | 0.807 | MIT |
 
 ## full_page — OmniDocBench — device `cpu+gpu` · measured engines
 
 | Engine | Device | ms/page ↓ | Quality ↑ | license |
 | :--- | :--- | ---: | ---: | :--- |
-| **pp_structurev3 (default)** | cpu | 9769 | 0.270 | Apache-2.0 |
-| docling-default (pipeline) | cpu | 29302 | 0.354 | MIT |
-| **indra (math)** | gpu | 10503 | 0.242 | OpenRAIL-M-Mod |
-| **pp_structurev3 (default)** | gpu | 17198 | 0.210 | Apache-2.0 |
+| **indra (math)** | cpu | 2006 | 0.265 | OpenRAIL-M-Mod |
+| **pp_structurev3 (default)** | cpu | 11054 | 0.270 | Apache-2.0 |
+| docling-default (pipeline) | cpu | 33257 | 0.354 | MIT |
+| **indra (math)** | gpu | 8901 | 0.265 | OpenRAIL-M-Mod |
+| **pp_structurev3 (default)** | gpu | 14053 | 0.267 | Apache-2.0 |
