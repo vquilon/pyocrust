@@ -139,6 +139,10 @@ CSV_FIELDS = [
     # lo anota (`Sample.stratum`); vacío en el resto. Permite el informe "por
     # estrato" sin releer la anotación del dataset.
     "stratum",
+    # Additive: **tipología** de la página (`digital`/`escaneada`/`manuscrita`)
+    # derivada de `page_attribute` (`Sample.page_type`); vacío cuando el dataset
+    # no la anota. Permite el desglose "por tipología" del informe.
+    "page_type",
     # Additive: métricas **propias** de `full_page` que `markdown_f1` no separa —
     # detección/texto de títulos y **orden de lectura** como secuencia (Kendall
     # tau). Vacías en el resto de bancos y en páginas sin GT de la modalidad
@@ -2181,6 +2185,8 @@ def run_benchmark(
             "title_seq_tau": "", "read_order_tau": "",
             # Estrato de la página (`data_source × layout`) cuando el dataset lo anota.
             "stratum": sample.stratum or "",
+            # Tipología derivada de la página (`digital`/`escaneada`/`manuscrita`).
+            "page_type": sample.page_type or "",
         }
         # Métrica propia de la feature (layout/tabla/orientación/rectificado).
         # El adaptador declara sus canales de estructura en `extra["emits"]`; un

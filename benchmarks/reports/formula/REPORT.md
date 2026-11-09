@@ -75,3 +75,21 @@
 | pp_structurev3 (pp-formulanet-s) | 0.300 | 0.410 | 0.639 | 0.764 | — |
 | unimernet (tiny) | 0.218 | 0.233 | 0.247 | 0.338 | 0.305 |
 
+## Por tipología de página (`digital` / `escaneada` / `manuscrita`)
+
+> LaTeX sim **por motor y tipología de página**. La tipología se deriva de `page_info.page_attribute` de OmniDocBench: `manuscrita` = `handwriting` en `special_issue` o `data_source=note`; `escaneada` = `fuzzy_scan` en `special_issue` o `data_source=historical_document`; `digital` = el resto. OmniDocBench **no** anota un tipo de adquisición explícito: la clasificación es una derivación declarada, no una etiqueta original. Motores medidos: 7. `N/A` = sin páginas medidas de esa tipología (nunca `0.0`); `—` = el motor no tiene medición sobre esas páginas.
+
+> **Páginas por tipología en la muestra**: `digital` (10), `escaneada` (0), `manuscrita` (0).
+
+> **Sin datos** para `escaneada`, `manuscrita` en la muestra de esta feature (columna `N/A`): el muestreo no incluyó páginas de esa tipología, así que no se inventa la fila.
+
+| Motor (variante) | digital | escaneada | manuscrita |
+| :--- | ---: | ---: | ---: |
+| indra (math) | 0.326 (n=10) | N/A | N/A |
+| paddle_latex_ocr (default) | 0.653 (n=10) | N/A | N/A |
+| pix2tex (default) | 0.552 (n=10) | N/A | N/A |
+| pp-formulanet-s (direct) | 0.499 (n=10) | N/A | N/A |
+| pp_structurev3 (default) | 0.398 (n=10) | N/A | N/A |
+| pp_structurev3 (pp-formulanet-s) | 0.497 (n=10) | N/A | N/A |
+| unimernet (tiny) | 0.260 (n=10) | N/A | N/A |
+

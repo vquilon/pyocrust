@@ -71,3 +71,19 @@
 | table-transformer-structure-recognition (default) | 1.000 | 0.889 | 0.857 | 0.628 | 0.791 | 0.762 |
 | tableformer (docling) | 1.000 | 1.000 | 1.000 | 0.669 | 1.000 | 1.000 |
 
+## Por tipología de página (`digital` / `escaneada` / `manuscrita`)
+
+> TEDS tabla **por motor y tipología de página**. La tipología se deriva de `page_info.page_attribute` de OmniDocBench: `manuscrita` = `handwriting` en `special_issue` o `data_source=note`; `escaneada` = `fuzzy_scan` en `special_issue` o `data_source=historical_document`; `digital` = el resto. OmniDocBench **no** anota un tipo de adquisición explícito: la clasificación es una derivación declarada, no una etiqueta original. Motores medidos: 5. `N/A` = sin páginas medidas de esa tipología (nunca `0.0`); `—` = el motor no tiene medición sobre esas páginas.
+
+> **Páginas por tipología en la muestra**: `digital` (8), `escaneada` (0), `manuscrita` (0).
+
+> **Sin datos** para `escaneada`, `manuscrita` en la muestra de esta feature (columna `N/A`): el muestreo no incluyó páginas de esa tipología, así que no se inventa la fila.
+
+| Motor (variante) | digital | escaneada | manuscrita |
+| :--- | ---: | ---: | ---: |
+| SLANet_plus (paddleocr) | 0.889 (n=8) | N/A | N/A |
+| pp_structurev3 (default) | 0.753 (n=8) | N/A | N/A |
+| slanet_plus (default) | 0.914 (n=8) | N/A | N/A |
+| table-transformer-structure-recognition (default) | 0.790 (n=8) | N/A | N/A |
+| tableformer (docling) | 0.905 (n=8) | N/A | N/A |
+

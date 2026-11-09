@@ -136,6 +136,10 @@ class Sample:
     # `page_attribute`: viaja con la muestra para que el informe pueda desglosar
     # la métrica *por estrato* sin volver a leer la anotación.
     stratum: str | None = None
+    # **Tipología** de página (`digital`/`escaneada`/`manuscrita`), derivada de
+    # `page_attribute` (ver `_odb_page_type`): viaja con la muestra para que el
+    # informe pueda desglosar la métrica *por tipología*.
+    page_type: str | None = None
     # GT de **orden de lectura / títulos** (`full_page`): bloques de contenido en
     # su `order` anotado, como `(caja, kind, texto)`. `kind` usa el vocabulario
     # que emite el pipeline (`ODB_CATEGORY_TO_KIND`); `texto` va vacío en tablas
@@ -303,6 +307,36 @@ def _odb_stratum(page: dict, keys: Sequence[str] = ("data_source", "layout")) ->
     """Estrato de una página: valores de `keys` (p. ej. `data_source × layout`)."""
     attribute = _odb_page_attribute(page)
     return " × ".join(str(attribute.get(key) or "?") for key in keys)
+
+
+def _odb_page_type(page: dict) -> str:
+    """Tipología de página derivada: `digital`, `escaneada` o `manuscrita`.
+
+    OmniDocBench **no** anota un tipo de adquisición explícito (digital/escaneada/
+    manuscrita); sus atributos de página son `data_source` (tipo de PDF, ver
+    README del dataset), `layout`, `language`, `subset` y `special_issue` (lista
+    de incidencias: `handwriting`, `fuzzy_scan`, `watermark`, ...). La tipología se
+    **deriva** de ellos, sin inventar una etiqueta que el dataset no da:
+
+    * `manuscrita` — `handwriting` en `special_issue`, o `data_source == "note"`
+      (README: `note # Handwritten notes`).
+    * `escaneada`  — `fuzzy_scan` en `special_issue` (README: `fuzzy_scan #
+      Whether blurry scanned`), o `data_source == "historical_document"`.
+    * `digital`    — el resto (no hay señal de escaneo ni de manuscrito).
+
+    Es una clasificación **declarada**, no una etiqueta original del dataset: el
+    informe cita de dónde sale.
+    """
+    attribute = _odb_page_attribute(page)
+    issues = attribute.get("special_issue") or []
+    if isinstance(issues, str):  # por si viniera serializada como texto
+        issues = [issues]
+    source = str(attribute.get("data_source") or "")
+    if "handwriting" in issues or source == "note":
+        return "manuscrita"
+    if "fuzzy_scan" in issues or source == "historical_document":
+        return "escaneada"
+    return "digital"
 
 
 def _odb_stratified(pages: list, limit: int | None = None,
@@ -574,6 +608,7 @@ def load_omnidocbench_formulas(limit: int | None = None, cache_dir: Path | None 
             image=_crop_poly(images[name], det["poly"]),
             gt_text=gt,
             stratum=_odb_stratum(page),
+            page_type=_odb_page_type(page),
         ))
     (cache / "omnidocbench_formulas.ok").write_text(f"{len(samples)} samples\n", encoding="utf-8")
     return samples
@@ -820,7 +855,8 @@ def load_omnidocbench_layout(limit: int | None = None, cache_dir: Path | None = 
         name = str(page["page_info"]["image_path"])
         samples.append(Sample(image_id=name, image=_odb_image(name, cache),
                               gt_text="", gt_layout=layout,
-                              stratum=_odb_stratum(page)))
+                              stratum=_odb_stratum(page),
+                              page_type=_odb_page_type(page)))
         if limit is not None and len(samples) >= limit:
             break
     return samples
@@ -850,6 +886,7 @@ def load_omnidocbench_tables(limit: int | None = None, cache_dir: Path | None = 
             image=_crop_poly(images[name], det["poly"]),
             gt_text="", gt_html=str(det["html"]),
             stratum=_odb_stratum(page),
+            page_type=_odb_page_type(page),
         ))
     return samples
 
@@ -885,6 +922,7 @@ def load_omnidocbench_full_page(limit: int | None = None, cache_dir: Path | None
             gt_html=tables_html or None,
             gt_by_task={"formula": formulas} if formulas else None,
             stratum=_odb_stratum(page),
+            page_type=_odb_page_type(page),
             gt_ordered_blocks=_odb_ordered_blocks(page),
         ))
         if limit is not None and len(samples) >= limit:
@@ -1375,6 +1413,21 @@ def _self_check() -> None:
     assert max(strata_counts.values()) <= 12 * 0.4, strata_counts  # ninguno >40%
     assert _odb_stratified(strat_pages, limit=12) == picked        # determinista
     assert _odb_stratum(_attr_page("book", "single_column")) == "book × single_column"
+    # Tipología de página derivada (digital/escaneada/manuscrita) desde
+    # `page_attribute`: `note`/`handwriting` -> manuscrita; `historical_document`
+    # /`fuzzy_scan` -> escaneada; el resto -> digital. No se inventa la etiqueta.
+    def _typed_page(data_source, special_issue=()):
+        return {"layout_dets": [], "page_info": {"image_path": "p.png", "page_attribute": {
+            "data_source": data_source, "special_issue": list(special_issue)}}}
+
+    assert _odb_page_type(_typed_page("book")) == "digital"
+    assert _odb_page_type(_typed_page("PPT2PDF", ["watermark"])) == "digital"
+    assert _odb_page_type(_typed_page("note")) == "manuscrita"
+    assert _odb_page_type(_typed_page("exam_paper", ["handwriting"])) == "manuscrita"
+    assert _odb_page_type(_typed_page("historical_document")) == "escaneada"
+    assert _odb_page_type(_typed_page("book", ["fuzzy_scan"])) == "escaneada"
+    # `handwriting` manda sobre `fuzzy_scan` si coinciden (una sola etiqueta).
+    assert _odb_page_type(_typed_page("note", ["fuzzy_scan"])) == "manuscrita"
     print("common.datasets self-check OK")
 
 

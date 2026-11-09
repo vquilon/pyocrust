@@ -233,3 +233,56 @@
 | pp-doclayoutv3 (130M) | 0.800 | 0.607 | 0.726 | 0.717 | 0.847 | 0.866 | 0.958 | 1.000 | 0.992 | 0.700 | 0.910 | 0.742 | 0.777 | 1.000 | 0.915 | 0.700 | 0.490 |
 | pp_structurev3 (default) | 0.800 | 0.405 | 0.613 | 0.639 | 0.847 | 0.809 | 0.958 | 1.000 | 0.817 | 0.700 | 0.875 | 0.647 | 0.777 | 1.000 | 0.890 | 0.700 | 0.471 |
 
+## Per page type (`digital` / `scanned` / `handwritten`)
+
+> mAP@IoU 0.5 **per engine and page type**. The page type is derived from OmniDocBench's `page_info.page_attribute`: `handwritten` = `handwriting` in `special_issue` or `data_source=note`; `scanned` = `fuzzy_scan` in `special_issue` or `data_source=historical_document`; `digital` = everything else. OmniDocBench does **not** annotate an explicit acquisition type: the classification is a declared derivation, not an original label. Engines measured: 42. `N/A` = no measured pages of that page type (never `0.0`); `—` = the engine has no measurement on those pages.
+
+> **Pages per page type in the sample**: `digital` (40), `scanned` (0), `handwritten` (0).
+
+> **No data** for `scanned`, `handwritten` in this feature's sample (`N/A` column): the sampling did not include pages of that page type, so the row is not invented.
+
+| Engine (variant) | digital | scanned | handwritten |
+| :--- | ---: | ---: | ---: |
+| armaggheddon/y11-m | 0.542 (n=40) | N/A | N/A |
+| armaggheddon/y11-n | 0.522 (n=40) | N/A | N/A |
+| armaggheddon/y11-s | 0.516 (n=40) | N/A | N/A |
+| armaggheddon/y26-m (21.8M) | 0.568 (n=40) | N/A | N/A |
+| armaggheddon/y26-n (2.6M) | 0.572 (n=40) | N/A | N/A |
+| armaggheddon/y26-s | 0.476 (n=40) | N/A | N/A |
+| docling-layout-heron-101 (default) | 0.818 (n=40) | N/A | N/A |
+| hantian/v10-b | 0.484 (n=40) | N/A | N/A |
+| hantian/v10-l | 0.533 (n=40) | N/A | N/A |
+| hantian/v10-m | 0.526 (n=40) | N/A | N/A |
+| hantian/v10-n | 0.461 (n=40) | N/A | N/A |
+| hantian/v10-s | 0.495 (n=40) | N/A | N/A |
+| hantian/v11-l | 0.502 (n=40) | N/A | N/A |
+| hantian/v11-m (21.8M) | 0.520 (n=40) | N/A | N/A |
+| hantian/v11-n (2.6M) | 0.520 (n=40) | N/A | N/A |
+| hantian/v11-s | 0.473 (n=40) | N/A | N/A |
+| hantian/v12-l | 0.550 (n=40) | N/A | N/A |
+| hantian/v12-m | 0.523 (n=40) | N/A | N/A |
+| hantian/v12-n | 0.547 (n=40) | N/A | N/A |
+| hantian/v12-s | 0.542 (n=40) | N/A | N/A |
+| hantian/v8-l | 0.486 (n=40) | N/A | N/A |
+| hantian/v8-m | 0.494 (n=40) | N/A | N/A |
+| hantian/v8-n | 0.545 (n=40) | N/A | N/A |
+| hantian/v8-s | 0.495 (n=40) | N/A | N/A |
+| hantian/v8-x | 0.490 (n=40) | N/A | N/A |
+| hantian/y26-l | 0.508 (n=40) | N/A | N/A |
+| hantian/y26-m | 0.492 (n=40) | N/A | N/A |
+| hantian/y26-n | 0.499 (n=40) | N/A | N/A |
+| hantian/y26-s | 0.492 (n=40) | N/A | N/A |
+| omoured/v10-b (20.5M) | 0.382 (n=40) | N/A | N/A |
+| omoured/v10-l | 0.366 (n=40) | N/A | N/A |
+| omoured/v10-m | 0.381 (n=40) | N/A | N/A |
+| omoured/v10-n | 0.485 (n=40) | N/A | N/A |
+| omoured/v10-s | 0.427 (n=40) | N/A | N/A |
+| omoured/v10-x (31.7M) | 0.451 (n=40) | N/A | N/A |
+| omoured/v11-l | 0.350 (n=40) | N/A | N/A |
+| omoured/v11-m | 0.392 (n=40) | N/A | N/A |
+| omoured/v11-n | 0.448 (n=40) | N/A | N/A |
+| omoured/v11-s | 0.406 (n=40) | N/A | N/A |
+| omoured/v11-x | 0.331 (n=40) | N/A | N/A |
+| pp-doclayoutv3 (130M) | 0.796 (n=40) | N/A | N/A |
+| pp_structurev3 (default) | 0.751 (n=40) | N/A | N/A |
+

@@ -79,6 +79,21 @@
 | indra (math) | 0.025 | 0.028 | 0.031 |
 | pp_structurev3 (default) | 0.115 | 0.000 | 0.127 |
 
+## Per page type (`digital` / `scanned` / `handwritten`)
+
+> Markdown F1 **per engine and page type**. The page type is derived from OmniDocBench's `page_info.page_attribute`: `handwritten` = `handwriting` in `special_issue` or `data_source=note`; `scanned` = `fuzzy_scan` in `special_issue` or `data_source=historical_document`; `digital` = everything else. OmniDocBench does **not** annotate an explicit acquisition type: the classification is a declared derivation, not an original label. Engines measured: 4. `N/A` = no measured pages of that page type (never `0.0`); `—` = the engine has no measurement on those pages.
+
+> **Pages per page type in the sample**: `digital` (6), `scanned` (0), `handwritten` (0).
+
+> **No data** for `scanned`, `handwritten` in this feature's sample (`N/A` column): the sampling did not include pages of that page type, so the row is not invented.
+
+| Engine (variant) | digital | scanned | handwritten |
+| :--- | ---: | ---: | ---: |
+| PP-StructureV3 (paddleocr) | 0.086 (n=6) | N/A | N/A |
+| docling-default (pipeline) | 0.204 (n=6) | N/A | N/A |
+| indra (math) | 0.029 (n=6) | N/A | N/A |
+| pp_structurev3 (default) | 0.083 (n=6) | N/A | N/A |
+
 ## Title coverage and hierarchy (not measurable)
 
 > The **titles/index** metric is only evaluated on pages the annotation marks with `category_type=title`; elsewhere it is `N/A` and does **not** enter the mean (it is not diluted into a global average). The `OmniDocBench` dataset (v1.6, 1651 pages) annotates `title` on **1179** pages (**71.4 %**); the rest have no title ground truth.

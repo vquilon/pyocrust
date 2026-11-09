@@ -197,6 +197,22 @@ _REPLACEMENTS = {
     " · estratos cubiertos: ": " · strata covered: ",
     "`—` = ese motor no tiene medición en ese estrato.": "`—` = this engine has no measurement in that stratum.",
     "**Estratos (n de páginas en la muestra)**: ": "**Strata (pages in the sample)**: ",
+    # Sección "Por tipología de página" (digital / escaneada / manuscrita).
+    "## Por tipología de página (`digital` / `escaneada` / `manuscrita`)":
+        "## Per page type (`digital` / `scanned` / `handwritten`)",
+    "**por motor y tipología de página**": "**per engine and page type**",
+    "La tipología se deriva de `page_info.page_attribute` de OmniDocBench: `manuscrita` = `handwriting` en `special_issue` o `data_source=note`; `escaneada` = `fuzzy_scan` en `special_issue` o `data_source=historical_document`; `digital` = el resto.":
+        "The page type is derived from OmniDocBench's `page_info.page_attribute`: `manuscrita` = `handwriting` in `special_issue` or `data_source=note`; `escaneada` = `fuzzy_scan` in `special_issue` or `data_source=historical_document`; `digital` = everything else.",
+    "OmniDocBench **no** anota un tipo de adquisición explícito: la clasificación es una derivación declarada, no una etiqueta original.":
+        "OmniDocBench does **not** annotate an explicit acquisition type: the classification is a declared derivation, not an original label.",
+    "`N/A` = sin páginas medidas de esa tipología (nunca `0.0`); `—` = el motor no tiene medición sobre esas páginas.":
+        "`N/A` = no measured pages of that page type (never `0.0`); `—` = the engine has no measurement on those pages.",
+    "> **Páginas por tipología en la muestra**: ": "> **Pages per page type in the sample**: ",
+    "> **Sin datos** para ": "> **No data** for ",
+    " en la muestra de esta feature (columna `N/A`): el muestreo no incluyó páginas de esa tipología, así que no se inventa la fila.":
+        " in this feature's sample (`N/A` column): the sampling did not include pages of that page type, so the row is not invented.",
+    "escaneada": "scanned",
+    "manuscrita": "handwritten",
     # Sección "Cobertura de títulos / figuras" y columnas propias de `full_page`
     # (títulos + orden de lectura como secuencia, figuras + captions).
     "## Cobertura de títulos y jerarquía (no medible)": "## Title coverage and hierarchy (not measurable)",
