@@ -4,24 +4,24 @@
 
 ## Provenance
 
-- **command**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/formula/bank.py --limit 20 --device cpu`
-- **dataset**: `omnidocbench_formula` · **n** (per engine): `20` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
+- **command**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe features/formula/bank.py --limit 10 --device cpu --output-dir results`
+- **dataset**: `omnidocbench_formula` · **n** (per engine): `10` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **revision HF (fijada)**: `aa1ee96d106dbe53d0ae59474d75c6e6d9b53fec` — misma revision en cualquier maquina; los bytes se verifican contra `benchmarks/datasets_manifest.json`
 - **seed**: not applicable (deterministic benchmark, no randomness)
-- **run**: `benchmarks/results/formula/2026-11-09_10-37-15` · **date**: `2026-11-09_10-37-15`
-- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['directml']}
+- **run**: `benchmarks/results/formula/2026-11-09_14-13-57` · **date**: `2026-11-09_14-13-57`
+- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['cuda']}
 
 ## Comparison (mean by engine)
 
 | Engine (variant) | n | Exact LaTeX ↑ | Similarity ↑ | Token F1 ↑ | Outputs with LaTeX ↑ | ms/formula ↓ |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
-| indra (math) | 20 | 0.000 | 0.211 | 0.437 | N/A | **146** |
-| paddle_latex_ocr (default) | 20 | **0.050** | **0.715** | **0.829** | N/A | 3734 |
-| pix2tex (default) | 20 | 0.000 | 0.587 | 0.757 | N/A | 5764 |
-| pp-formulanet-s (direct) | 20 | 0.000 | 0.576 | 0.701 | N/A | 854 |
-| pp_structurev3 (default) | 20 | 0.000 | 0.399 | 0.560 | N/A | 2193 |
-| pp_structurev3 (pp-formulanet-s) | 20 | 0.000 | 0.607 | 0.746 | N/A | 2247 |
-| unimernet (tiny) | 20 | 0.000 | 0.238 | 0.376 | N/A | 18685 |
+| indra (math) | 10 | 0.000 | 0.326 | 0.575 | N/A | **141** |
+| paddle_latex_ocr (default) | 10 | 0.000 | **0.653** | **0.799** | N/A | 16326 |
+| pix2tex (default) | 10 | 0.000 | 0.552 | 0.777 | N/A | 5500 |
+| pp-formulanet-s (direct) | 10 | 0.000 | 0.499 | 0.652 | N/A | 998 |
+| pp_structurev3 (default) | 10 | 0.000 | 0.398 | 0.613 | N/A | 2774 |
+| pp_structurev3 (pp-formulanet-s) | 10 | 0.000 | 0.497 | 0.708 | N/A | 2474 |
+| unimernet (tiny) | 10 | 0.000 | 0.260 | 0.385 | N/A | 17493 |
 
 > Bold values mark the best result for each metric among the **measured** engines in `formula`. `N/A` = not evaluated (no ground truth for that column **or** the engine does not emit that structure), never an invented `0.0`.
 
@@ -47,31 +47,31 @@
 
 | Engine (variant) | LaTeX similarity ↑ (CPU) | LaTeX similarity ↑ (GPU) | ms CPU | ms GPU | GPU provider |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| indra (math) | 0.211 | 0.211 | 146 | 2813 | directml |
-| paddle_latex_ocr (default) | 0.715 | 0.715 | 3734 | 1016 | cuda |
-| pix2tex (default) | 0.587 | N/A | 5764 | N/A | n/a (does not run on GPU) |
-| pp-formulanet-s (direct) | 0.576 | 0.576 | 854 | 1903 | directml |
-| pp_structurev3 (default) | 0.399 | 0.400 | 2193 | 2781 | directml |
-| pp_structurev3 (pp-formulanet-s) | 0.607 | 0.607 | 2247 | 3485 | directml |
-| unimernet (tiny) | 0.238 | N/A | 18685 | N/A | n/a (does not run on GPU) |
+| indra (math) | 0.326 | 0.243 | 141 | 1989 | directml |
+| paddle_latex_ocr (default) | 0.653 | 0.653 | 16326 | 2276 | cuda |
+| pix2tex (default) | 0.552 | N/A | 5500 | N/A | n/a (does not run on GPU) |
+| pp-formulanet-s (direct) | 0.499 | 0.499 | 998 | 2487 | directml |
+| pp_structurev3 (default) | 0.398 | 0.398 | 2774 | 2110 | directml |
+| pp_structurev3 (pp-formulanet-s) | 0.497 | 0.497 | 2474 | 2800 | directml |
+| unimernet (tiny) | 0.260 | N/A | 17493 | N/A | n/a (does not run on GPU) |
 
 > The GPU provider comes from the actual `provider_effective` value in the GPU `summary.json` (`n/a` = the engine does not expose GPU execution in this benchmark). No GPU rows are invented: engines that did not run on an accelerator appear as `N/A`.
 
 ## Per stratum (`data_source × layout`)
 
-> LaTeX sim **per engine and stratum** of the page (stratified sample, `page_info.page_attribute`). Engines measured: 7 · strata covered: 12. `—` = this engine has no measurement in that stratum.
+> LaTeX sim **per engine and stratum** of the page (stratified sample, `page_info.page_attribute`). Engines measured: 7 · strata covered: 5. `—` = this engine has no measurement in that stratum.
 
-> **Strata (pages in the sample)**: `PPT2PDF×other_layout` (2), `PPT2PDF×single_column` (1), `academic_literature×1andmore_column` (2), `academic_literature×double_column` (1), `academic_literature×single_column` (3), `book×other_layout` (3), `book×single_column` (2), `colorful_textbook×double_column` (1), `colorful_textbook×other_layout` (1), `exam_paper×double_column` (2), `exam_paper×other_layout` (1), `note×single_column` (1).
+> **Strata (pages in the sample)**: `PPT2PDF×other_layout` (3), `PPT2PDF×single_column` (2), `academic_literature×1andmore_column` (2), `academic_literature×double_column` (2), `academic_literature×other_layout` (1).
 
 ### LaTeX sim per stratum
 
-| Engine (variant) | PPT2PDF×other_layout | PPT2PDF×single_column | academic_literature×1andmore_column | academic_literature×double_column | academic_literature×single_column | book×other_layout | book×single_column | colorful_textbook×double_column | colorful_textbook×other_layout | exam_paper×double_column | exam_paper×other_layout | note×single_column |
-| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| indra (math) | 0.169 | 0.262 | 0.249 | — | 0.377 | 0.167 | 0.288 | 0.288 | 0.054 | 0.110 | 0.070 | 0.185 |
-| paddle_latex_ocr (default) | 0.748 | 0.684 | 0.714 | 0.835 | 0.764 | 0.710 | 0.721 | 0.514 | 0.168 | 0.843 | 1.000 | 0.632 |
-| pix2tex (default) | 0.723 | 0.643 | 0.484 | 0.720 | 0.638 | 0.516 | 0.677 | 0.810 | 0.314 | 0.791 | 0.233 | 0.207 |
-| pp-formulanet-s (direct) | 0.533 | 0.684 | 0.376 | 0.667 | 0.696 | 0.587 | 0.478 | 0.545 | 0.206 | 0.653 | 0.605 | 0.889 |
-| pp_structurev3 (default) | 0.279 | 0.410 | 0.352 | 0.667 | 0.615 | 0.514 | 0.350 | 0.308 | 0.149 | 0.486 | 0.093 | 0.259 |
-| pp_structurev3 (pp-formulanet-s) | 0.210 | 0.410 | 0.639 | 0.667 | 0.798 | 0.690 | 0.492 | — | — | 0.870 | — | — |
-| unimernet (tiny) | 0.137 | 0.328 | 0.247 | 0.432 | 0.262 | 0.275 | 0.218 | 0.187 | 0.235 | 0.245 | 0.161 | 0.105 |
+| Engine (variant) | PPT2PDF×other_layout | PPT2PDF×single_column | academic_literature×1andmore_column | academic_literature×double_column | academic_literature×other_layout |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| indra (math) | 0.197 | 0.243 | 0.249 | 0.366 | 0.989 |
+| paddle_latex_ocr (default) | 0.401 | 0.700 | 0.714 | 0.838 | 0.824 |
+| pix2tex (default) | 0.449 | 0.397 | 0.525 | 0.779 | 0.777 |
+| pp-formulanet-s (direct) | 0.382 | 0.447 | 0.376 | 0.764 | 0.670 |
+| pp_structurev3 (default) | 0.300 | 0.354 | 0.352 | 0.764 | 0.143 |
+| pp_structurev3 (pp-formulanet-s) | 0.300 | 0.410 | 0.639 | 0.764 | — |
+| unimernet (tiny) | 0.218 | 0.233 | 0.247 | 0.338 | 0.305 |
 

@@ -18,27 +18,27 @@
 
 | Engine | Value | n | Source | license |
 | :--- | ---: | ---: | :--- | :--- |
-| paddle_latex_ocr | 0.715 | 20 | measured | Apache-2.0 |
-| **pp_structurev3 (pp-formulanet-s)** | 0.607 | 20 | measured | Apache-2.0 |
-| pix2tex | 0.587 | 20 | measured | MIT |
-| **pp-formulanet-s (direct)** | 0.576 | 20 | measured | Apache-2.0 |
-| **pp_structurev3** | 0.399 | 20 | measured | Apache-2.0 |
-| unimernet (tiny) | 0.238 | 20 | measured | Apache-2.0 |
-| **indra (math)** | 0.211 | 20 | measured | OpenRAIL-M-Mod |
+| paddle_latex_ocr | 0.653 | 10 | measured | Apache-2.0 |
+| pix2tex | 0.552 | 10 | measured | MIT |
+| **pp-formulanet-s (direct)** | 0.499 | 10 | measured | Apache-2.0 |
+| **pp_structurev3 (pp-formulanet-s)** | 0.497 | 10 | measured | Apache-2.0 |
+| **pp_structurev3** | 0.398 | 10 | measured | Apache-2.0 |
+| **indra (math)** | 0.326 | 10 | measured | OpenRAIL-M-Mod |
+| unimernet (tiny) | 0.260 | 10 | measured | Apache-2.0 |
 
 ## layout — OmniDocBench — `measured` · **measured dataset**: `omnidocbench_layout`
 
 | Engine | Value | n | Source | license |
 | :--- | ---: | ---: | :--- | :--- |
-| docling-layout-heron-101 | 0.747 | 40 | measured |  |
-| **pp-doclayoutv3 (130M)** | 0.669 | 40 | measured | Apache-2.0 |
-| **pp_structurev3** | 0.638 | 40 | measured | Apache-2.0 |
-| armaggheddon/y26-n (2.6M) | 0.521 | 40 | measured | MIT |
-| hantian/v10-m | 0.497 | 40 | measured | AGPL-3.0 |
-| hantian/v12-n | 0.489 | 40 | measured | AGPL-3.0 |
-| hantian/v8-n | 0.473 | 40 | measured | AGPL-3.0 |
-| armaggheddon/y11-m | 0.472 | 40 | measured | MIT |
-| hantian/v8-x | 0.426 | 40 | measured | AGPL-3.0 |
+| docling-layout-heron-101 | 0.818 | 40 | measured |  |
+| **pp-doclayoutv3 (130M)** | 0.796 | 40 | measured | Apache-2.0 |
+| **pp_structurev3** | 0.751 | 40 | measured | Apache-2.0 |
+| armaggheddon/y26-n (2.6M) | 0.572 | 40 | measured | MIT |
+| hantian/v12-l | 0.550 | 40 | measured | AGPL-3.0 |
+| hantian/v8-n | 0.545 | 40 | measured | AGPL-3.0 |
+| armaggheddon/y11-m | 0.542 | 40 | measured | MIT |
+| hantian/v10-l | 0.533 | 40 | measured | AGPL-3.0 |
+| hantian/v8-x | 0.490 | 40 | measured | AGPL-3.0 |
 
 ## orientation — Synthetic — `measured` · **measured dataset**: `synthetic_orientation`
 
@@ -74,16 +74,16 @@
 
 | Engine | Value | n | Source | license |
 | :--- | ---: | ---: | :--- | :--- |
-| SLANet_plus (paddleocr) | 0.828 | 20 | measured | Apache-2.0 |
-| tableformer (docling) | 0.807 | 20 | measured | MIT |
-| **slanet_plus** | 0.780 | 20 | measured | Apache-2.0 |
-| table-transformer-structure-recognition | 0.698 | 20 | measured | MIT |
-| **pp_structurev3** | 0.608 | 20 | measured | Apache-2.0 |
+| **slanet_plus** | 0.914 | 8 | measured | Apache-2.0 |
+| tableformer (docling) | 0.905 | 8 | measured | MIT |
+| SLANet_plus (paddleocr) | 0.889 | 8 | measured | Apache-2.0 |
+| table-transformer-structure-recognition | 0.790 | 8 | measured | MIT |
+| **pp_structurev3** | 0.753 | 8 | measured | Apache-2.0 |
 
 ## full_page — OmniDocBench — `measured` · **measured dataset**: `omnidocbench_full_page`
 
 | Engine | Value | n | Source | license |
 | :--- | ---: | ---: | :--- | :--- |
-| docling-default (pipeline) | 0.354 | 20 | measured | MIT |
-| **pp_structurev3** | 0.270 | 20 | measured | Apache-2.0 |
-| **indra (math)** | 0.265 | 20 | measured | OpenRAIL-M-Mod |
+| docling-default (pipeline) | 0.204 | 6 | measured | MIT |
+| **pp_structurev3** | 0.083 | 6 | measured | Apache-2.0 |
+| **indra (math)** | 0.029 | 6 | measured | OpenRAIL-M-Mod |

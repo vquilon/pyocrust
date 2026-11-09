@@ -176,7 +176,13 @@ def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     (OUT_DIR / "benchmark_table.md").write_text(md, encoding="utf-8")
     (OUT_DIR / "benchmark_table.tex").write_text(tex, encoding="utf-8")
+    # `report.py` deriva el `.en.md` de las demás features desde su `.md`; para
+    # `layout` este generador manda, así que emite también su versión en inglés
+    # (misma `english_markdown`, fuente única de traducción).
+    from features._localization import english_markdown
+    (OUT_DIR / "benchmark_table.en.md").write_text(english_markdown(md), encoding="utf-8")
     print(f"[layout.table] -> {OUT_DIR / 'benchmark_table.md'}")
+    print(f"[layout.table] -> {OUT_DIR / 'benchmark_table.en.md'}")
     print(f"[layout.table] -> {OUT_DIR / 'benchmark_table.tex'}")
     return 0
 
