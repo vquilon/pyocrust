@@ -179,26 +179,22 @@ def _ms_ticks(ax) -> None:
         ax.xaxis.set_major_locator(MaxNLocator(nbins=4, integer=True))
 
 
-def _sin_solape(textos, ax) -> None:
-    """Separa las etiquetas que se pisan, sin que se salgan del panel.
+def _colores_por_motor(feature_data) -> dict[str, str]:
+    """Un color estable por motor, el mismo en todos los paneles.
 
-    `matplotlib` no trae solucionador de colisiones; `adjustText` sí. Se usa si
-    está instalado; si no, se deja el `va` alterno de `_panel` (sin dep dura).
-    `only_move` vertical evita que empuje texto hacia fuera del axes: si un
-    label se sale, `savefig(bbox_inches="tight")` hincha el lienzo entero y los
-    paneles acaban viéndose diminutos (regresión real, ya vista).
+    Con el color ligado al motor (y no al grupo) la leyenda global permite
+    seguir el mismo modelo de panel en panel. Paleta de 60 (tab20 x3), que cubre
+    de sobra el catálogo medido sin repetir color.
     """
-    try:
-        from adjustText import adjust_text
-    except ImportError:
-        return
-    adjust_text(textos, ax=ax, only_move={"text": "y"},
-                expand_text=(1.01, 1.05), expand_points=(1.05, 1.05),
-                force_text=(0.05, 0.10),
-                arrowprops=dict(arrowstyle="-", color="#999999", lw=0.5))
+    import matplotlib.pyplot as plt
+
+    nombres = sorted({n for _t, pts, _u in feature_data for n, _ms, _q, _d in pts})
+    paleta = [c for cmap in ("tab20", "tab20b", "tab20c") for c in plt.get_cmap(cmap).colors]
+    return {nombre: paleta[i % len(paleta)] for i, nombre in enumerate(nombres)}
 
 
-def _panel(ax, points, title, device) -> None:
+def _panel(ax, points, title, device, colores=None) -> None:
+    colores = colores or {}
     points = [point for point in points if point[3] == device]
     if not points:
         ax.axis("off")
@@ -206,23 +202,19 @@ def _panel(ax, points, title, device) -> None:
         return
     xs = [p[1] for p in points]
     ys = [p[2] for p in points]
-    etiquetas = []
-    for i, (name, ms, q, point_device) in enumerate(points):
+    for name, ms, q, _point_device in points:
         py = _is_pyocrust(name)
-        ax.scatter(ms, q, s=70, zorder=3,
-                   color="#2e7d32" if py else "#3b6fb0",
-                   marker="*" if point_device == "gpu" else "o",
+        # La FORMA distingue pyocrust del resto (★ vs ●) y el COLOR identifica al
+        # motor (leyenda global al pie). El device ya lo dice el título del panel.
+        ax.scatter(ms, q, s=110 if py else 60, zorder=3,
+                   color=colores.get(name, "#3b6fb0"),
+                   marker="*" if py else "o",
                    edgecolor="white", linewidth=0.8)
-        # El panel ya es de un solo device (`points` llega filtrado): repetir
-        # «· CPU»/«· GPU» en cada etiqueta es ruido — el device va en el título.
-        # Annotation con la posición en coordenadas de DATOS (no `offset points`):
-        # adjustText recoloca con `set_position`, y sobre un offset en puntos los
-        # labels acababan FUERA del panel e hinchaban el lienzo. En datos, además,
-        # las flechas que añade adjustText anclan de verdad en el punto.
-        etiquetas.append(ax.annotate(name, xy=(ms, q), xytext=(ms * 1.02, q),
-                                     textcoords="data", fontsize=6.5, color="#333333",
-                                     va="bottom" if i % 2 == 0 else "top"))
-    _sin_solape(etiquetas, ax)
+        # Etiqueta SIEMPRE a la derecha del punto y pegada a él: desplazada en
+        # puntos de pantalla (no en datos) y sin repartidores de colisiones — lo
+        # que se separa del punto deja de leerse.
+        ax.annotate(name, xy=(ms, q), xytext=(5, 0), textcoords="offset points",
+                    ha="left", va="center", fontsize=6.5, color="#333333")
     # Escala: log sólo cuando el rango abarca >1 década (ahí el log aporta y deja
     # ticks de década repartidos); si no, lineal, que con `MaxNLocator` da ticks
     # redondos sin amontonar (un log sobre un rango estrecho los apila).
@@ -237,11 +229,19 @@ def _panel(ax, points, title, device) -> None:
     _ms_ticks(ax)
     ax.set_yscale("linear")
     lo, hi = min(ys), max(ys)
-    # Aire vertical de sobra: las etiquetas se separan en Y (adjustText) y sin
-    # margen se saldrían del panel — que es lo que hacía que los paneles
-    # parecieran diminutos, con el texto repartido por el blanco de al lado.
-    pad = (hi - lo) * 0.30 or 0.06
+    pad = (hi - lo) * 0.18 or 0.05
     ax.set_ylim(max(0.0, lo - pad), hi + pad)
+    # Cuadrante que interesa: MENOS tiempo (izquierda) y MÁS calidad (arriba).
+    # El corte es la mediana del propio panel — un dato del panel, no un umbral
+    # inventado— y va sombreado para que el «bueno» se vea de un vistazo.
+    from matplotlib.patches import Rectangle
+
+    x0, x1 = ax.get_xlim()
+    y0, y1 = ax.get_ylim()
+    xm, ym = sorted(xs)[len(xs) // 2], sorted(ys)[len(ys) // 2]
+    if xm > x0 and y1 > ym:
+        ax.add_patch(Rectangle((x0, ym), xm - x0, y1 - ym, zorder=0,
+                               facecolor="#2e7d32", alpha=0.07, edgecolor="none"))
     ax.set_xlabel("Runtime per unit (ms) ↓ (left = faster)", fontsize=7)
     ax.set_ylabel("Quality score ↑", fontsize=7)
     ax.grid(True, which="major", alpha=0.18)
@@ -304,23 +304,26 @@ def main() -> int:
         rows = math.ceil(n / cols)
         fig, axes = plt.subplots(rows, cols, figsize=(13, 3.6 * rows))
         axes = axes.ravel()
+        colores = _colores_por_motor(feature_data)
         for k, (title, points, _unit) in enumerate(feature_data):
-            _panel(axes[k], points, title.replace("sintético", "Synthetic"), device)
+            _panel(axes[k], points, title.replace("sintético", "Synthetic"), device, colores)
         for ax in axes[n:]:
             ax.axis("off")
 
-        marker = "o" if device == "cpu" else "*"
+        # Leyenda global: un color (y una forma) por motor. Es lo que permite
+        # seguir el mismo modelo de panel en panel sin leer cada etiqueta.
         fig.legend(handles=[
-            Line2D([], [], marker=marker, linestyle="", color="#2e7d32", label="pyocrust"),
-            Line2D([], [], marker=marker, linestyle="", color="#3b6fb0", label="alternative"),
-        ], loc="lower center", bbox_to_anchor=(0.5, 0.045), ncol=2, frameon=False, fontsize=9)
+            Line2D([], [], marker="*" if _is_pyocrust(m) else "o", linestyle="",
+                   markersize=8 if _is_pyocrust(m) else 5, color=colores[m], label=m)
+            for m in sorted(colores)
+        ], loc="lower center", bbox_to_anchor=(0.5, 0.030), ncol=6, frameon=False, fontsize=6.5,
+            handletextpad=0.3, columnspacing=1.0)
         fig.suptitle(f"pyocrust — quality vs. runtime by feature · {device.upper()}", fontsize=14)
-        fig.text(0.5, 0.022,
-                 f"Each point is a {device.upper()} measurement from the same benchmark. External references excluded.",
+        fig.text(0.5, 0.016,
+                 f"★ pyocrust · ● alternativa · zona verde = menos tiempo y más calidad "
+                 f"(mediana del panel). Cada punto es una medición {device.upper()} del mismo banco; "
+                 f"referencias externas excluidas.",
                  ha="center", fontsize=8, color="#555555")
-        fig.text(0.5, 0.004,
-                 "Same host/.venv; one model at a time · ms = inference + post-processing (excluding load/download) · model size included in label.",
-                 ha="center", fontsize=7.5, color="#777777")
         fig.tight_layout(rect=(0, 0.10, 1, 0.96))
         FIGURES.mkdir(parents=True, exist_ok=True)
         for ext in ("png", "svg"):
@@ -346,25 +349,21 @@ def _self_check() -> None:
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    from matplotlib.text import Text
+    from matplotlib.text import Annotation
 
     puntos = [(f"motor-{i:02d}", 10.0 * (i + 1), 0.5 + 0.001 * i, "cpu") for i in range(9)]
     fig, ax = plt.subplots(figsize=(6.5, 3.6))
     _panel(ax, puntos, "layout", "cpu")
     fig.canvas.draw()
-    caja = ax.get_window_extent()
-    # Solo etiquetas de dato (transform = transData): el título y los rótulos de
-    # eje viven fuera del axes a propósito y darían falsos positivos.
-    etiquetas = [c for c in ax.get_children()
-                 if isinstance(c, Text) and c.get_transform() is ax.transData]
-    fuera = [t.get_text() for t in etiquetas
-             if not (caja.x0 <= t.get_window_extent().x0 and caja.x1 >= t.get_window_extent().x1
-                     and caja.y0 <= t.get_window_extent().y0 and caja.y1 >= t.get_window_extent().y1)]
+    etiquetas = [c for c in ax.get_children() if isinstance(c, Annotation)]
     plt.close(fig)
-    # `>=` y no `==`: adjustText añade una anotación por flecha, así que el `==`
-    # fallaría justo en el panel denso, que es cuando la comprobación sirve.
-    assert len(etiquetas) >= len(puntos), f"inspeccionadas {len(etiquetas)} etiquetas, esperadas {len(puntos)}"
-    assert not fuera, f"etiquetas fuera de su panel (hinchen el lienzo): {fuera}"
+    assert len(etiquetas) == len(puntos), f"inspeccionadas {len(etiquetas)} etiquetas, esperadas {len(puntos)}"
+    # Contrato: la etiqueta va PEGADA a su punto (desplazada a la derecha en
+    # puntos de pantalla, no en datos). Si alguna se despegara del dato —que es
+    # lo que dejaba la figura ilegible— su ancla dejaría de coincidir con el punto.
+    anclas = {(round(t.xy[0], 6), round(t.xy[1], 6)) for t in etiquetas}
+    esperado = {(round(ms, 6), round(q, 6)) for _n, ms, q, _d in puntos}
+    assert esperado <= anclas, f"etiquetas despegadas de su punto: {sorted(esperado - anclas)}"
 
     points, device, unit = parse_quality_time("text", "F1 palabra")
     assert len(points) >= 2, points
