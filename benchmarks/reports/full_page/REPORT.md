@@ -79,6 +79,21 @@
 | indra (math) | 0.025 | 0.028 | 0.031 |
 | pp_structurev3 (default) | 0.115 | 0.000 | 0.127 |
 
+## Por tipología de página (`digital` / `escaneada` / `manuscrita`)
+
+> Markdown F1 **por motor y tipología de página**. La tipología se deriva de `page_info.page_attribute` de OmniDocBench: `manuscrita` = `handwriting` en `special_issue` o `data_source=note`; `escaneada` = `fuzzy_scan` en `special_issue` o `data_source=historical_document`; `digital` = el resto. OmniDocBench **no** anota un tipo de adquisición explícito: la clasificación es una derivación declarada, no una etiqueta original. Motores medidos: 4. `N/A` = sin páginas medidas de esa tipología (nunca `0.0`); `—` = el motor no tiene medición sobre esas páginas.
+
+> **Páginas por tipología en la muestra**: `digital` (6), `escaneada` (0), `manuscrita` (0).
+
+> **Sin datos** para `escaneada`, `manuscrita` en la muestra de esta feature (columna `N/A`): el muestreo no incluyó páginas de esa tipología, así que no se inventa la fila.
+
+| Motor (variante) | digital | escaneada | manuscrita |
+| :--- | ---: | ---: | ---: |
+| PP-StructureV3 (paddleocr) | 0.086 (n=6) | N/A | N/A |
+| docling-default (pipeline) | 0.204 (n=6) | N/A | N/A |
+| indra (math) | 0.029 (n=6) | N/A | N/A |
+| pp_structurev3 (default) | 0.083 (n=6) | N/A | N/A |
+
 ## Cobertura de títulos y jerarquía (no medible)
 
 > La métrica de **títulos/índice** solo se evalúa en las páginas que la anotación marca con `category_type=title`; en el resto queda `N/A` y **no** entra en la media (no se diluye en un promedio global). El dataset `OmniDocBench` (v1.6, 1651 páginas) anota `title` en **1179** páginas (el **71.4 %**); el resto no tiene GT de títulos.

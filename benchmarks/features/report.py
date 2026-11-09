@@ -21,6 +21,7 @@ import argparse
 import csv
 import json
 import math
+import re
 import statistics
 import sys
 from collections import defaultdict
@@ -375,6 +376,140 @@ def render_strata(feature: str, rows: Sequence[dict]) -> list[str]:
         lines += [f"### {label} por estrato", ""]
         lines += _strata_pivot(motors, strata, grouped, key)
         lines.append("")
+    return lines
+
+
+# ---------------------------------------------------------------------------
+# Desglose por TIPOLOGÍA de página (digital / escaneada / manuscrita)
+# ---------------------------------------------------------------------------
+# El `stratum` (`data_source × layout`) mide la heterogeneidad por fuente y
+# disposición; la tipología mide una dimensión **distinta**: cómo rinde cada
+# motor sobre páginas **digitales**, **escaneadas** o **manuscritas**. La
+# etiqueta se deriva de `page_info.page_attribute` de OmniDocBench (ver
+# `common.datasets._odb_page_type`) — el dataset no la anota tal cual.
+
+# Orden canónico de las tipologías (columnas del pivote). Se publican SIEMPRE
+# las tres; una sin filas medidas sale como `N/A` (nunca un `0.0`).
+_PAGE_TYPES: tuple[str, ...] = ("digital", "escaneada", "manuscrita")
+
+# `image_path` (sin extensión) -> tipología. Se cachea: la anotación no cambia
+# dentro de un proceso. Solo se construye si una fila trae la run **sin** la
+# columna `page_type` (runs previas a exponerla por fila).
+_PAGE_TYPE_INDEX: dict[str, str] | None = None
+
+
+def _strip_image_ext(name: str) -> str:
+    """`page-x.png` / `doc.pdf_5.jpg` -> sin extensión de imagen (clave del índice)."""
+    return re.sub(r"\.(png|jpe?g)$", "", name, flags=re.IGNORECASE)
+
+
+def _page_type_index() -> dict[str, str]:
+    """`image_path` (sin extensión) -> tipología, desde la anotación **cacheada**.
+
+    Fallback para runs sin la columna `page_type`: la anotación de OmniDocBench ya
+    está en `data_cache` y `_odb_page_type` deriva la etiqueta. Sin la anotación
+    real (solo la fixture mínima, o sin cache) el índice sale vacío y esas filas
+    quedan sin tipología — no se inventa ninguna.
+    """
+    global _PAGE_TYPE_INDEX
+    if _PAGE_TYPE_INDEX is None:
+        from common.datasets import _cached_page_annotation, _odb_page_type
+
+        index: dict[str, str] = {}
+        for page in _cached_page_annotation():
+            name = str((page.get("page_info") or {}).get("image_path") or "")
+            if name:
+                index[_strip_image_ext(name)] = _odb_page_type(page)
+        _PAGE_TYPE_INDEX = index
+    return _PAGE_TYPE_INDEX
+
+
+def _row_page_type(row: dict, index: dict[str, str]) -> str:
+    """Tipología de una fila: la columna `page_type` del CSV o, si falta, el índice."""
+    declared = str(row.get("page_type") or "").strip()
+    if declared:
+        return declared
+    image_id = str(row.get("image_id") or "").split("::")[0]
+    return index.get(_strip_image_ext(image_id), "")
+
+
+def render_page_typology(feature: str, rows: Sequence[dict]) -> list[str]:
+    """Sección "Por tipología de página": métrica cabecera por motor y tipología.
+
+    Desglosa la media global por la **tipología de la página** (`digital` /
+    `escaneada` / `manuscrita`), derivada de `page_info.page_attribute` de
+    OmniDocBench (`_odb_page_type`): un mismo motor puede rendir muy distinto
+    sobre una página digital que sobre un escaneo o una manuscrita. Cada celda
+    lleva su `n`; una tipología sin filas medidas se publica como `N/A` (nunca
+    `0.0`). Sin tipología derivable (run sin columna y sin la anotación en cache)
+    no se emite sección.
+    """
+    metrics = _STRATA_METRICS.get(feature)
+    if not metrics:
+        return []
+    key, label = metrics[0]
+    index = _page_type_index() if any(not str(r.get("page_type") or "").strip() for r in rows) else {}
+    grouped: dict[tuple[str, str], dict[str, Any]] = {}
+    pages: dict[str, set[str]] = {ptype: set() for ptype in _PAGE_TYPES}
+    for row in rows:
+        ptype = _row_page_type(row, index)
+        if not ptype:
+            continue
+        motor = row.get("model_name") or row["backend"]
+        variant = row.get("model_variant")
+        name = f"{motor} ({variant})" if variant else motor
+        entry = grouped.setdefault((name, ptype), {"values": [], "n": 0})
+        value = row.get(key)
+        if isinstance(value, float):
+            entry["values"].append(value)
+        entry["n"] += 1
+        # La tipología es propiedad de la PÁGINA: se cuentan páginas distintas (la
+        # unidad puede repetirse por motor y, en `formula`/`table`, por recorte).
+        pages[ptype].add(str(row.get("image_id") or "").split("::")[0])
+    if not grouped:
+        return []
+    motors = sorted({motor for motor, _ptype in grouped})
+    counts = {ptype: len(pages[ptype]) for ptype in _PAGE_TYPES}
+    lines = [
+        "## Por tipología de página (`digital` / `escaneada` / `manuscrita`)",
+        "",
+        f"> {label} **por motor y tipología de página**. La tipología se deriva de "
+        "`page_info.page_attribute` de OmniDocBench: `manuscrita` = `handwriting` en "
+        "`special_issue` o `data_source=note`; `escaneada` = `fuzzy_scan` en "
+        "`special_issue` o `data_source=historical_document`; `digital` = el resto. "
+        "OmniDocBench **no** anota un tipo de adquisición explícito: la clasificación "
+        "es una derivación declarada, no una etiqueta original. Motores medidos: "
+        f"{len(motors)}. `N/A` = sin páginas medidas de esa tipología (nunca `0.0`); "
+        "`—` = el motor no tiene medición sobre esas páginas.",
+        "",
+        "> **Páginas por tipología en la muestra**: "
+        + ", ".join(f"`{ptype}` ({counts[ptype]})" for ptype in _PAGE_TYPES) + ".",
+        "",
+    ]
+    empty = [ptype for ptype in _PAGE_TYPES if counts[ptype] == 0]
+    if empty:
+        lines += [
+            "> **Sin datos** para " + ", ".join(f"`{p}`" for p in empty)
+            + " en la muestra de esta feature (columna `N/A`): el muestreo no incluyó "
+            "páginas de esa tipología, así que no se inventa la fila.",
+            "",
+        ]
+    lines += [
+        "| Motor (variante) | " + " | ".join(_PAGE_TYPES) + " |",
+        "| :--- | " + " | ".join("---:" for _ in _PAGE_TYPES) + " |",
+    ]
+    for motor in motors:
+        cells = []
+        for ptype in _PAGE_TYPES:
+            entry = grouped.get((motor, ptype))
+            if not entry:
+                cells.append("N/A")
+            elif entry["values"]:
+                cells.append(f"{statistics.fmean(entry['values']):.3f} (n={entry['n']})")
+            else:
+                cells.append(f"— (n={entry['n']})")
+        lines.append(f"| {motor} | " + " | ".join(cells) + " |")
+    lines.append("")
     return lines
 
 
@@ -787,6 +922,9 @@ def render_md(feature: str, report: dict[str, dict[str, Any]], summary: dict, ru
     # GPU`, para no alterar el orden que esperan los informes consolidados).
     rows, _ = load_run(run)
     lines += render_strata(feature, rows)
+    # Desglose por tipología de página (digital/escaneada/manuscrita), dimensión
+    # distinta del estrato `data_source × layout`; también al final.
+    lines += render_page_typology(feature, rows)
     # Cobertura de títulos + aviso de jerarquía no medible (solo `full_page`).
     lines += render_title_coverage(feature, rows)
     # Cobertura de figuras + nota de máscaras no emitibles (solo `full_page`).

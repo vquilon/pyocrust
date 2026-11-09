@@ -586,3 +586,21 @@ def test_load_run_no_enmascara_metricas_evaluadas_de_otras_features(tmp_path):
     # full_page: indra no emite `layout`/`formulas` -> el 0.0 guardado es N/A.
     assert by_feature["full_page"]["layout_map"] is None
     assert by_feature["full_page"]["latex_sim"] is None
+
+
+# --- Criterio t_b7f13064: tipología de página solo en los REPORT por feature ---
+
+def test_la_tipologia_de_pagina_no_entra_en_los_resumenes():
+    """El desglose por tipología (digital/escaneada/manuscrita) solo va en el REPORT.
+
+    SUMMARY.md/SCOREBOARD.md son resúmenes por motor: no llevan la estratificación
+    por tipología de página (ni por estrato). Se comprueba sobre los artefactos
+    publicados.
+    """
+    for feature in ("layout", "formula", "table", "full_page"):
+        rep = (BENCH / "reports" / feature / "REPORT.md").read_text(encoding="utf-8")
+        assert "Por tipología de página" in rep, feature
+    for derivado in ("SUMMARY.md", "SCOREBOARD.md", "QUALITY_VS_TIME.md", "CPU_VS_GPU.md"):
+        texto = (BENCH / "reports" / derivado).read_text(encoding="utf-8")
+        assert "tipología de página" not in texto, derivado
+        assert "escaneada" not in texto and "manuscrita" not in texto, derivado

@@ -75,3 +75,21 @@
 | pp_structurev3 (pp-formulanet-s) | 0.300 | 0.410 | 0.639 | 0.764 | — |
 | unimernet (tiny) | 0.218 | 0.233 | 0.247 | 0.338 | 0.305 |
 
+## Per page type (`digital` / `scanned` / `handwritten`)
+
+> LaTeX sim **per engine and page type**. The page type is derived from OmniDocBench's `page_info.page_attribute`: `handwritten` = `handwriting` in `special_issue` or `data_source=note`; `scanned` = `fuzzy_scan` in `special_issue` or `data_source=historical_document`; `digital` = everything else. OmniDocBench does **not** annotate an explicit acquisition type: the classification is a declared derivation, not an original label. Engines measured: 7. `N/A` = no measured pages of that page type (never `0.0`); `—` = the engine has no measurement on those pages.
+
+> **Pages per page type in the sample**: `digital` (10), `scanned` (0), `handwritten` (0).
+
+> **No data** for `scanned`, `handwritten` in this feature's sample (`N/A` column): the sampling did not include pages of that page type, so the row is not invented.
+
+| Engine (variant) | digital | scanned | handwritten |
+| :--- | ---: | ---: | ---: |
+| indra (math) | 0.326 (n=10) | N/A | N/A |
+| paddle_latex_ocr (default) | 0.653 (n=10) | N/A | N/A |
+| pix2tex (default) | 0.552 (n=10) | N/A | N/A |
+| pp-formulanet-s (direct) | 0.499 (n=10) | N/A | N/A |
+| pp_structurev3 (default) | 0.398 (n=10) | N/A | N/A |
+| pp_structurev3 (pp-formulanet-s) | 0.497 (n=10) | N/A | N/A |
+| unimernet (tiny) | 0.260 (n=10) | N/A | N/A |
+

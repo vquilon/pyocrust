@@ -175,3 +175,45 @@ def test_los_recortes_se_reparten_entre_paginas(monkeypatch):
         assert max(per_page.values()) <= len(samples) / 2, (loader.__name__, per_page)
         strata = {_odb_stratum(by_stem[stem]) for stem in per_page if stem in by_stem}
         assert len(strata) >= 3, (loader.__name__, strata)
+
+
+def test_page_type_viaja_al_csv():
+    """La tipología de página derivada viaja con la muestra a su columna del CSV."""
+    sample = Sample("p", Image.new("RGB", (4, 4)), "", page_type="digital")
+    rows, meta = run_benchmark(
+        [sample], "pyocrust_layout", "omnidocbench_layout", warmup=0,
+        backend_factory=lambda: lambda image: OcrOutput(""),
+    )
+    assert meta["status"] == "ok"
+    assert "page_type" in CSV_FIELDS
+    assert rows[0]["page_type"] == "digital"
+    # Sin tipología anotada la celda queda vacía (nunca inventada).
+    rows, _ = run_benchmark(
+        [Sample("q", Image.new("RGB", (4, 4)), "")], "pyocrust_layout",
+        "omnidocbench_layout", warmup=0,
+        backend_factory=lambda: lambda image: OcrOutput(""),
+    )
+    assert rows[0]["page_type"] == ""
+
+
+def test_seccion_por_tipologia_de_pagina():
+    """`REPORT.md` desglosa la métrica cabecera por tipología (digital/escaneada/manuscrita)."""
+    rows = [
+        {"backend": "pyocrust_layout", "model_name": "pp-doclayoutv3",
+         "model_variant": "130M", "image_id": "a", "page_type": "digital",
+         "layout_map": 0.5, "layout_recall": 0.6},
+        {"backend": "pyocrust_layout", "model_name": "pp-doclayoutv3",
+         "model_variant": "130M", "image_id": "b", "page_type": "escaneada",
+         "layout_map": 0.2, "layout_recall": 0.3},
+    ]
+    section = report.render_page_typology("layout", rows)
+    text = "\n".join(section)
+    assert section[0].startswith("## Por tipología de página")
+    assert "page_info.page_attribute" in text                 # cita la fuente del atributo
+    assert "0.500 (n=1)" in text and "0.200 (n=1)" in text    # valor + n por celda
+    # `manuscrita` no tiene filas medidas -> N/A (nunca un 0.0 inventado) y se declara.
+    assert "| N/A |" in text
+    assert "Sin datos" in text
+    # Features sin base estratificada (`text`) y filas vacías no emiten sección.
+    assert report.render_page_typology("text", rows) == []
+    assert report.render_page_typology("layout", []) == []
