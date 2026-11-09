@@ -169,16 +169,22 @@ def _ms_ticks(ax) -> None:
 
 
 def _sin_solape(textos, ax) -> None:
-    """Separa las etiquetas que se pisan.
+    """Separa las etiquetas que se pisan, sin que se salgan del panel.
 
     `matplotlib` no trae solucionador de colisiones; `adjustText` sí. Se usa si
-    está instalado; si no, se deja el offset alterno de `_panel` (sin dep dura).
+    está instalado; si no, se deja el `va` alterno de `_panel` (sin dep dura).
+    `only_move` vertical evita que empuje texto hacia fuera del axes: si un
+    label se sale, `savefig(bbox_inches="tight")` hincha el lienzo entero y los
+    paneles acaban viéndose diminutos (regresión real, ya vista).
     """
     try:
         from adjustText import adjust_text
     except ImportError:
         return
-    adjust_text(textos, ax=ax, arrowprops=dict(arrowstyle="-", color="#999999", lw=0.5))
+    adjust_text(textos, ax=ax, only_move={"text": "y"},
+                expand_text=(1.01, 1.05), expand_points=(1.05, 1.05),
+                force_text=(0.05, 0.10),
+                arrowprops=dict(arrowstyle="-", color="#999999", lw=0.5))
 
 
 def _panel(ax, points, title, device) -> None:
@@ -198,9 +204,13 @@ def _panel(ax, points, title, device) -> None:
                    edgecolor="white", linewidth=0.8)
         # El panel ya es de un solo device (`points` llega filtrado): repetir
         # «· CPU»/«· GPU» en cada etiqueta es ruido — el device va en el título.
-        etiquetas.append(ax.annotate(name, (ms, q), textcoords="offset points",
-                                     xytext=(7, 5) if i % 2 == 0 else (7, -10),
-                                     fontsize=6.5, color="#333333"))
+        # Annotation con la posición en coordenadas de DATOS (no `offset points`):
+        # adjustText recoloca con `set_position`, y sobre un offset en puntos los
+        # labels acababan FUERA del panel e hinchaban el lienzo. En datos, además,
+        # las flechas que añade adjustText anclan de verdad en el punto.
+        etiquetas.append(ax.annotate(name, xy=(ms, q), xytext=(ms * 1.02, q),
+                                     textcoords="data", fontsize=6.5, color="#333333",
+                                     va="bottom" if i % 2 == 0 else "top"))
     _sin_solape(etiquetas, ax)
     # Escala: log sólo cuando el rango abarca >1 década (ahí el log aporta y deja
     # ticks de década repartidos); si no, lineal, que con `MaxNLocator` da ticks
@@ -216,7 +226,10 @@ def _panel(ax, points, title, device) -> None:
     _ms_ticks(ax)
     ax.set_yscale("linear")
     lo, hi = min(ys), max(ys)
-    pad = (hi - lo) * 0.25 or 0.05
+    # Aire vertical de sobra: las etiquetas se separan en Y (adjustText) y sin
+    # margen se saldrían del panel — que es lo que hacía que los paneles
+    # parecieran diminutos, con el texto repartido por el blanco de al lado.
+    pad = (hi - lo) * 0.30 or 0.06
     ax.set_ylim(max(0.0, lo - pad), hi + pad)
     ax.set_xlabel("Runtime per unit (ms) ↓ (left = faster)", fontsize=7)
     ax.set_ylabel("Quality score ↑", fontsize=7)
@@ -273,9 +286,12 @@ def main() -> int:
 
     for device in ("cpu", "gpu"):
         n = len(feature_data)
-        cols = 3
+        # DOS columnas, no tres: con 9 features a 3 por fila cada panel queda tan
+        # estrecho que en pantalla no se lee y las etiquetas no caben. Es la causa
+        # real de que el gráfico «se vea pequeño», no el tamaño del lienzo.
+        cols = 2
         rows = math.ceil(n / cols)
-        fig, axes = plt.subplots(rows, cols, figsize=(16, 4.0 * rows))
+        fig, axes = plt.subplots(rows, cols, figsize=(13, 3.6 * rows))
         axes = axes.ravel()
         for k, (title, points, _unit) in enumerate(feature_data):
             _panel(axes[k], points, title.replace("sintético", "Synthetic"), device)
@@ -310,7 +326,35 @@ def main() -> int:
 
 
 def _self_check() -> None:
-    """El parser debe sacar >=2 motores con ms y calidad para `text` (tabla real)."""
+    """Etiquetas-dentro-del-panel (independiente de datos) + contrato del parser."""
+    # Regresión vista de verdad: si las etiquetas se salen del panel,
+    # `savefig(bbox_inches="tight")` hincha el lienzo y los paneles quedan
+    # diminutos con el texto repartido por el blanco de al lado. Va PRIMERO: las
+    # aserciones del parser dependen del estado de los informes.
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.text import Text
+
+    puntos = [(f"motor-{i:02d}", 10.0 * (i + 1), 0.5 + 0.001 * i, "cpu") for i in range(9)]
+    fig, ax = plt.subplots(figsize=(6.5, 3.6))
+    _panel(ax, puntos, "layout", "cpu")
+    fig.canvas.draw()
+    caja = ax.get_window_extent()
+    # Solo etiquetas de dato (transform = transData): el título y los rótulos de
+    # eje viven fuera del axes a propósito y darían falsos positivos.
+    etiquetas = [c for c in ax.get_children()
+                 if isinstance(c, Text) and c.get_transform() is ax.transData]
+    fuera = [t.get_text() for t in etiquetas
+             if not (caja.x0 <= t.get_window_extent().x0 and caja.x1 >= t.get_window_extent().x1
+                     and caja.y0 <= t.get_window_extent().y0 and caja.y1 >= t.get_window_extent().y1)]
+    plt.close(fig)
+    # `>=` y no `==`: adjustText añade una anotación por flecha, así que el `==`
+    # fallaría justo en el panel denso, que es cuando la comprobación sirve.
+    assert len(etiquetas) >= len(puntos), f"inspeccionadas {len(etiquetas)} etiquetas, esperadas {len(puntos)}"
+    assert not fuera, f"etiquetas fuera de su panel (hinchen el lienzo): {fuera}"
+
     points, device, unit = parse_quality_time("text", "F1 palabra")
     assert len(points) >= 2, points
     assert all(ms > 0 and 0 <= q <= 1 for _name, ms, q, _device in points), points
