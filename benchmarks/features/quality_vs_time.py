@@ -168,6 +168,19 @@ def _ms_ticks(ax) -> None:
         ax.xaxis.set_major_locator(MaxNLocator(nbins=4, integer=True))
 
 
+def _sin_solape(textos, ax) -> None:
+    """Separa las etiquetas que se pisan.
+
+    `matplotlib` no trae solucionador de colisiones; `adjustText` sí. Se usa si
+    está instalado; si no, se deja el offset alterno de `_panel` (sin dep dura).
+    """
+    try:
+        from adjustText import adjust_text
+    except ImportError:
+        return
+    adjust_text(textos, ax=ax, arrowprops=dict(arrowstyle="-", color="#999999", lw=0.5))
+
+
 def _panel(ax, points, title, device) -> None:
     points = [point for point in points if point[3] == device]
     if not points:
@@ -176,15 +189,19 @@ def _panel(ax, points, title, device) -> None:
         return
     xs = [p[1] for p in points]
     ys = [p[2] for p in points]
+    etiquetas = []
     for i, (name, ms, q, point_device) in enumerate(points):
         py = _is_pyocrust(name)
         ax.scatter(ms, q, s=70, zorder=3,
                    color="#2e7d32" if py else "#3b6fb0",
                    marker="*" if point_device == "gpu" else "o",
                    edgecolor="white", linewidth=0.8)
-        ax.annotate(f"{name} · {point_device.upper()}", (ms, q), textcoords="offset points",
-                    xytext=(7, 5) if i % 2 == 0 else (7, -10),
-                    fontsize=6.5, color="#333333")
+        # El panel ya es de un solo device (`points` llega filtrado): repetir
+        # «· CPU»/«· GPU» en cada etiqueta es ruido — el device va en el título.
+        etiquetas.append(ax.annotate(name, (ms, q), textcoords="offset points",
+                                     xytext=(7, 5) if i % 2 == 0 else (7, -10),
+                                     fontsize=6.5, color="#333333"))
+    _sin_solape(etiquetas, ax)
     # Escala: log sólo cuando el rango abarca >1 década (ahí el log aporta y deja
     # ticks de década repartidos); si no, lineal, que con `MaxNLocator` da ticks
     # redondos sin amontonar (un log sobre un rango estrecho los apila).
