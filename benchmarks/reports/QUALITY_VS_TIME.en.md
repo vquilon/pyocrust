@@ -21,15 +21,18 @@
   `ultralytics` also times its internal preprocessing (see the README note).
 - The **engine name includes the model size** (e.g. `yolov10x (DocLayNet) (31.7M)`).
 
-## text — FUNSD — device `cpu` · measured engines
+## text — FUNSD — device `cpu+gpu` · measured engines
 
 | Engine | Device | ms/img ↓ | Quality ↑ | license |
 | :--- | :--- | ---: | ---: | :--- |
 | **pp_ocrv6 (tiny)** | cpu | 970 | 0.717 | Apache-2.0 |
 | easyocr (default) | cpu | 4600 | 0.401 | Apache-2.0 |
 | rapidocr (default) | cpu | 6748 | 0.585 | Apache-2.0 |
+| **pp_ocrv6 (tiny)** | gpu | 330 | 0.684 | Apache-2.0 |
+| easyocr (default) | gpu | 1263 | 0.399 | Apache-2.0 |
+| rapidocr (default) | gpu | 5842 | 0.585 | Apache-2.0 |
 
-## formula — OmniDocBench — device `cpu` · measured engines
+## formula — OmniDocBench — device `cpu+gpu` · measured engines
 
 | Engine | Device | ms/formula ↓ | Quality ↑ | license |
 | :--- | :--- | ---: | ---: | :--- |
@@ -40,6 +43,11 @@
 | pix2tex (default) | cpu | 5500 | 0.552 | MIT |
 | paddle_latex_ocr (default) | cpu | 16326 | 0.653 | Apache-2.0 |
 | unimernet (tiny) | cpu | 17493 | 0.260 | Apache-2.0 |
+| **indra (math)** | gpu | 808 | 0.326 | OpenRAIL-M-Mod |
+| **pp-formulanet-s (direct)** | gpu | 1603 | 0.499 | Apache-2.0 |
+| **pp_structurev3 (pp-formulanet-s)** | gpu | 2221 | 0.497 | Apache-2.0 |
+| **pp_structurev3 (default)** | gpu | 2553 | 0.398 | Apache-2.0 |
+| paddle_latex_ocr (default) | gpu | 4191 | 0.653 | Apache-2.0 |
 
 ## layout — OmniDocBench — device `cpu+gpu` · measured engines
 
@@ -97,7 +105,7 @@
 | **pp-ocrv4_mobile_seal_det (4.8M)** | cpu | 643 | 0.750 | Apache-2.0 |
 | **pp-ocrv4_mobile_seal_det (4.8M)** | gpu | 178 | 0.750 | Apache-2.0 |
 
-## table — OmniDocBench — device `cpu` · measured engines
+## table — OmniDocBench — device `cpu+gpu` · measured engines
 
 | Engine | Device | ms/table ↓ | Quality ↑ | license |
 | :--- | :--- | ---: | ---: | :--- |
@@ -106,6 +114,8 @@
 | **slanet_plus (default)** | cpu | 1103 | 0.914 | Apache-2.0 |
 | **pp_structurev3 (default)** | cpu | 3530 | 0.753 | Apache-2.0 |
 | tableformer (docling) | cpu | 28609 | 0.905 | MIT |
+| **slanet_plus (default)** | gpu | 172 | 0.914 | Apache-2.0 |
+| **pp_structurev3 (default)** | gpu | 1479 | 0.753 | Apache-2.0 |
 
 ## full_page — OmniDocBench — device `cpu+gpu` · measured engines
 
