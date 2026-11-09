@@ -15,6 +15,7 @@ from pathlib import Path
 
 BENCH = Path(__file__).resolve().parent
 sys.path.insert(0, str(BENCH))
+from common.runner import device_outcome  # noqa: E402
 from features.report import latest_run, run_csv  # noqa: E402
 from features.summary import FEATURES  # noqa: E402
 
@@ -54,8 +55,19 @@ def main() -> int:
         elif not uniform:
             estado = "REHACER: n dispar dentro del device"
         else:
-            faltan = set(cpu["motors"]) ^ set(gpu["motors"])
-            estado = "VALIDA" if not faltan else f"REHACER: motor desemparejado ({sorted(faltan)[0]})"
+            # Un motor CPU-only —el que `device_outcome(..., "gpu")` marca con motivo—
+            # NO puede tener fila GPU: su ausencia no es un desemparejamiento. Solo
+            # cuentan los motores que el propio banco declara capaces de correr en GPU.
+            esperados = {m for m in cpu["motors"] if device_outcome(m, "gpu")[1] is None}
+            gpu_ok = set(gpu["motors"])
+            faltan = sorted(esperados - gpu_ok)
+            sobran = sorted(gpu_ok - set(cpu["motors"]))
+            if faltan:
+                estado = f"REHACER: sin fila GPU {', '.join(faltan[:2])}"
+            elif sobran:
+                estado = f"REHACER: {sobran[0]} no está en la run CPU"
+            else:
+                estado = "VALIDA"
         if estado != "VALIDA":
             pendientes.append(feature)
         print(f"| {feature} | {cpu['run'] if cpu else '-'} | {nc} | {len(cpu['motors']) if cpu else 0} "
