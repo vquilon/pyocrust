@@ -42,7 +42,7 @@
 
 | Motor (variante) | recall@IoU 0.5 ↑ (CPU) | recall@IoU 0.5 ↑ (GPU) | ms CPU | ms GPU | provider GPU |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| pp-ocrv4_mobile_seal_det (4.8M) | 0.750 | 0.750 | 643 | 120 | directml |
+| pp-ocrv4_mobile_seal_det (4.8M) | 0.750 | 0.750 | 643 | 608 | directml |
 | pp-ocrv4_mobile_seal_det (onnxruntime) | 0.750 | N/A | 217 | N/A | n/a (no corre en GPU) |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.

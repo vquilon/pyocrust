@@ -4,25 +4,26 @@
 
 ## Provenance
 
-- **command**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/full_page/bank.py --backends pyocrust_structure,docling --limit 20 --device cpu`
+- **command**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe features/full_page/bank.py --limit 20 --device cpu --output-dir results`
 - **dataset**: `omnidocbench_full_page` · **n** (per engine): `20` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **revision HF (fijada)**: `aa1ee96d106dbe53d0ae59474d75c6e6d9b53fec` — misma revision en cualquier maquina; los bytes se verifican contra `benchmarks/datasets_manifest.json`
 - **seed**: not applicable (deterministic benchmark, no randomness)
-- **run**: `benchmarks/results/full_page/2026-11-08_17-40-47` · **date**: `2026-11-08_17-40-47`
-- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': []}
+- **run**: `benchmarks/results/full_page/2026-11-09_12-43-20` · **date**: `2026-11-09_12-43-20`
+- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['directml']}
 
 ## Comparison (mean by engine)
 
 | Engine (variant) | n | Markdown F1 ↑ | Block F1 ↑ | layout mAP ↑ | TEDS table ↑ | LaTeX sim ↑ | titles recall ↑ | titles prec. ↑ | titles text F1 ↑ | titles sequence τ ↑ | reading order τ ↑ | figures recall ↑ | figures prec. ↑ | captions recall ↑ | captions prec. ↑ | fig↔caption assoc. ↑ | captions text F1 ↑ | CER ↓ | ms/page ↓ |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| docling-default (pipeline) | 20 | **0.354** | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | **0.518** | 29302 |
-| pp_structurev3 (default) | 20 | 0.270 | 0.700 | 0.677 | 0.674 | 0.351 | 0.702 | 0.652 | 0.649 | 0.750 | 0.661 | 0.500 | 0.500 | 1.000 | 1.000 | 0.000 | 0.500 | 2.190 | **9769** |
+| docling-default (pipeline) | 20 | **0.354** | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | **0.518** | 33257 |
+| indra (math) | 20 | 0.265 | N/A | N/A | 0.361 | N/A | N/A | N/A | N/A | N/A | **0.747** | N/A | N/A | N/A | N/A | N/A | N/A | 1.231 | **2006** |
+| pp_structurev3 (default) | 20 | 0.270 | 0.700 | 0.677 | **0.674** | 0.351 | 0.702 | 0.652 | 0.649 | 0.750 | 0.661 | 0.500 | 0.500 | 1.000 | 1.000 | 0.000 | 0.500 | 2.190 | 11054 |
 
 > Bold values mark the best result for each metric among the **measured** engines in `full_page`. `N/A` = not evaluated (no ground truth for that column **or** the engine does not emit that structure), never an invented `0.0`.
 
 ## Skipped — not counted as executed
 
-- (none)
+- `pdf_extract_kit` — pip install pdf-extract-kit (opendatalab/PDF-Extract-Kit-1.0; weights in the HF cache, adapter pending)
 
 ## Provenance of the alternatives
 
@@ -42,9 +43,9 @@
 
 | Engine (variant) | Markdown F1 ↑ (CPU) | Markdown F1 ↑ (GPU) | ms CPU | ms GPU | GPU provider |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| docling-default (pipeline) | 0.354 | N/A | 29302 | N/A | n/a (does not run on GPU) |
-| indra (math) | N/A | 0.242 | N/A | 10503 | directml |
-| pp_structurev3 (default) | 0.270 | 0.210 | 9769 | 17198 | directml |
+| docling-default (pipeline) | 0.354 | N/A | 33257 | N/A | n/a (does not run on GPU) |
+| indra (math) | 0.265 | 0.265 | 2006 | 8901 | directml |
+| pp_structurev3 (default) | 0.270 | 0.267 | 11054 | 14053 | directml |
 
 > The GPU provider comes from the actual `provider_effective` value in the GPU `summary.json` (`n/a` = the engine does not expose GPU execution in this benchmark). No GPU rows are invented: engines that did not run on an accelerator appear as `N/A`.
 
@@ -69,6 +70,7 @@
 | Engine (variant) | pages measured | pages with title GT | title coverage |
 | :--- | ---: | ---: | ---: |
 | docling-default (pipeline) | 20 | 14 | 70% |
+| indra (math) | 20 | 14 | 70% |
 | pp_structurev3 (default) | 20 | 14 | 70% |
 
 ## Figure coverage and the non-emittable (masks)
@@ -82,5 +84,6 @@
 | Engine (variant) | pages measured | pages with figure GT | figure coverage |
 | :--- | ---: | ---: | ---: |
 | docling-default (pipeline) | 20 | 4 | 20% |
+| indra (math) | 20 | 4 | 20% |
 | pp_structurev3 (default) | 20 | 4 | 20% |
 

@@ -64,10 +64,15 @@ SPEC = FeatureSpec(
 )
 
 # --- alternativas de pipeline documental -------------------------------------
-# Dos pipelines **externos reales**, los dos emiten el Markdown del documento que
-# consume `markdown_f1`/`block_f1`:
-#   * `pp_structurev3_api` — PaddleOCR PP-StructureV3 (Apache-2.0), en proceso.
+# Pipelines **externos reales** que emiten el Markdown del documento que consume
+# `markdown_f1`/`block_f1`:
 #   * `docling`            — docling (MIT), en su venv aislado por subproceso.
+# `pp_structurev3_api` (PaddleOCR PP-StructureV3, Apache-2.0) queda FUERA del
+# default: el pipeline en proceso **cuelga o segfaultea** (exit 139) en páginas
+# reales de la muestra (medido 2026-11-09: muere procesando una imagen grande,
+# 11112x7925, tras cargar sus 16 submodelos), así que no puede producir filas de
+# forma fiable en CPU. Sigue registrado en `PROVIDERS` (pedido explícito -> la
+# fila sale `error`/`skipped` con motivo, nunca cuelga el banco).
 # `pdf_extract_kit` sigue `skipped` con motivo honesto: sus pesos son un
 # **detector de layout**, no un pipeline de documento (ver ALTERNATIVES.md §7).
 EXTRA_FACTORIES = {
@@ -76,11 +81,16 @@ EXTRA_FACTORIES = {
         "pdf-extract-kit (opendatalab/PDF-Extract-Kit-1.0; pesos en cache HF, adaptador pendiente)",
         note="pdf_extract_kit solo publica un detector de layout, no un pipeline de documento",
     ),
+    "pp_structurev3_api": unavailable_factory(
+        "pp_structurev3_api",
+        "PaddleOCR PP-StructureV3 (cuelga/segfaultea en CPU sobre páginas reales; adaptador en proceso)",
+        note="el pipeline en proceso aborta el banco en páginas grandes; falta envolverlo en subproceso con timeout",
+    ),
 }
 EXTRA_MODELS = {name: (name, "default") for name in EXTRA_FACTORIES}
 
 # `pyocrust_indra` se salta solo si sus 9 artefactos no están en disco (motivo en el informe).
-DEFAULT_BACKENDS = "pyocrust_structure,pyocrust_indra,pp_structurev3_api,docling,pdf_extract_kit"
+DEFAULT_BACKENDS = "pyocrust_structure,pyocrust_indra,docling,pdf_extract_kit"
 
 
 def _emits(output: OcrOutput, channel: str) -> bool:

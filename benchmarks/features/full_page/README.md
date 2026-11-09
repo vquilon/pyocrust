@@ -48,9 +48,14 @@ taxonomía en ambos lados. No se inventa contenido: solo se serializa lo anotado
 | paddleocr PP-StructureV3 | `paddleocr paddlepaddle` |
 | marker-pdf | `marker-pdf` |
 
-**Medidas hoy**: `docling` (MIT) y PaddleOCR `pp_structurev3_api` (Apache-2.0).
-`unstructured`, `marker-pdf` y `pdf_extract_kit` siguen `skipped` (adaptador
-pendiente / solo publican un detector de layout, no un pipeline de documento).
+**Medidas hoy**: `docling` (MIT). PaddleOCR `pp_structurev3_api` (Apache-2.0) queda
+`skipped`: su pipeline en proceso **cuelga o segfaultea** (exit 139) en páginas reales
+de la muestra (medido 2026-11-09, imagen grande 11112x7925, tras cargar 16 submodelos),
+así que se retiró del `DEFAULT_BACKENDS` y se registra como `unavailable_factory`
+(pedido explícito → `skipped` con motivo, nunca cuelga el banco). Falta envolverlo en
+subproceso con timeout. `unstructured`, `marker-pdf` y `pdf_extract_kit` siguen
+`skipped` (adaptador pendiente / solo publican un detector de layout, no un pipeline
+de documento).
 
 ### docling — versión y entorno (reproducible)
 

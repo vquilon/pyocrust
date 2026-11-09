@@ -4,21 +4,22 @@
 
 ## Provenance
 
-- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/table/bank.py --backends pyocrust_table,paddleocr_slanet,docling_tableformer,tatr --limit 20 --device cpu --output-dir benchmarks/results`
+- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe features/table/bank.py --limit 20 --device cpu --output-dir results`
 - **dataset**: `omnidocbench_table` · **n** (por motor): `20` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **revision HF (fijada)**: `aa1ee96d106dbe53d0ae59474d75c6e6d9b53fec` — misma revision en cualquier maquina; los bytes se verifican contra `benchmarks/datasets_manifest.json`
 - **seed**: no aplica (banco determinista, sin aleatoriedad)
-- **run**: `benchmarks/results/table/2026-11-08_18-43-55` · **fecha**: `2026-11-08_18-43-55`
-- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': []}
+- **run**: `benchmarks/results/table/2026-11-09_11-00-34` · **fecha**: `2026-11-09_11-00-34`
+- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['directml']}
 
 ## Comparativa (media por motor)
 
 | Motor (variante) | n | TEDS estrut. ↑ | ms/tabla ↓ |
 | :--- | ---: | ---: | ---: |
-| SLANet_plus (paddleocr) | 20 | **0.828** | **71** |
-| slanet_plus (default) | 20 | 0.780 | 796 |
-| table-transformer-structure-recognition (default) | 20 | 0.698 | 760 |
-| tableformer (docling) | 20 | 0.807 | 32806 |
+| SLANet_plus (paddleocr) | 20 | **0.828** | **87** |
+| pp_structurev3 (default) | 20 | 0.608 | 3245 |
+| slanet_plus (default) | 20 | 0.780 | 848 |
+| table-transformer-structure-recognition (default) | 20 | 0.698 | 198 |
+| tableformer (docling) | 20 | 0.807 | 35699 |
 
 > En negrita, el mejor de cada métrica entre los motores **medidos** de `table`. `N/A` = no evaluada (sin GT de esa columna **o** el motor no emite esa estructura), nunca un `0.0` inventado.
 
@@ -46,10 +47,11 @@
 
 | Motor (variante) | Structural TEDS ↑ (CPU) | Structural TEDS ↑ (GPU) | ms CPU | ms GPU | provider GPU |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| SLANet_plus (paddleocr) | 0.828 | N/A | 71 | N/A | n/a (no corre en GPU) |
-| slanet_plus (default) | 0.780 | 0.854 | 796 | 668 | directml |
-| table-transformer-structure-recognition (default) | 0.698 | N/A | 760 | N/A | n/a (no corre en GPU) |
-| tableformer (docling) | 0.807 | N/A | 32806 | N/A | n/a (no corre en GPU) |
+| SLANet_plus (paddleocr) | 0.828 | N/A | 87 | N/A | n/a (no corre en GPU) |
+| pp_structurev3 (default) | 0.608 | 0.608 | 3245 | 5429 | directml |
+| slanet_plus (default) | 0.780 | 0.780 | 848 | 1023 | directml |
+| table-transformer-structure-recognition (default) | 0.698 | N/A | 198 | N/A | n/a (no corre en GPU) |
+| tableformer (docling) | 0.807 | N/A | 35699 | N/A | n/a (no corre en GPU) |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.
 

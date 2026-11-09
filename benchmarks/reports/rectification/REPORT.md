@@ -44,7 +44,7 @@
 | Motor (variante) | SSIM ↑ (CPU) | SSIM ↑ (GPU) | ms CPU | ms GPU | provider GPU |
 | :--- | ---: | ---: | ---: | ---: | :--- |
 | perspective-4corner (baseline (OpenCV, sin pesos)) | 0.491 | N/A | 11 | N/A | n/a (no corre en GPU) |
-| uvdoc (31.7M) | 0.597 | 0.707 | 297 | 53 | directml |
+| uvdoc (31.7M) | 0.597 | 0.597 | 297 | 298 | directml |
 | uvdoc (onnxruntime) | 0.604 | N/A | 78 | N/A | n/a (no corre en GPU) |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.
