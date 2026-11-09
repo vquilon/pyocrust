@@ -4,6 +4,9 @@ Los tres escenarios que exige la tarjeta se ejecutan de verdad:
 
 * **caché fría con red** — un `OAR_HOME` temporal vacío descarga los 3 artefactos
   de `pp_ocrv6` (~6,5 MB) en paralelo y `VeloceOCR("pp_ocrv6")` funciona;
+* **caché fría por HuggingFace** — un `OAR_HOME` temporal vacío descarga el
+  artefacto más pequeño de Indra desde `datalab-to/indra-ocr` y verifica su
+  SHA-256 (el camino HF del descargador propio, `S2.2`);
 * **arranque en caliente con `PYOCRUST_OFFLINE=1`** — funciona **sin red**;
 * **tamaño corrupto** — un artefacto truncado se vuelve a descargar.
 
@@ -19,6 +22,7 @@ Ejecución: `python -m pytest tests/test_models.py -q`
 
 from __future__ import annotations
 
+import hashlib
 import shutil
 import urllib.request
 from pathlib import Path
@@ -47,6 +51,19 @@ TAMANOS_TINY = {
 
 PRESETS_ESPERADOS = ("pp_ocrv6_tiny", "pp_ocrv6_small", "pp_ocrv6_medium", "pp_structurev3")
 
+# --- Indra (HuggingFace `datalab-to/indra-ocr`, `INDRA_REVISION` fijada) -----
+# Sonda ligera: el fichero más pequeño del repo, con `Range: bytes=0-0`. Va al
+# commit fijado (no a `main`), como el propio descargador (`S2.2`).
+INDRA_REVISION = "bd02167fdf2005a19962cc15188f8496a2c87d3b"
+URL_SONDA_HF = f"https://huggingface.co/datalab-to/indra-ocr/resolve/{INDRA_REVISION}/det.onnx"
+# El artefacto más pequeño de los 9 requeridos (los 9 suman ~28 MB).
+INDRA_ARTEFACTO = "det.onnx"
+INDRA_TAMANO = 389_948
+INDRA_SHA256 = "f2bd4cba23e9c328cf7ec824634e423e191a2c6aacbbf35c62bd79dd70f62f59"
+
+# Caché del host donde vive la copia real de Indra (para no escribir en ella).
+CACHE_HOST = Path.home() / ".oar"
+
 
 @pytest.fixture(autouse=True)
 def entorno_aislado(monkeypatch):
@@ -65,6 +82,27 @@ def _modelscope_alcanzable() -> None:
         pytest.skip(
             f"ModelScope no alcanzable ({error}); no se puede probar la descarga real"
         )
+
+
+def _es_error_de_transporte_hf(error: BaseException) -> bool:
+    """`True` si el error tipado del núcleo nativo es un fallo de transporte HTTP.
+
+    El descargador envuelve el error de `reqwest` en `OcrError::DownloadFailed`
+    (`download failed for '<name>' (<url>): HTTP error during download: …`). Un
+    4xx/5xx del servidor también llega aquí, pero en la práctica esta comprobación
+    distingue «el host no puede hablar con el CDN» de «el artefacto no está»:
+    esta última sería un fallo de código y debe fallar el test, no saltarse.
+    """
+    return "HTTP error during download" in str(error)
+
+
+def _sha256(fichero: Path) -> str:
+    """SHA-256 en hex minúscula, leído en bloques."""
+    digest = hashlib.sha256()
+    with fichero.open("rb") as manejador:
+        for bloque in iter(lambda: manejador.read(64 * 1024), b""):
+            digest.update(bloque)
+    return digest.hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -95,6 +133,61 @@ def test_cache_fria_descarga_en_paralelo_y_el_preset_funciona(tmp_path, monkeypa
     resultado = ocr.recognize(str(IMAGEN))
     assert isinstance(resultado, OcrResult)
     assert resultado.text.strip(), "el modelo descargado no reconoce el texto del fixture"
+
+
+# ---------------------------------------------------------------------------
+# 1b. Caché fría por HuggingFace: el camino HF del descargador propio (S2.2)
+# ---------------------------------------------------------------------------
+
+
+def test_cache_fria_huggingface_descarga_indra_y_verifica_sha256(tmp_path, monkeypatch):
+    """`OAR_HOME` vacío → un artefacto de Indra baja de HuggingFace y su hash cuadra.
+
+    Acotado a **un** artefacto (`det.onnx`, el más pequeño de los 9 requeridos,
+    ~389 KB en vez de ~28 MB): el criterio pide «al menos un artefacto».
+
+    Antes de esto, nada demostraba que el camino HF del descargador propio
+    funcionara de cero (`PLANNING.md` S2.2): el `urllib` del diagnóstico no
+    valida `ensure_models`, y los 9 artefactos ya estaban en disco.
+
+    Si el TLS del descargador sigue bloqueado por el host (no completa la
+    revocación del certificado del CDN de HuggingFace), el test se marca `skip`
+    con el error exacto — **nunca** verde.
+    """
+    cache = tmp_path / "oar_home"
+    monkeypatch.setenv("OAR_HOME", str(cache))
+    monkeypatch.delenv("PYOCRUST_OFFLINE", raising=False)
+
+    # El descargador propio: preflight → baja lo que falta → re-preflight.
+    # `indra` es el único preset con artefactos en HuggingFace, y su licencia
+    # OpenRAIL-M-Mod obliga a reconocerla y a declarar uso no comercial.
+    try:
+        ocr = VeloceOCR(
+            "indra",
+            custom_path=str(cache),
+            license_commercial_use=False,
+            license_acknowledge=True,
+        )
+    except PyOcrRuntimeError as error:
+        # Se distingue el bloqueo de transporte (entorno) del artefacto ausente
+        # (fallo de código). Solo el primero se salta; el segundo debe fallar.
+        if _es_error_de_transporte_hf(error):
+            pytest.skip(f"descarga HF bloqueada por el host: {error}")
+        raise
+
+    assert Path(ocr.models_dir) == cache, "la descarga debe caer en el directorio resuelto"
+    assert cache.resolve() != CACHE_HOST.resolve(), "no debe escribir en la caché del host"
+
+    # El artefacto llegó al temporal, con el tamaño del registro y el hash LFS
+    # (no basta un 200: se hashea el contenido descargado).
+    destino = cache / "indra" / INDRA_ARTEFACTO
+    assert destino.is_file(), f"{INDRA_ARTEFACTO} no se descargó de HuggingFace"
+    assert destino.stat().st_size == INDRA_TAMANO
+    assert _sha256(destino) == INDRA_SHA256
+
+    # El sidecar deja el hash ya verificado: el 2º arranque no re-hashea.
+    sidecar = cache / "indra" / f".{INDRA_ARTEFACTO}.sha256"
+    assert sidecar.is_file(), "la descarga HF no dejó su sidecar .sha256"
 
 
 # ---------------------------------------------------------------------------
