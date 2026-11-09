@@ -11,18 +11,18 @@
 | text | rapidocr | Apache-2.0 | text | gpu | 20 | 0.585 | 5842 | cuda | funsd |
 | text | pp_ocrv6 (tiny) | Apache-2.0 | text | gpu | 20 | 0.684 | 330 | cuda | funsd |
 | text | pp_ocrv6 (tiny) | Apache-2.0 | text | cpu | 20 | 0.717 | 970 | cpu | funsd |
-| formula | pp_structurev3 (pp-formulanet-s) | Apache-2.0 | formula | gpu | 10 | N/A | 2254 | cuda | omnidocbench_formula |
-| formula | pp-formulanet-s (direct) | Apache-2.0 | formula | gpu | 10 | N/A | 1910 | cuda | omnidocbench_formula |
-| formula | pp_structurev3 | Apache-2.0 | formula | gpu | 10 | 0.128 | 2236 | cuda | omnidocbench_formula |
 | formula | unimernet (tiny) | Apache-2.0 | formula | cpu | 10 | 0.260 | 17493 | cpu | omnidocbench_formula |
 | formula | indra (math) | OpenRAIL-M-Mod | formula | cpu | 10 | 0.326 | 141 | cpu | omnidocbench_formula |
-| formula | indra (math) | OpenRAIL-M-Mod | formula | gpu | 10 | 0.326 | 460 | cuda | omnidocbench_formula |
+| formula | indra (math) | OpenRAIL-M-Mod | formula | gpu | 10 | 0.326 | 808 | cuda | omnidocbench_formula |
 | formula | pp_structurev3 | Apache-2.0 | formula | cpu | 10 | 0.398 | 2774 | cpu | omnidocbench_formula |
+| formula | pp_structurev3 | Apache-2.0 | formula | gpu | 10 | 0.398 | 2553 | cuda | omnidocbench_formula |
 | formula | pp_structurev3 (pp-formulanet-s) | Apache-2.0 | formula | cpu | 10 | 0.497 | 2474 | cpu | omnidocbench_formula |
+| formula | pp_structurev3 (pp-formulanet-s) | Apache-2.0 | formula | gpu | 10 | 0.497 | 2221 | cuda | omnidocbench_formula |
 | formula | pp-formulanet-s (direct) | Apache-2.0 | formula | cpu | 10 | 0.499 | 998 | cpu | omnidocbench_formula |
+| formula | pp-formulanet-s (direct) | Apache-2.0 | formula | gpu | 10 | 0.499 | 1603 | cuda | omnidocbench_formula |
 | formula | pix2tex | MIT | formula | cpu | 10 | 0.552 | 5500 | cpu | omnidocbench_formula |
 | formula | paddle_latex_ocr | Apache-2.0 | formula | cpu | 10 | 0.653 | 16326 | cpu | omnidocbench_formula |
-| formula | paddle_latex_ocr | Apache-2.0 | formula | gpu | 10 | 0.653 | 2763 | cuda | omnidocbench_formula |
+| formula | paddle_latex_ocr | Apache-2.0 | formula | gpu | 10 | 0.653 | 4191 | cuda | omnidocbench_formula |
 | layout | hantian/v8-x | AGPL-3.0 | layout | cpu | 40 | 0.490 | 1025 | cpu | omnidocbench_layout |
 | layout | hantian/v8-x | AGPL-3.0 | layout | gpu | 40 | 0.490 | 47 | cuda | omnidocbench_layout |
 | layout | hantian/v10-l | AGPL-3.0 | layout | cpu | 40 | 0.533 | 569 | cpu | omnidocbench_layout |
