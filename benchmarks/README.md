@@ -182,12 +182,14 @@ fallback CPU **nunca** se etiqueta GPU; `pyocrust` confirma `provider_effective`
 fila a fila y el banco marca `skipped` si no hay acelerador real.
 
 Resumen de comparativas CPU vs GPU (`text`, `formula`, `layout`, `table`,
-`full_page`, `orientation`, `text_line`, `rectification`): valores medidos en
-`benchmarks/results/` y `benchmarks/results/_gpu/`.
+`full_page`, `orientation`, `text_line`, `rectification`) con el provider
+**CUDA** vigente: [`reports/CPU_VS_GPU.md`](reports/CPU_VS_GPU.md) (valores
+medidos en `benchmarks/results/` y `benchmarks/results/_gpu/`). El EP vigente es
+CUDA; DirectML queda como EP alternativo medido históricamente.
 
 ```bash
-# GPU disponible en este host: DirectML
-.venv/Scripts/python.exe -m maturin develop --features directml
+# GPU vigente en este host: CUDA 13 (build --features cuda, ver GPU.md)
+.venv/Scripts/python.exe -m maturin develop --release --features cuda
 
 # text CPU + GPU
 .venv/Scripts/python.exe benchmarks/features/text/bank.py    --limit 5 --device cpu --backends pyocrust,rapidocr,easyocr

@@ -38,11 +38,16 @@
 ## Modo CUDA
 
 `GPU.md` §«Cómo ejecutar con CUDA (CUDA 13)» tiene la receta (causa raíz verificada;
-build + runtime pendientes de confirmar end-to-end): `--features cuda` compila pero **no
-registra** hasta registrar el runtime CUDA 13 **antes de importar `pyocrust`** —
-`os.add_dll_directory()` a `.venv/Lib/site-packages/torch/lib` y
-`.venv/Lib/site-packages/nvidia/cu13/bin/x86_64` (desde Python 3.8 Windows ignora `PATH`).
-Va en un helper del runner, no repetido por banco.
+build + runtime **confirmados end-to-end** el 2026-11-09): `--features cuda` compila,
+pero el registro del runtime CUDA 13 vive en
+`.venv/Lib/site-packages/sitecustomize.py`, que añade `torch/lib` (y `Library/bin`)
+a la búsqueda de DLL **antes de importar `pyocrust`** — desde Python 3.8 Windows
+ignora `PATH`. Además el banco **precarga `torch`** en
+`common/runner.py::preload_gpu_runtime` para que el provider CUDA de ORT reutilice
+el cuDNN de torch en vez del del CUDA Toolkit del `PATH`; sin esa precarga el
+`import torch` posterior revienta con `WinError 127` en `cudnn_cnn64_9.dll` y
+quedan `skipped` los motores torch (`easyocr`, `paddle_latex_ocr`, los YOLO de
+`layout`).
 
 ## Estado de cumplimiento
 
@@ -70,7 +75,8 @@ Comprobar con:
 ### Histórico — tras la pata GPU en DirectML (2026-11-08, muestra n=20)
 
 > **Ya no vigente.** La muestra estratificada de 2026-11-09 sustituyó a las runs
-> n=20 de `formula`/`table`/`full_page`; el estado actual está al pie de esta sección.
+> n=20 de `formula`/`table`/`full_page`, y la pata GPU vigente es **CUDA**
+> (2026-11-09), no DirectML; el estado actual está al pie de esta sección.
 
 | feature | run CPU | n | run GPU | n | estado |
 | :--- | :--- | ---: | :--- | ---: | :--- |
@@ -95,39 +101,37 @@ la run de referencia: eso es justo lo que producía el `n` mezclado. Medido:
   La referencia CPU tiene 2; `pyocrust_indra` vive en runs de 2 motores, y `pp_structurev3_api`
   y `pdf_extract_kit` **no están medidos en CPU**.
 
-### Estado vigente (2026-11-09, muestra estratificada)
+### Estado vigente (2026-11-09, muestra estratificada + pata GPU en CUDA 13)
 
 > Fuente: salida real de `benchmarks/validez_medicion.py` (2026-11-09). Las runs
 > n=20 de `formula`/`table`/`full_page` se relocalizaron a
 > `results/_superseded_pre_stratified/`; la muestra vigente es `formula` n=10,
-> `table` n=8, `full_page` n=6, `layout` n=40.
+> `table` n=8, `full_page` n=6, `layout` n=40. La pata GPU vigente es **CUDA**
+> (`provider_effective='cuda'` en las 9 runs); las runs DirectML de 2026-11-08
+> quedan como histórico.
 
-| feature | run CPU | n | motores | run GPU | n | motores | par CPU/GPU | estado |
+| feature | run CPU | n | motores | run GPU (CUDA) | n | motores | par CPU/GPU | estado |
 | :--- | :--- | ---: | ---: | :--- | ---: | ---: | :--- | :--- |
-| text | 2026-11-06_22-46-46 | 20 | 3 | 2026-11-08_22-36-55 | 20 | 3 | OK | VALIDA |
-| formula | 2026-11-09_14-13-57 | 10 | 7 | 2026-11-09_15-10-51 | 9/10 | 5 | NO | REHACER: n distinto CPU/GPU |
-| layout | 2026-11-09_14-32-35 | 40 | 42 | 2026-11-09_15-17-40 | 40 | 41 | OK | VALIDA |
-| orientation | 2026-11-08_19-54-17 | 20 | 3 | 2026-11-08_23-01-31 | 20 | 1 | OK | VALIDA |
-| rectification | 2026-11-08_19-53-54 | 20 | 3 | 2026-11-08_23-02-26 | 20 | 1 | OK | VALIDA |
-| text_line | 2026-11-06_23-57-00 | 20 | 2 | 2026-11-08_23-02-51 | 20 | 1 | OK | VALIDA |
-| seal | 2026-11-08_15-28-48 | 20 | 2 | 2026-11-08_23-03-03 | 20 | 1 | OK | VALIDA |
-| table | 2026-11-09_14-22-58 | 8 | 5 | 2026-11-09_15-14-53 | 8 | 2 | OK | VALIDA |
-| full_page | 2026-11-09_14-28-38 | 6 | 3 | 2026-11-09_15-16-00 | 6 | 2 | OK | VALIDA |
+| text | 2026-11-06_22-46-46 | 20 | 3 | 2026-11-09_16-19-13 | 20 | 3 | OK | VALIDA |
+| formula | 2026-11-09_14-13-57 | 10 | 7 | 2026-11-09_16-22-29 | 10 | 5 | OK | VALIDA |
+| layout | 2026-11-09_14-32-35 | 40 | 42 | 2026-11-09_16-25-15 | 40 | 41 | OK | VALIDA |
+| orientation | 2026-11-08_19-54-17 | 20 | 3 | 2026-11-09_16-29-18 | 20 | 1 | OK | VALIDA |
+| rectification | 2026-11-08_19-53-54 | 20 | 3 | 2026-11-09_16-29-33 | 20 | 1 | OK | VALIDA |
+| text_line | 2026-11-06_23-57-00 | 20 | 2 | 2026-11-09_16-29-48 | 20 | 1 | OK | VALIDA |
+| seal | 2026-11-08_15-28-48 | 20 | 2 | 2026-11-09_16-29-57 | 20 | 1 | OK | VALIDA |
+| table | 2026-11-09_14-22-58 | 8 | 5 | 2026-11-09_16-30-07 | 8 | 2 | OK | VALIDA |
+| full_page | 2026-11-09_14-28-38 | 6 | 3 | 2026-11-09_16-30-33 | 6 | 2 | OK | VALIDA |
 
-**8/9 VALIDA.** `formula` queda **REHACER**: la run GPU `2026-11-09_15-10-51` no es
-uniforme (`pyocrust_indra` 9 `ok` + 1 error bajo DirectML), así que su `n` (9/10)
-no casa con la run CPU (10). Seguimiento: `t_c7188477`.
-
-**Pendiente:** (1) re-medir la pata GPU de `formula` con una run uniforme (mismo `n`
-que la CPU) y (2) una run CPU y otra GPU COMPLETAS por feature — todos los motores de
-`DEFAULT_BACKENDS` ( `ok` o `skipped` con motivo ) — con la pata GPU **priorizando CUDA**
-(tarjeta *[bench][gpu] Campaña GPU en modo CUDA 13*), que por la regla 9 obliga de todos modos a
-re-medir **toda** la pata GPU. Cierre: `validez_medicion.py` → **9/9 VALIDA** con
-`provider_effective` acelerador en todas las filas `ok`.
+**9/9 VALIDA.** Campaña GPU en serie (un banco a la vez, máquina libre) con el
+build `--features cuda`: **1858 filas GPU `ok`**, 0 incoherencias de proveedor y
+todas las `pyocrust*` con `provider_effective='cuda'`. `pytest benchmarks/tests` →
+175 passed, 2 skipped. El pendiente de re-medir `formula` en GPU quedó resuelto
+por la run `2026-11-09_16-22-29` (n=10, como la CPU).
 
 ## Campaña definitiva (en serie, máquina libre)
 
-Por cada feature, y **una cada vez**:
+Ejecutada en **CUDA 13** el 2026-11-09 (§«Estado vigente»). Por cada feature, y
+**una cada vez**:
 
 ```bash
 .venv/Scripts/python.exe benchmarks/features/<feature>/bank.py --limit <N> --device cpu
