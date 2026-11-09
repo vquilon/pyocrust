@@ -69,12 +69,36 @@ parcheó `ort-sys` para enlazar el binario **ORT 1.31** de pyke, que sí trae
 kernels `sm_120`/`sm_120a`. CUDA **registra y ejecuta**; DirectML sigue siendo un
 EP GPU válido para comparar, medido por separado.
 
+### Campaña vigente: CUDA 13 (2026-11-09)
+
+El EP medido en la campaña vigente es **CUDA** (`provider_effective='cuda'`),
+con el build `--features cuda` (ORT 1.31 parcheado, §«Cómo ejecutar con CUDA»).
+Campaña en serie, un banco a la vez y máquina libre:
+
+| feature | run GPU | n |
+| :--- | :--- | ---: |
+| `text` | `2026-11-09_16-19-13` | 20 |
+| `formula` | `2026-11-09_16-22-29` | 10 |
+| `layout` | `2026-11-09_16-25-15` | 40 |
+| `orientation` | `2026-11-09_16-29-18` | 20 |
+| `rectification` | `2026-11-09_16-29-33` | 20 |
+| `text_line` | `2026-11-09_16-29-48` | 20 |
+| `seal` | `2026-11-09_16-29-57` | 20 |
+| `table` | `2026-11-09_16-30-07` | 8 |
+| `full_page` | `2026-11-09_16-30-33` | 6 |
+
+**1858 filas GPU `ok`, 0 incoherencias de proveedor** (todas las `pyocrust*` en
+`cuda`); `validez_medicion.py` → **9/9 VALIDA**. Números y tiempos en
+[`reports/CPU_VS_GPU.md`](reports/CPU_VS_GPU.md).
+
 
 ## Comparativa CPU vs GPU (`text` y `formula`)
 
-> **Histórico (pre-estratificado, n=5, 2026-11-02).** Estos valores ya no son la
-> referencia vigente. La comparativa CPU vs GPU con la muestra estratificada
-> (2026-11-09) está en [`reports/CPU_VS_GPU.md`](reports/CPU_VS_GPU.md).
+> **Histórico (pre-estratificado, n=5, 2026-11-02; GPU con
+> `provider_effective=directml`).** Estos valores ya no son la referencia
+> vigente. La comparativa CPU vs GPU con la muestra estratificada (2026-11-09,
+> GPU en **CUDA**) está en [`reports/CPU_VS_GPU.md`](reports/CPU_VS_GPU.md) y las
+> runs en §«Campaña vigente: CUDA 13».
 
 Valores **medidos** por nosotros (`n=5`, `warmup=1`, `repeats=1`, un modelo a la
 vez). El provider lo confirma `pyocrust` fila a fila.
@@ -115,7 +139,7 @@ host (pyocrust `text` 787 → 2580 ms/imagen; `formula` 2938 → 7203 ms/fórmul
 coste de orquestación del EP pesa más que el cómputo en cargas tan pequeñas. La
 GPU aporta margen real con modelos/páginas mayores, no aquí.
 
-### Honestidad de proveedor (comprobación sobre las filas)
+### Honestidad de proveedor (comprobación sobre las filas; histórico, DirectML 2026-11-02)
 
 Sobre las 4 runs (15 + 5 + 25 + 10 filas `ok`), **0 filas** tienen un
 `provider_effective` incoherente con el `device_requested`; los backends
@@ -124,13 +148,16 @@ motivo. No hay ninguna fila `ok` con `provider_effective=cpu` bajo device GPU.
 
 ## Comparativa CPU vs GPU (resto de features: `layout`, `table`, `full_page`, `orientation`, `text_line`, `rectification`)
 
-> **Histórico (pre-estratificado, 2026-11-02).** La comparativa vigente con la
-> muestra estratificada (2026-11-09) está en [`reports/CPU_VS_GPU.md`](reports/CPU_VS_GPU.md).
+> **Histórico (pre-estratificado, 2026-11-02; GPU con
+> `provider_effective=directml`).** La comparativa vigente con la muestra
+> estratificada (2026-11-09, GPU en **CUDA**) está en
+> [`reports/CPU_VS_GPU.md`](reports/CPU_VS_GPU.md) y las runs en §«Campaña
+> vigente: CUDA 13».
 
 Mismo método que arriba: valores **medidos** (`warmup=1`, `repeats=1`, un modelo a la
-vez); el provider lo confirma `pyocrust` fila a fila. En este host el único EP
-acelerador que registra es **DirectML**, así que toda fila GPU `ok` tiene
-`provider_effective=directml`.
+vez); el provider lo confirma `pyocrust` fila a fila. En estas runs históricas el
+EP acelerador era **DirectML** (`provider_effective=directml`); el EP vigente es
+**CUDA** (§«Campaña vigente: CUDA 13»).
 
 Runs citadas (CPU → GPU):
 
@@ -188,14 +215,14 @@ Runs citadas (CPU → GPU):
 | pyocrust_rectify (uvdoc) | cpu | cpu | 6 | 0.704 | 276 |
 | pyocrust_rectify (uvdoc) | **gpu** | **directml** | 6 | 0.704 | 299 |
 
-**Lectura honesta (resto de features).** La calidad vuelve a ser **idéntica** CPU vs
+**Lectura honesta (resto de features; histórico, DirectML 2026-11-02).** La calidad vuelve a ser **idéntica** CPU vs
 GPU (DirectML reproduce los mismos mAP/TEDS/Markdown/accuracy/SSIM dentro del
 redondeo). En **tiempo**, DirectML es ~1.0–2.8× más lento en los modelos pequeños
 (`full_page` 8955 → 24812 ms/página, el peor), y prácticamente empatado en `layout`
 (1989 → 1973 ms/imagen) y `orientation`/`text_line`/`rectification` (~+5–8 %): el
 coste de orquestación del EP pesa más que el cómputo en cargas pequeñas.
 
-### Honestidad de proveedor (las 6 features restantes)
+### Honestidad de proveedor (las 6 features restantes; histórico, DirectML 2026-11-02)
 
 Sobre las 6 runs GPU (8 + 8 + 6 + 8 + 8 + 6 = **44 filas `ok`**), las 44 tienen
 `device_requested=gpu` y `provider_effective=directml`; **0 filas `ok`** tienen
@@ -206,8 +233,8 @@ Sobre las 6 runs GPU (8 + 8 + 6 + 8 + 8 + 6 = **44 filas `ok`**), las 44 tienen
 ## Reproducir
 
 ```bash
-# GPU disponible en este host: DirectML
-.venv/Scripts/python.exe -m maturin develop --features directml
+# GPU vigente en este host: CUDA 13 (build --features cuda, ver §«Cómo ejecutar con CUDA»)
+.venv/Scripts/python.exe -m maturin develop --release --features cuda
 
 .venv/Scripts/python.exe benchmarks/features/text/bank.py    --limit 5 --device cpu --backends pyocrust,rapidocr,easyocr
 .venv/Scripts/python.exe benchmarks/features/text/bank.py    --limit 5 --device gpu --backends pyocrust,rapidocr,easyocr --output-dir benchmarks/results/_gpu
@@ -225,13 +252,13 @@ Sobre las 6 runs GPU (8 + 8 + 6 + 8 + 8 + 6 = **44 filas `ok`**), las 44 tienen
 
 Con el build CUDA y las DLL del provider **no** colocadas junto al `.pyd`,
 `available_providers()` sale `[]` y `--device gpu` sale **todo `skipped`** (el
-banco se niega a etiquetar CPU como GPU). Con las DLL colocadas, CUDA **registra**
-y las filas salen con `provider_effective='cuda'`, pero **toda inferencia falla**
-(`cudaErrorNoKernelImageForDevice`, ver §«Cómo ejecutar con CUDA») — así que CUDA
-no produce ninguna fila `ok` válida en este host.
+banco se niega a etiquetar CPU como GPU). Con las DLL colocadas y el parche ORT
+1.31, CUDA **registra y ejecuta**: las filas salen `ok` con
+`provider_effective='cuda'` (§«Campaña vigente: CUDA 13»).
 
 Es decir, **nunca** aparece una fila `ok` con `provider_effective=cpu` bajo un
-device GPU; y en este host tampoco una fila `ok` con `provider_effective=cuda`.
+device GPU; con el build CUDA, las filas `ok` salen con
+`provider_effective='cuda'`.
 
 
 ## Cómo ejecutar con CUDA (CUDA 13)
@@ -242,10 +269,11 @@ device GPU; y en este host tampoco una fila `ok` con `provider_effective=cuda`.
 > vendorizando `ort-sys` para enlazar el binario **ORT 1.31** de pyke (trae
 > `sm_120`/`sm_120a`). Smoke real: **13/15 motores `CUDA ok`, 0 FAIL**.
 
-En este host el EP acelerador que registra *por defecto* es **DirectML**
-(`--features directml`; va compilado dentro de la ORT, no hay nada que cargar).
-CUDA necesita un par de pasos extra. La causa del registro NO es que falte la
-librería: es **dónde busca el provider**.
+El EP acelerador **medido** en la campaña vigente es **CUDA** (`--features cuda`;
+§«Campaña vigente: CUDA 13»). DirectML (`--features directml`) va compilado dentro
+de la ORT y registra sin pasos extra, pero queda como EP alternativo medido
+históricamente. CUDA necesita un par de pasos extra. La causa del registro NO es
+que falte la librería: es **dónde busca el provider**.
 
 
 1. El `.pyd` enlaza **estáticamente** su ORT (crate Rust `ort` 2.0.0-rc.13 vía
@@ -333,4 +361,13 @@ sin recompilar el crate `ort` ni `oar-ocr`.
 **Conclusión de este host:** CUDA **registra y ejecuta** en sm_120 con este
 parche. DirectML sigue siendo un EP GPU válido para comparar; cada campaña mide
 un solo EP (cambiar de EP obliga a re-medir toda la pata GPU).
+
+## Hallazgo abierto (fuera de criterio de la campaña)
+
+Bajo CUDA, `pyocrust_formula` y `pyocrust_formulanet` emiten **LaTeX aislado
+vacío** en las 10 muestras de la run `2026-11-09_16-22-29` (`latex_sim` y
+`latex_exact` vacíos en el CSV) → su calidad de fórmula en GPU sale `N/A`.
+**No** rompe `n` ni el EP: las filas siguen `ok` con
+`provider_effective='cuda'`. CPU y DirectML sí traen calidad de fórmula.
+Investigación en `t_e1630cbe`.
 
