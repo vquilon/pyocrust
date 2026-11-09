@@ -4,22 +4,22 @@
 
 ## Provenance
 
-- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe features/table/bank.py --limit 20 --device cpu --output-dir results`
-- **dataset**: `omnidocbench_table` · **n** (por motor): `20` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
+- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe features/table/bank.py --limit 8 --device cpu --output-dir results`
+- **dataset**: `omnidocbench_table` · **n** (por motor): `8` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **revision HF (fijada)**: `aa1ee96d106dbe53d0ae59474d75c6e6d9b53fec` — misma revision en cualquier maquina; los bytes se verifican contra `benchmarks/datasets_manifest.json`
 - **seed**: no aplica (banco determinista, sin aleatoriedad)
-- **run**: `benchmarks/results/table/2026-11-09_11-00-34` · **fecha**: `2026-11-09_11-00-34`
-- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['directml']}
+- **run**: `benchmarks/results/table/2026-11-09_14-22-58` · **fecha**: `2026-11-09_14-22-58`
+- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['cuda']}
 
 ## Comparativa (media por motor)
 
 | Motor (variante) | n | TEDS estrut. ↑ | ms/tabla ↓ |
 | :--- | ---: | ---: | ---: |
-| SLANet_plus (paddleocr) | 20 | **0.828** | **87** |
-| pp_structurev3 (default) | 20 | 0.608 | 3245 |
-| slanet_plus (default) | 20 | 0.780 | 848 |
-| table-transformer-structure-recognition (default) | 20 | 0.698 | 198 |
-| tableformer (docling) | 20 | 0.807 | 35699 |
+| SLANet_plus (paddleocr) | 8 | 0.889 | **72** |
+| pp_structurev3 (default) | 8 | 0.753 | 3530 |
+| slanet_plus (default) | 8 | **0.914** | 1103 |
+| table-transformer-structure-recognition (default) | 8 | 0.790 | 131 |
+| tableformer (docling) | 8 | 0.905 | 28609 |
 
 > En negrita, el mejor de cada métrica entre los motores **medidos** de `table`. `N/A` = no evaluada (sin GT de esa columna **o** el motor no emite esa estructura), nunca un `0.0` inventado.
 
@@ -47,27 +47,27 @@
 
 | Motor (variante) | Structural TEDS ↑ (CPU) | Structural TEDS ↑ (GPU) | ms CPU | ms GPU | provider GPU |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| SLANet_plus (paddleocr) | 0.828 | N/A | 87 | N/A | n/a (no corre en GPU) |
-| pp_structurev3 (default) | 0.608 | 0.608 | 3245 | 5429 | directml |
-| slanet_plus (default) | 0.780 | 0.780 | 848 | 1023 | directml |
-| table-transformer-structure-recognition (default) | 0.698 | N/A | 198 | N/A | n/a (no corre en GPU) |
-| tableformer (docling) | 0.807 | N/A | 35699 | N/A | n/a (no corre en GPU) |
+| SLANet_plus (paddleocr) | 0.889 | N/A | 72 | N/A | n/a (no corre en GPU) |
+| pp_structurev3 (default) | 0.753 | 0.753 | 3530 | 3370 | directml |
+| slanet_plus (default) | 0.914 | 0.914 | 1103 | 632 | directml |
+| table-transformer-structure-recognition (default) | 0.790 | N/A | 131 | N/A | n/a (no corre en GPU) |
+| tableformer (docling) | 0.905 | N/A | 28609 | N/A | n/a (no corre en GPU) |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.
 
 ## Por estrato (`data_source × layout`)
 
-> TEDS tabla **por motor y estrato** de la página (muestra estratificada, `page_info.page_attribute`). Motores medidos: 5 · estratos cubiertos: 15. `—` = ese motor no tiene medición en ese estrato.
+> TEDS tabla **por motor y estrato** de la página (muestra estratificada, `page_info.page_attribute`). Motores medidos: 5 · estratos cubiertos: 6. `—` = ese motor no tiene medición en ese estrato.
 
-> **Estratos (n de páginas en la muestra)**: `PPT2PDF×double_column` (1), `PPT2PDF×single_column` (1), `academic_literature×other_layout` (2), `academic_literature×single_column` (1), `academic_literature×three_column` (1), `colorful_textbook×1andmore_column` (1), `exam_paper×1andmore_column` (1), `exam_paper×double_column` (2), `exam_paper×other_layout` (1), `magazine×single_column` (1), `newspaper×other_layout` (1), `research_report×1andmore_column` (2), `research_report×double_column` (1), `research_report×other_layout` (2), `research_report×single_column` (2).
+> **Estratos (n de páginas en la muestra)**: `PPT2PDF×1andmore_column` (1), `PPT2PDF×double_column` (1), `PPT2PDF×other_layout` (1), `PPT2PDF×single_column` (2), `academic_literature×1andmore_column` (1), `academic_literature×double_column` (2).
 
 ### TEDS tabla por estrato
 
-| Motor (variante) | PPT2PDF×double_column | PPT2PDF×single_column | academic_literature×other_layout | academic_literature×single_column | academic_literature×three_column | colorful_textbook×1andmore_column | exam_paper×1andmore_column | exam_paper×double_column | exam_paper×other_layout | magazine×single_column | newspaper×other_layout | research_report×1andmore_column | research_report×double_column | research_report×other_layout | research_report×single_column |
-| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| SLANet_plus (paddleocr) | 1.000 | 1.000 | 0.517 | 1.000 | 0.600 | 0.374 | 1.000 | 1.000 | 1.000 | 0.833 | 1.000 | 0.792 | 0.930 | 0.778 | 0.826 |
-| pp_structurev3 (default) | 0.980 | 0.889 | 0.486 | 1.000 | 0.457 | 0.173 | 0.680 | 0.750 | 0.833 | 0.773 | 0.622 | 0.522 | 0.488 | 0.342 | 0.601 |
-| slanet_plus (default) | 1.000 | 0.829 | 0.525 | 1.000 | 0.600 | 0.353 | 1.000 | 0.833 | 1.000 | 0.837 | 1.000 | 0.833 | 0.930 | 0.764 | 0.570 |
-| table-transformer-structure-recognition (default) | 0.889 | 0.812 | 0.826 | 0.857 | 0.800 | 0.374 | 0.405 | 0.483 | 0.667 | 0.710 | 1.000 | 0.848 | 0.698 | 0.678 | 0.541 |
-| tableformer (docling) | 1.000 | 0.824 | 0.508 | 1.000 | 0.400 | 0.353 | 1.000 | — | — | 0.939 | 1.000 | 1.000 | 0.930 | — | 0.916 |
+| Motor (variante) | PPT2PDF×1andmore_column | PPT2PDF×double_column | PPT2PDF×other_layout | PPT2PDF×single_column | academic_literature×1andmore_column | academic_literature×double_column |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| SLANet_plus (paddleocr) | 1.000 | 1.000 | 1.000 | 0.757 | 0.934 | 0.833 |
+| pp_structurev3 (default) | 1.000 | 0.980 | 0.407 | 0.560 | 0.934 | 0.791 |
+| slanet_plus (default) | 1.000 | 1.000 | 1.000 | 0.668 | 0.997 | 0.990 |
+| table-transformer-structure-recognition (default) | 1.000 | 0.889 | 0.857 | 0.628 | 0.791 | 0.762 |
+| tableformer (docling) | 1.000 | 1.000 | 1.000 | 0.669 | 1.000 | 1.000 |
 

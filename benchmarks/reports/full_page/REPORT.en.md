@@ -4,20 +4,20 @@
 
 ## Provenance
 
-- **command**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe features/full_page/bank.py --limit 20 --device cpu --output-dir results`
-- **dataset**: `omnidocbench_full_page` · **n** (per engine): `20` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
+- **command**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe features/full_page/bank.py --limit 6 --device cpu --output-dir results`
+- **dataset**: `omnidocbench_full_page` · **n** (per engine): `6` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **revision HF (fijada)**: `aa1ee96d106dbe53d0ae59474d75c6e6d9b53fec` — misma revision en cualquier maquina; los bytes se verifican contra `benchmarks/datasets_manifest.json`
 - **seed**: not applicable (deterministic benchmark, no randomness)
-- **run**: `benchmarks/results/full_page/2026-11-09_12-43-20` · **date**: `2026-11-09_12-43-20`
-- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['directml']}
+- **run**: `benchmarks/results/full_page/2026-11-09_14-28-38` · **date**: `2026-11-09_14-28-38`
+- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['cuda']}
 
 ## Comparison (mean by engine)
 
 | Engine (variant) | n | Markdown F1 ↑ | Block F1 ↑ | layout mAP ↑ | TEDS table ↑ | LaTeX sim ↑ | titles recall ↑ | titles prec. ↑ | titles text F1 ↑ | titles sequence τ ↑ | reading order τ ↑ | figures recall ↑ | figures prec. ↑ | captions recall ↑ | captions prec. ↑ | fig↔caption assoc. ↑ | captions text F1 ↑ | CER ↓ | ms/page ↓ |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| docling-default (pipeline) | 20 | **0.354** | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | **0.518** | 33257 |
-| indra (math) | 20 | 0.265 | N/A | N/A | 0.361 | N/A | N/A | N/A | N/A | N/A | **0.747** | N/A | N/A | N/A | N/A | N/A | N/A | 1.231 | **2006** |
-| pp_structurev3 (default) | 20 | 0.270 | 0.700 | 0.677 | **0.674** | 0.351 | 0.702 | 0.652 | 0.649 | 0.750 | 0.661 | 0.500 | 0.500 | 1.000 | 1.000 | 0.000 | 0.500 | 2.190 | 11054 |
+| docling-default (pipeline) | 6 | **0.204** | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | **1.119** | 25723 |
+| indra (math) | 6 | 0.029 | N/A | N/A | 0.276 | N/A | N/A | N/A | N/A | N/A | 0.190 | N/A | N/A | N/A | N/A | N/A | N/A | 3.102 | **607** |
+| pp_structurev3 (default) | 6 | 0.083 | 0.524 | 0.561 | **0.678** | 0.255 | 0.944 | 1.000 | 0.536 | 0.857 | **0.764** | 0.167 | 0.333 | 0.875 | 1.000 | 0.000 | 0.417 | 5.737 | 5865 |
 
 > Bold values mark the best result for each metric among the **measured** engines in `full_page`. `N/A` = not evaluated (no ground truth for that column **or** the engine does not emit that structure), never an invented `0.0`.
 
@@ -43,9 +43,9 @@
 
 | Engine (variant) | Markdown F1 ↑ (CPU) | Markdown F1 ↑ (GPU) | ms CPU | ms GPU | GPU provider |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| docling-default (pipeline) | 0.354 | N/A | 33257 | N/A | n/a (does not run on GPU) |
-| indra (math) | 0.265 | 0.265 | 2006 | 8901 | directml |
-| pp_structurev3 (default) | 0.270 | 0.267 | 11054 | 14053 | directml |
+| docling-default (pipeline) | 0.204 | N/A | 25723 | N/A | n/a (does not run on GPU) |
+| indra (math) | 0.029 | 0.029 | 607 | 4802 | directml |
+| pp_structurev3 (default) | 0.083 | 0.085 | 5865 | 4754 | directml |
 
 > The GPU provider comes from the actual `provider_effective` value in the GPU `summary.json` (`n/a` = the engine does not expose GPU execution in this benchmark). No GPU rows are invented: engines that did not run on an accelerator appear as `N/A`.
 
@@ -63,17 +63,17 @@
 
 ## Per stratum (`data_source × layout`)
 
-> Markdown F1 **per engine and stratum** of the page (stratified sample, `page_info.page_attribute`). Engines measured: 3 · strata covered: 20. `—` = this engine has no measurement in that stratum.
+> Markdown F1 **per engine and stratum** of the page (stratified sample, `page_info.page_attribute`). Engines measured: 3 · strata covered: 3. `—` = this engine has no measurement in that stratum.
 
-> **Strata (pages in the sample)**: `PPT2PDF×1andmore_column` (1), `PPT2PDF×double_column` (1), `PPT2PDF×other_layout` (1), `PPT2PDF×single_column` (1), `academic_literature×1andmore_column` (1), `academic_literature×double_column` (1), `academic_literature×other_layout` (1), `academic_literature×single_column` (1), `academic_literature×three_column` (1), `book×1andmore_column` (1), `book×double_column` (1), `book×other_layout` (1), `book×single_column` (1), `book×three_column` (1), `colorful_textbook×1andmore_column` (1), `colorful_textbook×double_column` (1), `colorful_textbook×other_layout` (1), `colorful_textbook×single_column` (1), `colorful_textbook×three_column` (1), `exam_paper×1andmore_column` (1).
+> **Strata (pages in the sample)**: `PPT2PDF×1andmore_column` (1), `PPT2PDF×double_column` (2), `PPT2PDF×other_layout` (3).
 
 ### Markdown F1 per stratum
 
-| Engine (variant) | PPT2PDF×1andmore_column | PPT2PDF×double_column | PPT2PDF×other_layout | PPT2PDF×single_column | academic_literature×1andmore_column | academic_literature×double_column | academic_literature×other_layout | academic_literature×single_column | academic_literature×three_column | book×1andmore_column | book×double_column | book×other_layout | book×single_column | book×three_column | colorful_textbook×1andmore_column | colorful_textbook×double_column | colorful_textbook×other_layout | colorful_textbook×single_column | colorful_textbook×three_column | exam_paper×1andmore_column |
-| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| docling-default (pipeline) | 0.438 | 0.341 | 0.149 | 0.000 | 0.220 | 0.524 | 0.098 | 0.442 | 0.904 | 0.038 | 0.872 | 0.075 | 0.455 | 0.684 | 0.031 | 0.828 | 0.049 | 0.029 | 0.245 | 0.648 |
-| indra (math) | 0.025 | 0.056 | 0.000 | 0.223 | 0.269 | 0.272 | 0.054 | 0.355 | 0.908 | 0.000 | 0.837 | 0.018 | 0.453 | 0.139 | 0.054 | 0.847 | 0.075 | 0.013 | 0.073 | 0.624 |
-| pp_structurev3 (default) | 0.115 | 0.000 | 0.070 | 0.029 | 0.155 | 0.392 | 0.112 | 0.392 | 0.777 | 0.069 | 0.772 | 0.040 | 0.424 | 0.624 | 0.047 | 0.606 | 0.043 | 0.038 | 0.165 | 0.532 |
+| Engine (variant) | PPT2PDF×1andmore_column | PPT2PDF×double_column | PPT2PDF×other_layout |
+| :--- | ---: | ---: | ---: |
+| docling-default (pipeline) | 0.438 | 0.188 | 0.138 |
+| indra (math) | 0.025 | 0.028 | 0.031 |
+| pp_structurev3 (default) | 0.115 | 0.000 | 0.127 |
 
 ## Title coverage and hierarchy (not measurable)
 
@@ -83,9 +83,9 @@
 
 | Engine (variant) | pages measured | pages with title GT | title coverage |
 | :--- | ---: | ---: | ---: |
-| docling-default (pipeline) | 20 | 14 | 70% |
-| indra (math) | 20 | 14 | 70% |
-| pp_structurev3 (default) | 20 | 14 | 70% |
+| docling-default (pipeline) | 6 | 4 | 67% |
+| indra (math) | 6 | 4 | 67% |
+| pp_structurev3 (default) | 6 | 4 | 67% |
 
 ## Figure coverage and the non-emittable (masks)
 
@@ -97,7 +97,7 @@
 
 | Engine (variant) | pages measured | pages with figure GT | figure coverage |
 | :--- | ---: | ---: | ---: |
-| docling-default (pipeline) | 20 | 4 | 20% |
-| indra (math) | 20 | 4 | 20% |
-| pp_structurev3 (default) | 20 | 4 | 20% |
+| docling-default (pipeline) | 6 | 3 | 50% |
+| indra (math) | 6 | 3 | 50% |
+| pp_structurev3 (default) | 6 | 3 | 50% |
 
