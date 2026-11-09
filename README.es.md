@@ -39,14 +39,49 @@ de presets y once predictores de tarea—; solo cambia el binario nativo:
 | `pyocrust` | *(por defecto)* `simd` + `auto-download` | CPU | ninguno | Linux `x86_64`/`aarch64`, Windows `x86_64`, macOS `aarch64` |
 | `pyocrust-gpu` | `cuda` | CPU + CUDA | driver NVIDIA + CUDA/cuDNN | Linux `x86_64`/`aarch64`, Windows `x86_64` (**sin macOS**) |
 
-`pyocrust-gpu` es la misma API compilada con la feature `cuda`. No está
-verificado aquí si el proveedor de ejecución CUDA de ONNX Runtime queda
-realmente activo en el wheel empaquetado (ver `benchmarks/GPU.md`, tarjeta
-`t_8a0f369f`): el wheel puede no incluirlo, y en ese caso la ejecución cae a
-CPU. Cuando está activo necesita el driver de NVIDIA más el runtime CUDA/cuDNN
-en el destino. La ejecución en GPU **no está validada** todavía en este
-proyecto (ver `IMPLEMENTATION_AUDIT.md`); las distribuciones CPU siguen siendo
-el camino verificado.
+`pyocrust-gpu` es la misma API compilada con la feature `cuda`. El build deja el
+proveedor CUDA junto a la extensión (`pyocrust/onnxruntime_providers_cuda.dll`),
+así que ONNX Runtime lo encuentra; la distribución CPU sigue siendo la portable y
+ninguna depende de la otra.
+
+### Ejecutar con CUDA
+
+```bash
+pip install pyocrust-gpu
+python -c "import pyocrust; print(pyocrust.available_providers())"
+# ['cuda']
+```
+
+```python
+import pyocrust
+
+ocr = pyocrust.VeloceOCR("pp_ocrv6", device="cuda")   # o device="auto"
+print(ocr.provider_effective)                          # 'cuda' — lo que corrió de verdad
+```
+
+CUDA necesita además su propio runtime (`cublas64_13.dll`, `cublasLt64_13.dll`,
+`cudnn*_9.dll`) alcanzable por el proceso; un toolkit CUDA instalado
+(`CUDA_PATH`) o `torch` suelen cubrirlo. Si `available_providers()` imprime `[]`
+—o una lista sin `cuda`— no es alcanzable (en Windows se ignora `PATH` desde
+Python 3.8), y una llamada lo arregla añadiendo los directorios CUDA que ya
+existen en el entorno:
+
+```python
+import pyocrust
+
+pyocrust.enable_cuda()                                 # añade los dirs CUDA de nvidia-*/torch
+print(pyocrust.available_providers())                  # ['cuda']
+```
+
+Dos reglas se cumplen en las dos distribuciones: pedir `device="cuda"` cuando no
+registra ningún proveedor CUDA lanza `PyOcrValueError` en vez de caer a CPU en
+silencio, y `provider_effective` informa del proveedor que **de verdad** corrió.
+
+DirectML (`--features directml`) es el otro proveedor: registra sin runtime
+extra, pero fue más lento que CPU en los modelos pequeños medidos aquí
+(`benchmarks/GPU.md`). Un build `cuda` registra solo CUDA; combinar ambas
+features en un binario (`--features cuda,directml`) está sin probar. El wheel
+**publicado** (CI) todavía no se ha verificado en una máquina con CUDA.
 
 > [!WARNING]
 > Solo se publican wheels para **Linux `x86_64`/`aarch64` (glibc), Windows
@@ -81,25 +116,28 @@ print(predictor.predict("formula.png")["formula"])
 
 ## Estado
 
-Instantánea histórica de las fases 0-5 del `PLANNING.md`: `cargo check` compila,
-`import pyocrust` funciona y la suite de integración pasa (31 pasados, 2 `skip`,
-1 `xfail`). **Sin embargo, el sign-off final `S1` es `RECHAZADO`** con 7
-condiciones abiertas, dos de ellas bloqueantes; ver `DESIGN.md` §9 y
-`PLANNING.md` §7.
+El sign-off de diseño `S1` quedó **APROBADO** el 2026-11-09 (`t_e560fff3`): las
+siete condiciones `S1.1`-`S1.7` se verificaron línea a línea contra el árbol real,
+no contra la prosa de los documentos. `cargo test --lib` → **67 passed, 0 failed**;
+`pytest tests/` → **162 passed, 1 skipped** (el `skip` es un bloqueo TLS del host
+contra el CDN de HuggingFace, no un fallo de código — ver `DESIGN.md` §10.1).
 
-`S2.2` (Indra) tiene aceptación arquitectónica **parcial**: smoke CPU con dos
-regiones, dos elementos y Markdown; una prueba Python y una Rust de giro inverso
-pasadas, según la evidencia comunicada. GPU, calidad matemática y suite global
-siguen pendientes. La descarga Rust HF falla por TLS; el diagnóstico con `urllib`
-no valida `ensure_models`. Ver `DESIGN.md` §3.1.1 y `PLANNING.md`.
+La **campaña de benchmarks está medida y es válida**:
+`benchmarks/validez_medicion.py` reporta **9/9 `VALIDA`**, con la pata GPU medida
+en **CUDA 13** (`provider_effective='cuda'`, 1858 filas GPU, 0 incoherencias de
+proveedor). El tamaño de muestra es estratificado por feature: `formula` 10,
+`table` 8, `full_page` 6, `layout` 40 y 20 en el resto. Detalle y tablas por
+motor en [`benchmarks/reports/SUMMARY.md`](benchmarks/reports/SUMMARY.md).
 
-`S2.5/S2.6`: exposición Python documentada **11/11 predictores + 3/3 familias
-de pipelines**, no once inferencias verificadas. El cierre focal offline registra
-**14 pass, 4 skip, 0 fallos**: Tiny reconoce texto e Indra conserva matemática
-inline en Markdown. Quedan cuatro tareas layout/tablas sin inferencia por caché
-faltante, PP-StructureV3 sin caché completa, descarga fría/redescarga y GPU sin
-validar. Evidencia, skips y alcance en `PLANNING.md`, actualización S2.5/S2.6;
-no sustituye el histórico ni constituye sign-off global.
+Lo que **no** está cerrado: `pp_structurev3_api` ha vuelto al `DEFAULT_BACKENDS` de
+`full_page` tras un smoke real de 3 páginas, pero su fila **aún no está
+publicada** (la run vigente es anterior a su entrada), y bajo CUDA el LaTeX aislado
+de `pyocrust_formula`/`pyocrust_formulanet` sale vacío, así que la calidad de
+fórmula en GPU está `N/A` ahí (en CPU sí se mide). El defecto del LaTeX vacío ya
+tiene la causa raíz aislada —`CUDA_LAUNCH_BLOCKING` se aplica demasiado tarde,
+después de inicializar el contexto CUDA— y el fix está commiteado (`65326b8`) y
+en verificación; **no** se da por corregido aquí. Ambos tienen su tarjeta de
+seguimiento; ver `DESIGN.md` §10.5-§10.6.
 
 ## Presets y salida
 
@@ -206,13 +244,22 @@ Dos orígenes, según el preset o la tarea:
 * **ModelScope** (`greatv/oar-ocr`): provee los artefactos de los 11 predictores
   individuales y de los presets `pp_ocrv6*` / `pp_structurev3`. Lo gestiona el
   `auto-download` integrado en `oar-ocr` o el preflight nativo de `pyocrust`
-  (`src/storage/models.rs:224-242`).
+  (`src/storage/models.rs:226`).
 * **HuggingFace** (`datalab-to/indra-ocr`, revisión `bd02167f...`): provee los
   nueve artefactos de `indra`. La descarga la ejecuta el preflight nativo cuando
   `ensure_models` detecta faltantes.
 
-El preflight (`VeloceOCR::new` / `TaskPredictor::new`) comprueba tamaño y,
-para Indra, hash SHA-256 antes de cargar. Si todo está en disco, no toca la red.
+El preflight (`VeloceOCR::new` / `TaskPredictor::new`) comprueba tamaño **y**
+SHA-256 de **todos** los presets antes de cargar (primero el sidecar
+`<name>.sha256`; re-hashea sólo si falta). Si todo está en disco, no toca la red.
+
+> **Límite conocido del host (2026-11-09):** en esta máquina el descargador Rust
+> (`reqwest` + `rustls`) no completa la comprobación de revocación del certificado
+> del CDN de HuggingFace (`us.aws.cdn.hf.co`, `CRYPT_E_NO_REVOCATION_CHECK`), así
+> que una descarga **fría** por HuggingFace falla con error tipado. El mismo
+> artefacto baja bien con `curl --ssl-no-revoke` y su SHA-256 cuadra con el
+> registro: es una limitación del entorno, no un defecto de código. El test de
+> descarga fría queda `skip` aquí por ese motivo.
 
 ### Cuánto ocupan
 
@@ -410,10 +457,11 @@ pyocrust/
 ├── pyocrust/           # Paquete Python importable
 │   ├── __init__.py     # Fachada pública
 │   ├── __init__.pyi    # Stubs de tipos
+│   ├── gpu.py          # enable_cuda(): search path del runtime CUDA
 │   ├── hardware.py     # detect_hardware, HardwareProfile
 │   ├── resolver.py     # resolve_pipeline, TaskSpec
 │   └── py.typed        # Marcador PEP 561
-└── tests/              # Tarjeta V1
+└── tests/              # Tarjeta V1 + adiciones S2.x/S3.x/D5
 ```
 
 ## Requisitos
@@ -508,7 +556,8 @@ restringido por defecto. Ver `DESIGN.md` ADR-017.
 Fuera de `src/`, `benchmarks/` está organizado **por feature/componente** (como los
 componentes de `oar-ocr`): cada capacidad tiene su banco, su métrica y alternativas
 reales en Python. Mide **las 9 features**; cada número es `medido` (ejecutado
-aquí) o `referencia` (citado de un paper con URL) — nunca mezclados sin etiquetar.
+aquí) — nunca se mezcla con referencias externas, que no se publican como
+comparables.
 
 ![Resumen de benchmarks por feature](https://raw.githubusercontent.com/vquilon/pyocrust/main/benchmarks/figures/SUMMARY.png)
 
@@ -517,48 +566,57 @@ aquí) o `referencia` (citado de un paper con URL) — nunca mezclados sin etiqu
 | Feature | Métrica titular ↑ | pyocrust (medido) | Mejor alternativa medida | Estado |
 | :--- | :--- | ---: | :--- | :--- |
 | `text` | F1 palabra | 0.717 | rapidocr 0.585 | medido |
-| `formula` | Similitud LaTeX | 0.497 | paddle_latex_ocr 0.694 | medido |
-| `layout` | mAP@IoU 0.5 | 0.827 | docling_heron_101 0.843 | medido |
-| `orientation` | accuracy | 0.950 | lcnet_doc_ori 0.950 | medido |
-| `rectification` | SSIM | 0.707 | uvdoc 0.707 | medido |
-| `text_line` | accuracy | 1.000 | lcnet_textline_ori 1.000 | medido |
-| `seal` | recall@IoU 0.5 | 0.750 | — | medido |
-| `table` | TEDS estrut. | 0.854 | tatr 0.699 | medido |
-| `full_page` | Markdown F1 | 0.231 | — | medido |
+| `formula` | Similitud LaTeX | 0.499 | paddle_latex_ocr 0.653 | medido |
+| `layout` | mAP@IoU 0.5 | 0.796 | docling-layout-heron-101 0.818 | medido |
+| `orientation` | accuracy | 1.000 | pp-lcnet_x1_0_doc_ori (onnxruntime) 1.000 | medido |
+| `rectification` | SSIM | 0.597 | uvdoc (onnxruntime) 0.604 | medido |
+| `text_line` | accuracy | 1.000 | pp-lcnet_x1_0_textline_ori (onnxruntime) 1.000 | medido |
+| `seal` | recall@IoU 0.5 | 0.750 | pp-ocrv4_mobile_seal_det (onnxruntime) 0.750 | medido |
+| `table` | TEDS estrut. | 0.914 | tableformer (docling) 0.905 | medido |
+| `full_page` | Markdown F1 | 0.083 | docling-default (pipeline) 0.204 | medido |
 
-Los 9 bancos se ejecutaron con `--limit 20` (`n=20`, CPU, `warmup=1`, `repeats=1`, pyocrust
-0.1.0). Se muestra el mejor motor de `pyocrust` por feature y, donde otra alternativa
-**medida** gana (`formula`, `layout`), la tabla lo dice. Tablas por motor, provenance
-completa (comando, dataset, `n`, runtime) y referencias externas con URL en
+**El tamaño de muestra es estratificado por feature**, no uniforme: `formula`
+`n=10`, `table` `n=8`, `full_page` `n=6`, `layout` `n=40` y 20 en el resto
+(CPU, `warmup=1`, `repeats=1`, pyocrust 0.1.0). La pata GPU de los mismos bancos se
+midió en **CUDA 13** y `benchmarks/validez_medicion.py` reporta **9/9 `VALIDA`**:
+cada feature empareja su run CPU y su run GPU con el mismo `n` y los mismos
+motores. Se muestra el mejor motor de `pyocrust` por feature y, donde otra
+alternativa **medida** gana (`formula`, `layout`, `full_page`, `table`), la tabla
+lo dice. Tablas por motor, provenance completa (comando, dataset, `n`, runtime) en
 [`benchmarks/README.md`](benchmarks/README.md) y
 [`benchmarks/reports/SUMMARY.md`](benchmarks/reports/SUMMARY.md).
 
 **Cómo se mide la campaña.**
 
-- **`n` uniforme** — todos los bancos usan el mismo `--limit`. `SUMMARY.md` y
-  `SCOREBOARD.md` salen de un único colector de CSV
+- **`n` uniforme dentro de cada feature** — todos los bancos usan el mismo
+  `--limit`, y las runs CPU y GPU de una feature usan el **mismo** `n` y los
+  mismos motores. `SUMMARY.md` y `SCOREBOARD.md` salen de un único colector de CSV
   (`benchmarks/features/summary.py::collect_rows`), así que no pueden divergir; los
   `REPORT.md` por feature los genera `report.py` (desde los CSV de cada run) y
-  `QUALITY_VS_TIME.md` deriva de esos `REPORT.md`. `SCOREBOARD.md` declara `n` por fila:
-  unas pocas alternativas de control de `formula` solo tienen run `n=5` y se muestran
-  como tales, nunca fusionadas con las de `n=20`.
+  `QUALITY_VS_TIME.md` deriva de esos `REPORT.md`. `SCOREBOARD.md` declara `n` por fila.
 - **CPU vs GPU reales** — cada adaptador registra `provider_effective` (el EP que de
   verdad ejecutó). `--device gpu` sobre un motor sin acelerador queda `skipped` con
   motivo; un *fallback* a CPU nunca se reporta como GPU
-  (ver `benchmarks/reports/CPU_VS_GPU.md`).
+  (ver `benchmarks/reports/CPU_VS_GPU.md`). La pata GPU vigente es CUDA.
 - **Licencia por motor** — la columna `license` es **informativa** (señala pesos no
   permisivos, p. ej. AGPL-3.0 en las referencias YOLOv10); la puerta vinculante es el
   catálogo + los flags de política (ADR-017), no esta columna.
 - **Solo DocLayNet en `layout`** — solo son comparables los fine-tunes de DocLayNet: las
   filas YOLOv10 de referencia llevan mAP de DocLayNet y los YOLO medidos exponen las
   **11 clases de DocLayNet**, nunca las 80 de COCO.
+- **Muestra estratificada** — las cuatro features de OmniDocBench muestrean por
+  `data_source × layout × subset`, de modo que ninguna colapsa en un solo estrato y
+  `equation_hard` nunca supera el 50 % de la muestra
+  (`benchmarks/tests/test_stratified.py`).
 
 ```bash
 # un banco por feature (ejemplo: detección + reconocimiento de texto)
 ./.venv/Scripts/python.exe benchmarks/features/text/bank.py --limit 20
-# regenerar reportes por feature + los resúmenes globales
+# regenerar reportes por feature + los resúmenes globales (el orden importa)
 ./.venv/Scripts/python.exe benchmarks/features/report.py --all
-./.venv/Scripts/python.exe benchmarks/features/summary.py
+./.venv/Scripts/python.exe benchmarks/tools_regen_derived.py
+# comprobar el criterio de medición (se esperan 9/9 VALIDA)
+./.venv/Scripts/python.exe benchmarks/validez_medicion.py
 ```
 
 Los motores no instalados quedan `skipped`, nunca como ejecutados; las métricas sin
