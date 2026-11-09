@@ -135,11 +135,11 @@ def build() -> tuple[str, str]:
         r"\texttt{layout})}",
         r"\par\smallskip mAP@IoU 0.5 per stratum",
         "",
-        *_strata_table_tex(report_mod.strata_summary(device_rows), strata, "layout_map"),
+        *_strata_table_tex(report_mod.strata_summary(device_rows, ["layout_map", "layout_recall"]), strata, "layout_map"),
         "",
         r"\par\smallskip recall@IoU 0.5 per stratum",
         "",
-        *_strata_table_tex(report_mod.strata_summary(device_rows), strata, "layout_recall"),
+        *_strata_table_tex(report_mod.strata_summary(device_rows, ["layout_map", "layout_recall"]), strata, "layout_recall"),
         r"\end{document}",
     ]) + "\n"
     return md, tex

@@ -306,21 +306,29 @@ def _odb_stratum(page: dict, keys: Sequence[str] = ("data_source", "layout")) ->
 
 
 def _odb_stratified(pages: list, limit: int | None = None,
-                    keys: Sequence[str] = ("data_source", "layout")) -> list:
-    """Orden determinista **estratificado** por `keys` (round-robin balanceado).
+                    keys: Sequence[str] = ("data_source", "layout"),
+                    balance_keys: Sequence[str] | None = None) -> list:
+    """Orden determinista **estratificado** por `balance_keys` (round-robin).
 
-    Agrupa las páginas por estrato (`data_source × layout`) y las reparte por
-    rondas: primero una de cada estrato, luego la segunda, etc. Así la muestra
-    cubre todos los estratos posibles con el mismo peso y **ningún estrato
-    domina** — con `n`=40 y 39 estratos el mayor pesa ~5%, muy lejos del sesgo
-    de `_odb_rich_first`, que arranca con las páginas ricas en tabla/fórmula
-    (20/20 `equation_hard` en la muestra de `layout`). El orden es
-    **determinista** (estratos ordenados por clave, páginas en orden de
-    anotación): dos ejecuciones dan la misma muestra.
+    Agrupa las páginas por estrato y las reparte por rondas: primero una de cada
+    estrato, luego la segunda, etc. Así la muestra cubre todos los estratos
+    posibles con el mismo peso y **ningún estrato domina** — con `n`=40 y 39
+    estratos el mayor pesa ~5%, muy lejos del sesgo de `_odb_rich_first`, que
+    arranca con las páginas ricas en tabla/fórmula (20/20 `equation_hard` en la
+    muestra de `layout`). El orden es **determinista** (estratos ordenados por
+    clave, páginas en orden de anotación): dos ejecuciones dan la misma muestra.
+
+    `keys` es la etiqueta del estrato (lo que viaja en `Sample.stratum` y sale en
+    el informe). `balance_keys` es el conjunto con el que se reparte la muestra;
+    por defecto es `keys`. Separarlos permite balancear por un atributo extra
+    (p. ej. `subset` en `formula`: sin él las páginas `equation_hard` se agolpan
+    en la cabeza alfabética por `data_source` y superan el 50%) sin cambiar la
+    etiqueta publicada.
     """
+    group_keys = tuple(balance_keys or keys)
     groups: dict[str, list] = {}
     for page in pages:
-        groups.setdefault(_odb_stratum(page, keys), []).append(page)
+        groups.setdefault(_odb_stratum(page, group_keys), []).append(page)
     picked: list = []
     round_index = 0
     while True:
@@ -337,7 +345,8 @@ def _odb_stratified(pages: list, limit: int | None = None,
         round_index += 1
 
 
-def _odb_det_groups(pages: list, category: str, need: str, cap: int | None) -> list[tuple]:
+def _odb_det_groups(pages: list, category: str, need: str, cap: int | None,
+                    balance_keys: Sequence[str] | None = None) -> list[tuple]:
     """Grupos `(name, page, dets)` por pagina con anotaciones de `category` y `need`.
 
     Solo las detecciones no `ignore` que traen el campo `need` (`latex` para
@@ -345,13 +354,21 @@ def _odb_det_groups(pages: list, category: str, need: str, cap: int | None) -> l
     estratificado) y se cortan a `cap` grupos: cada pagina aporta como mucho una
     deteccion por ronda en `_spread_dets_per_page`, asi que `cap` paginas bastan
     para producir `limit` muestras.
+
+    Con `balance_keys` se **re-estratifica el pool de paginas elegibles** (las que
+    tienen `category`+`need`) antes de cortar: elegir sobre el orden de *todas*
+    las paginas deja el sesgo de la cabeza alfabetica por `data_source`, porque el
+    pool es un subconjunto pequeno (313 de 1651 en `formula`).
     """
+    eligible = [p for p in pages
+                if any(d["category_type"] == category and not d.get("ignore") and d.get(need)
+                       for d in p["layout_dets"])]
+    if balance_keys is not None:
+        eligible = _odb_stratified(eligible, keys=balance_keys)
     groups: list[tuple] = []
-    for page in pages:
+    for page in eligible:
         dets = [d for d in page["layout_dets"]
                 if d["category_type"] == category and not d.get("ignore") and d.get(need)]
-        if not dets:
-            continue
         groups.append((str(page["page_info"]["image_path"]), page, dets))
         if cap is not None and len(groups) >= cap:
             break
@@ -390,7 +407,9 @@ def load_omnidocbench(limit: int | None = None, cache_dir: Path | None = None) -
     muestra represente la composicion real del dataset en vez de sesgarse hacia
     las paginas ricas en tabla/formula.
     """
-    pages = _odb_stratified(_load_omnidocbench_pages(cache_dir))
+    pages = _odb_stratified(_load_omnidocbench_pages(cache_dir),
+                            keys=("data_source", "layout"),
+                            balance_keys=("data_source", "layout", "subset"))
     if limit is not None:
         pages = pages[:limit]
 
@@ -537,8 +556,11 @@ def load_omnidocbench_formulas(limit: int | None = None, cache_dir: Path | None 
     """
     pages = _odb_stratified(_load_omnidocbench_pages(cache_dir))
     cache = cache_dir or DATA_CACHE
-    groups = _odb_det_groups(pages, "equation_isolated", "latex",
-                             None if limit is None else limit)
+    # Balancear también por `subset`: sin él las páginas `equation_hard` se
+    # agolpan en la cabeza alfabética por `data_source` (91 de las 313 páginas
+    # con fórmula son `equation_hard`) y la muestra supera el 50% a n<=20.
+    groups = _odb_det_groups(pages, "equation_isolated", "latex", None,
+                             balance_keys=("data_source", "layout", "subset"))
 
     images: dict[str, Image.Image] = {}
     samples: list[Sample] = []
@@ -785,12 +807,16 @@ def load_omnidocbench_layout(limit: int | None = None, cache_dir: Path | None = 
     "por estrato".
     """
     cache = cache_dir or DATA_CACHE
-    pages = _odb_stratified(_load_omnidocbench_pages(cache_dir))
+    # Re-estratificar el pool de paginas con layout por `subset` (sin cambiar la
+    # etiqueta publicada, que sigue siendo `data_source × layout`): sin el, las
+    # `equation_hard` —que se agolpan en la cabeza alfabetica por `data_source`—
+    # rozan el 50% del criterio a n<=20.
+    pages = _odb_stratified(
+        [p for p in _load_omnidocbench_pages(cache_dir) if _odb_page_layout(p)],
+        keys=("data_source", "layout"), balance_keys=("data_source", "layout", "subset"))
     samples: list[Sample] = []
     for page in pages:
         layout = _odb_page_layout(page)
-        if not layout:
-            continue
         name = str(page["page_info"]["image_path"])
         samples.append(Sample(image_id=name, image=_odb_image(name, cache),
                               gt_text="", gt_layout=layout,
@@ -809,7 +835,10 @@ def load_omnidocbench_tables(limit: int | None = None, cache_dir: Path | None = 
     """
     cache = cache_dir or DATA_CACHE
     pages = _odb_stratified(_load_omnidocbench_pages(cache_dir))
-    groups = _odb_det_groups(pages, "table", "html", None if limit is None else limit)
+    # Igual que `formula`: balancear el pool de paginas con tabla tambien por
+    # `subset` para que las `table_hard` no dominen la cabeza del pool.
+    groups = _odb_det_groups(pages, "table", "html", None,
+                             balance_keys=("data_source", "layout", "subset"))
 
     images: dict[str, Image.Image] = {}
     samples: list[Sample] = []
@@ -832,12 +861,14 @@ def load_omnidocbench_full_page(limit: int | None = None, cache_dir: Path | None
     cubre la composicion del dataset en vez de sesgarse a `equation_hard`.
     """
     cache = cache_dir or DATA_CACHE
-    pages = _odb_stratified(_load_omnidocbench_pages(cache_dir))
+    # Igual que `layout`: pool de paginas con markdown re-estratificado por
+    # `subset` para no rozar el 50% del criterio a n<=20.
+    pages = _odb_stratified(
+        [p for p in _load_omnidocbench_pages(cache_dir) if _odb_page_markdown(p)],
+        keys=("data_source", "layout"), balance_keys=("data_source", "layout", "subset"))
     samples: list[Sample] = []
     for page in pages:
         markdown = _odb_page_markdown(page)
-        if not markdown:
-            continue
         name = str(page["page_info"]["image_path"])
         # Ademas del documento (markdown/bloques), la **misma** pagina lleva su
         # GT desgranado para que `full_page` puntue layout (mAP de las cajas),

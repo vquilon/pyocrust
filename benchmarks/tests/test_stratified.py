@@ -93,56 +93,64 @@ def test_seccion_por_estrato():
     assert section[0] == "## Por estrato (`data_source × layout`)"
     assert "0.500" in "\n".join(section) and "0.200" in "\n".join(section)
     # `(motor, estrato) -> métricas` se agrupa como en la comparativa.
-    grouped = report.strata_summary(rows)
+    grouped = report.strata_summary(rows, ["layout_map", "layout_recall"])
     assert grouped[("pp-doclayoutv3 (130M)", "book × single_column")]["layout_map"] == [0.5]
-    # Otras features (sin `stratum`) y filas vacías no emiten sección.
+    # La sección es genérica: cada feature publica su métrica primaria.
+    formula_rows = [{"backend": "pyocrust_formula", "model_name": "latex_ocr",
+                     "stratum": "book × single_column", "latex_sim": 0.7}]
+    formula_section = report.render_strata("formula", formula_rows)
+    assert "### LaTeX sim por estrato" in formula_section
+    assert "0.700" in "\n".join(formula_section)
+    # Features sin `stratum` (p. ej. `text`) y filas vacías no emiten sección.
     assert report.render_strata("text", rows) == []
     assert report.render_strata("layout", []) == []
+    assert report.render_strata("formula", []) == []
 
 
 def _fake_image(_name, _cache):
     return Image.new("RGB", (4, 4))
 
 
-def test_los_loaders_de_omnidocbench_usan_el_orden_estratificado(monkeypatch):
-    """Regresión: ninguna feature vuelve al orden crudo ni a `_odb_rich_first`.
+def test_ninguna_feature_omnidocbench_muestrea_en_un_solo_estrato(monkeypatch):
+    """Criterio de la tarjeta sobre la muestra **real** de cada feature.
 
-    `_odb_image` se parchea para no tocar la red: lo que se comprueba es el
-    **orden** en que cada loader visita las páginas, no su contenido.
+    Ninguna feature OmniDocBench puede muestrear en un solo estrato: la muestra
+    derivada de sus loaders cubre >=3 estratos (`data_source × layout`) y ninguna
+    página `equation_hard` supera el 50%. Se comprueba sobre los loaders reales
+    (no sobre `_odb_stratified` a secas): el sesgo que se cuela por el **pool**
+    de páginas elegibles —313 de 1651 en `formula`— no lo ve el selector de
+    páginas, así que el criterio tiene que asertarse sobre la muestra final.
     """
     pages = _cached_pages()
-    # El pool de páginas y la imagen se sustituyen para no tocar red ni disco:
-    # solo importa el ORDEN en que cada loader visita las páginas, y ambos lados
-    # (loader y referencia) deben estratificar el MISMO pool.
     monkeypatch.setattr(datasets, "_load_omnidocbench_pages",
                         lambda cache_dir=None: pages)
     monkeypatch.setattr(datasets, "_odb_image", _fake_image)
-    # El recorte real depende del tamaño de la página anotada; el contenido de
-    # los recortes no se comprueba aquí, así que se neutraliza (`_crop_poly`
-    # es un global del módulo).
     monkeypatch.setattr(datasets, "_crop_poly", lambda image, poly, pad=4: image)
-    image_paths = [p["page_info"]["image_path"] for p in pages]
-    strat_names = [p["page_info"]["image_path"] for p in _odb_stratified(pages)]
-    by_name = {p["page_info"]["image_path"]: p for p in pages}
-    # `tables`/`formulas` recortan el `image_id` a `Path(...).stem`, y la
-    # extensión de la imagen varía por página (`.jpg`/`.png`): se resuelve el
-    # nombre completo por stem en vez de adivinar la extensión.
-    name_by_stem = {Path(image_path).stem: image_path for image_path in image_paths}
+    by_path = {str(p["page_info"]["image_path"]): p for p in pages}
+    by_stem = {Path(p["page_info"]["image_path"]).stem: p for p in pages}
 
-    for loader in (datasets.load_omnidocbench_full_page,
-                   datasets.load_omnidocbench_tables,
-                   datasets.load_omnidocbench_formulas):
-        seen: list[str] = []
-        for sample in loader(limit=20):
-            stem = sample.image_id.split("::")[0]
-            name = name_by_stem.get(stem, stem)
-            if name not in seen:
-                seen.append(name)
-        assert seen, loader.__name__
-        indexes = [strat_names.index(n) for n in seen]
-        # Orden creciente = las páginas siguen el muestreo estratificado.
-        assert indexes == sorted(indexes), loader.__name__
-        assert len({_odb_stratum(by_name[n]) for n in seen}) >= 3, loader.__name__
+    def page_of(sample):
+        image_id = sample.image_id
+        if "::" in image_id:
+            return by_stem[image_id.split("::")[0]]
+        return by_path.get(image_id) or by_stem.get(Path(image_id).stem)
+
+    # (loader, sus dos tamaños de muestra: default del banco y n=20)
+    cases = [
+        (datasets.load_omnidocbench_formulas, (10, 20)),
+        (datasets.load_omnidocbench_tables, (10, 20)),
+        (datasets.load_omnidocbench_full_page, (6, 20)),
+        (datasets.load_omnidocbench_layout, (20, 40)),
+    ]
+    for loader, limits in cases:
+        for limit in limits:
+            samples = loader(limit=limit)
+            assert len(samples) == limit, (loader.__name__, limit, len(samples))
+            strata = {_odb_stratum(page_of(s)) for s in samples}
+            assert len(strata) >= 3, (loader.__name__, limit, strata)
+            equation = sum(1 for s in samples
+                           if _odb_page_attribute(page_of(s)).get("subset") == "equation_hard")
+            assert equation <= limit * 0.5, (loader.__name__, limit, equation)
 
 
 def test_los_recortes_se_reparten_entre_paginas(monkeypatch):

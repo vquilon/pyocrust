@@ -55,3 +55,19 @@
 
 > The GPU provider comes from the actual `provider_effective` value in the GPU `summary.json` (`n/a` = the engine does not expose GPU execution in this benchmark). No GPU rows are invented: engines that did not run on an accelerator appear as `N/A`.
 
+## Per stratum (`data_source × layout`)
+
+> TEDS table **per engine and stratum** of the page (stratified sample, `page_info.page_attribute`). Engines measured: 5 · strata covered: 15. `—` = this engine has no measurement in that stratum.
+
+> **Strata (pages in the sample)**: `PPT2PDF×double_column` (1), `PPT2PDF×single_column` (1), `academic_literature×other_layout` (2), `academic_literature×single_column` (1), `academic_literature×three_column` (1), `colorful_textbook×1andmore_column` (1), `exam_paper×1andmore_column` (1), `exam_paper×double_column` (2), `exam_paper×other_layout` (1), `magazine×single_column` (1), `newspaper×other_layout` (1), `research_report×1andmore_column` (2), `research_report×double_column` (1), `research_report×other_layout` (2), `research_report×single_column` (2).
+
+### Table TEDS per stratum
+
+| Engine (variant) | PPT2PDF×double_column | PPT2PDF×single_column | academic_literature×other_layout | academic_literature×single_column | academic_literature×three_column | colorful_textbook×1andmore_column | exam_paper×1andmore_column | exam_paper×double_column | exam_paper×other_layout | magazine×single_column | newspaper×other_layout | research_report×1andmore_column | research_report×double_column | research_report×other_layout | research_report×single_column |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| SLANet_plus (paddleocr) | 1.000 | 1.000 | 0.517 | 1.000 | 0.600 | 0.374 | 1.000 | 1.000 | 1.000 | 0.833 | 1.000 | 0.792 | 0.930 | 0.778 | 0.826 |
+| pp_structurev3 (default) | 0.980 | 0.889 | 0.486 | 1.000 | 0.457 | 0.173 | 0.680 | 0.750 | 0.833 | 0.773 | 0.622 | 0.522 | 0.488 | 0.342 | 0.601 |
+| slanet_plus (default) | 1.000 | 0.829 | 0.525 | 1.000 | 0.600 | 0.353 | 1.000 | 0.833 | 1.000 | 0.837 | 1.000 | 0.833 | 0.930 | 0.764 | 0.570 |
+| table-transformer-structure-recognition (default) | 0.889 | 0.812 | 0.826 | 0.857 | 0.800 | 0.374 | 0.405 | 0.483 | 0.667 | 0.710 | 1.000 | 0.848 | 0.698 | 0.678 | 0.541 |
+| tableformer (docling) | 1.000 | 0.824 | 0.508 | 1.000 | 0.400 | 0.353 | 1.000 | — | — | 0.939 | 1.000 | 1.000 | 0.930 | — | 0.916 |
+

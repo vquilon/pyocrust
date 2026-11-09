@@ -61,6 +61,20 @@
 
 > `N/A` = la página/el motor no aporta GT o no emite esa modalidad (p. ej. un motor sin fórmulas separadas), nunca un `0.0`.
 
+## Por estrato (`data_source × layout`)
+
+> Markdown F1 **por motor y estrato** de la página (muestra estratificada, `page_info.page_attribute`). Motores medidos: 3 · estratos cubiertos: 20. `—` = ese motor no tiene medición en ese estrato.
+
+> **Estratos (n de páginas en la muestra)**: `PPT2PDF×1andmore_column` (1), `PPT2PDF×double_column` (1), `PPT2PDF×other_layout` (1), `PPT2PDF×single_column` (1), `academic_literature×1andmore_column` (1), `academic_literature×double_column` (1), `academic_literature×other_layout` (1), `academic_literature×single_column` (1), `academic_literature×three_column` (1), `book×1andmore_column` (1), `book×double_column` (1), `book×other_layout` (1), `book×single_column` (1), `book×three_column` (1), `colorful_textbook×1andmore_column` (1), `colorful_textbook×double_column` (1), `colorful_textbook×other_layout` (1), `colorful_textbook×single_column` (1), `colorful_textbook×three_column` (1), `exam_paper×1andmore_column` (1).
+
+### Markdown F1 por estrato
+
+| Motor (variante) | PPT2PDF×1andmore_column | PPT2PDF×double_column | PPT2PDF×other_layout | PPT2PDF×single_column | academic_literature×1andmore_column | academic_literature×double_column | academic_literature×other_layout | academic_literature×single_column | academic_literature×three_column | book×1andmore_column | book×double_column | book×other_layout | book×single_column | book×three_column | colorful_textbook×1andmore_column | colorful_textbook×double_column | colorful_textbook×other_layout | colorful_textbook×single_column | colorful_textbook×three_column | exam_paper×1andmore_column |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| docling-default (pipeline) | 0.438 | 0.341 | 0.149 | 0.000 | 0.220 | 0.524 | 0.098 | 0.442 | 0.904 | 0.038 | 0.872 | 0.075 | 0.455 | 0.684 | 0.031 | 0.828 | 0.049 | 0.029 | 0.245 | 0.648 |
+| indra (math) | 0.025 | 0.056 | 0.000 | 0.223 | 0.269 | 0.272 | 0.054 | 0.355 | 0.908 | 0.000 | 0.837 | 0.018 | 0.453 | 0.139 | 0.054 | 0.847 | 0.075 | 0.013 | 0.073 | 0.624 |
+| pp_structurev3 (default) | 0.115 | 0.000 | 0.070 | 0.029 | 0.155 | 0.392 | 0.112 | 0.392 | 0.777 | 0.069 | 0.772 | 0.040 | 0.424 | 0.624 | 0.047 | 0.606 | 0.043 | 0.038 | 0.165 | 0.532 |
+
 ## Cobertura de títulos y jerarquía (no medible)
 
 > La métrica de **títulos/índice** solo se evalúa en las páginas que la anotación marca con `category_type=title`; en el resto queda `N/A` y **no** entra en la media (no se diluye en un promedio global). El dataset `OmniDocBench` (v1.6, 1651 páginas) anota `title` en **1179** páginas (el **71.4 %**); el resto no tiene GT de títulos.
