@@ -199,6 +199,52 @@ def test_default_backends_solo_nombres_que_producen_filas():
         assert name in PROVIDERS, name
 
 
+def test_formula_default_sin_motores_fantasma():
+    """`formula`: cada nombre de `DEFAULT_BACKENDS` resuelve a una fabrica real.
+
+    Regla de la tarjeta: el default no anuncia lo que nunca produce fila. Los 7
+    nombres del default salen de `PROVIDERS` (runner) o de las `EXTRA_FACTORIES`
+    del banco, y ninguno es un `unavailable_factory` (eso seria un `skipped`
+    anunciado en el default = motor fantasma). Las 5 alternativas declaradas sin
+    integrar (`texify`/`nougat`/`pix2text`/`texteller`/`img2latex`) quedan FUERA
+    del default, disponibles solo via `--backends` como `skipped` con motivo.
+    """
+    from common.runner import PROVIDERS
+    from features.formula.bank import DEFAULT_BACKENDS, EXTRA_FACTORIES, SPEC
+
+    defaults = [b.strip() for b in DEFAULT_BACKENDS.split(",") if b.strip()]
+    real = {**PROVIDERS, **EXTRA_FACTORIES}
+
+    # (1) Todo nombre del default existe y NO es un `unavailable_factory`.
+    #     Chequeo ESTRUCTURAL (sin cargar modelos): una `unavailable_factory`
+    #     se reconoce por su qualname; llamarla dispararia carga de pesos.
+    def _es_unavailable(factory) -> bool:
+        return "unavailable_factory" in getattr(factory, "__qualname__", "")
+
+    for name in defaults:
+        assert name in real, f"{name}: anunciado en el default sin fabrica"
+        assert not _es_unavailable(real[name]), (
+            f"{name}: en el default pero es unavailable (motor fantasma)")
+
+    # (2) Las declaradas sin integrar NO viven en el default y sí en las EXTRA
+    #     como `unavailable_factory` (skipped honesto si se piden explicitamente).
+    declaradas_sin_integrar = {"texify", "nougat", "pix2text", "texteller", "img2latex"}
+    for name in declaradas_sin_integrar:
+        assert name not in defaults, f"{name}: no debe estar en el default"
+        assert name in EXTRA_FACTORIES, name
+        assert _es_unavailable(EXTRA_FACTORIES[name]), (
+            f"{name}: debia ser unavailable_factory (skipped con motivo)")
+
+    # (3) `unimernet` es la alternativa nueva integrada: en `PROVIDERS`, no en EXTRA.
+    assert "unimernet" in defaults
+    assert "unimernet" in PROVIDERS
+    assert "unimernet" not in EXTRA_FACTORIES
+
+    # (4) `pix2tex` sigue medido (fabrica real) y es una de las declaradas.
+    assert "pix2tex" in defaults
+    assert SPEC.alternatives["pix2tex (LaTeX-OCR)"][0] == "pix2tex"
+
+
 def test_orientation_y_rectification_con_alternativa_no_paddleocr():
     """`orientation` y `rectification` ≥2 entradas, ≥1 NO pesos PaddleOCR.
 

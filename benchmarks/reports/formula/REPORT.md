@@ -4,34 +4,36 @@
 
 ## Provenance
 
-- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/formula/bank.py --limit 20 --device cpu --output-dir benchmarks/results`
+- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/formula/bank.py --limit 20 --device cpu`
 - **dataset**: `omnidocbench_formula` · **n** (por motor): `20` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **revision HF (fijada)**: `aa1ee96d106dbe53d0ae59474d75c6e6d9b53fec` — misma revision en cualquier maquina; los bytes se verifican contra `benchmarks/datasets_manifest.json`
 - **seed**: no aplica (banco determinista, sin aleatoriedad)
-- **run**: `benchmarks/results/formula/2026-11-08_16-01-52` · **fecha**: `2026-11-08_16-01-52`
-- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': []}
+- **run**: `benchmarks/results/formula/2026-11-09_10-37-15` · **fecha**: `2026-11-09_10-37-15`
+- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['directml']}
 
 ## Comparativa (media por motor)
 
 | Motor (variante) | n | LaTeX exacto ↑ | Similitud ↑ | F1 tokens ↑ | Salidas con LaTeX ↑ | ms/fórmula ↓ |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
-| indra (math) | 20 | 0.000 | 0.211 | 0.437 | N/A | **147** |
-| paddle_latex_ocr (default) | 20 | **0.050** | **0.715** | **0.829** | N/A | 7397 |
-| pix2tex (default) | 20 | 0.000 | 0.585 | 0.759 | N/A | 11452 |
-| pp-formulanet-s (direct) | 20 | 0.000 | 0.576 | 0.701 | N/A | 874 |
-| pp_structurev3 (default) | 20 | 0.000 | 0.399 | 0.560 | N/A | 2336 |
-| pp_structurev3 (pp-formulanet-s) | 20 | 0.000 | 0.607 | 0.746 | N/A | 2191 |
+| indra (math) | 20 | 0.000 | 0.211 | 0.437 | N/A | **146** |
+| paddle_latex_ocr (default) | 20 | **0.050** | **0.715** | **0.829** | N/A | 3734 |
+| pix2tex (default) | 20 | 0.000 | 0.587 | 0.757 | N/A | 5764 |
+| pp-formulanet-s (direct) | 20 | 0.000 | 0.576 | 0.701 | N/A | 854 |
+| pp_structurev3 (default) | 20 | 0.000 | 0.399 | 0.560 | N/A | 2193 |
+| pp_structurev3 (pp-formulanet-s) | 20 | 0.000 | 0.607 | 0.746 | N/A | 2247 |
+| unimernet (tiny) | 20 | 0.000 | 0.238 | 0.376 | N/A | 18685 |
 
 > En negrita, el mejor de cada métrica entre los motores **medidos** de `formula`. `N/A` = no evaluada (sin GT de esa columna **o** el motor no emite esa estructura), nunca un `0.0` inventado.
 
 ## Saltados (`skipped`) — no cuentan como ejecutados
 
-- `img2latex` — pip install img2latex
-- `nougat` — pip install nougat-ocr
-- `pix2text` — pip install pix2text (no forzado: degrada transformers/huggingface_hub y cambia opencv-python-headless→opencv-python)
-- `texify` — pip install texify
-- `texteller` — pip install texteller
-- `unimernet` — pip install unimernet (github.com/opendatalab/UniMERNet)
+- (ninguno)
+
+## Procedencia de las alternativas
+
+- `unimernet (tiny)` — modelo **independiente** (otro proyecto/checkpoint)
+
+> El motor de referencia (`pyocrust`) no se lista: es el que define el resultado base. Una alternativa con **mismo peso, distinta vía** mide el mismo modelo con otro runtime; **no** aporta un competidor independiente y así queda declarado.
 
 ## Nota de honestidad
 
@@ -45,12 +47,13 @@
 
 | Motor (variante) | LaTeX similarity ↑ (CPU) | LaTeX similarity ↑ (GPU) | ms CPU | ms GPU | provider GPU |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| indra (math) | 0.211 | 0.243 | 147 | 4182 | directml |
-| paddle_latex_ocr (default) | 0.715 | 0.694 | 7397 | 1187 | cuda |
-| pix2tex (default) | 0.585 | N/A | 11452 | N/A | n/a (no corre en GPU) |
-| pp-formulanet-s (direct) | 0.576 | 0.497 | 874 | 2514 | directml |
-| pp_structurev3 (default) | 0.399 | N/A | 2336 | N/A | n/a (no corre en GPU) |
-| pp_structurev3 (pp-formulanet-s) | 0.607 | 0.196 | 2191 | 4470 | directml |
+| indra (math) | 0.211 | 0.211 | 146 | 2813 | directml |
+| paddle_latex_ocr (default) | 0.715 | 0.715 | 3734 | 1016 | cuda |
+| pix2tex (default) | 0.587 | N/A | 5764 | N/A | n/a (no corre en GPU) |
+| pp-formulanet-s (direct) | 0.576 | 0.576 | 854 | 1903 | directml |
+| pp_structurev3 (default) | 0.399 | 0.400 | 2193 | 2781 | directml |
+| pp_structurev3 (pp-formulanet-s) | 0.607 | 0.607 | 2247 | 3485 | directml |
+| unimernet (tiny) | 0.238 | N/A | 18685 | N/A | n/a (no corre en GPU) |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.
 
