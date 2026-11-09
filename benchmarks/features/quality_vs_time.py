@@ -179,18 +179,74 @@ def _ms_ticks(ax) -> None:
         ax.xaxis.set_major_locator(MaxNLocator(nbins=4, integer=True))
 
 
-def _colores_por_motor(feature_data) -> dict[str, str]:
-    """Un color estable por motor, el mismo en todos los paneles.
+# Un color por FAMILIA (estilo Artificial Analysis: la leyenda agrupa por
+# desarrollador, no por modelo). Se reutilizan los colores ya fijados en
+# `features/layout/all_models.py` para que la misma familia tenga el mismo color
+# en las dos figuras.
+_COLORES_FAMILIA = {
+    "PaddleOCR (PP-*)": "#238b57",
+    "datalab (indra)": "#c44536",
+    "hantian": "#2878b5",
+    "omoured": "#d97706",
+    "armaggheddon": "#7b61a8",
+    "docling (IBM)": "#0f766e",
+    "easyocr (JaidedAI)": "#a16207",
+    "RapidAI": "#7c3aed",
+    "Microsoft (TATR)": "#be123c",
+    "pix2tex": "#0369a1",
+    "UniMERNet": "#4d7c0f",
+    "baseline (OpenCV)": "#6b7280",
+}
 
-    Con el color ligado al motor (y no al grupo) la leyenda global permite
-    seguir el mismo modelo de panel en panel. Paleta de 60 (tab20 x3), que cubre
-    de sobra el catálogo medido sin repetir color.
+
+def _familia(nombre: str) -> str:
+    """Familia de un motor por su nombre visible (quién firma los pesos).
+
+    El nombre lleva el runtime entre paréntesis (`pp-… (onnxruntime)`), así que
+    los mismos pesos con otro runtime caen en la MISMA familia: el color agrupa
+    por desarrollador y lo que distingue a pyocrust es la forma (★).
     """
-    import matplotlib.pyplot as plt
+    n = nombre.lower()
+    if "indra" in n:
+        return "datalab (indra)"
+    if "paddle" in n or n.startswith(("pp-", "pp_", "slanet", "uvdoc")):
+        return "PaddleOCR (PP-*)"
+    if n.startswith("docling") or "tableformer" in n:
+        return "docling (IBM)"
+    for clave in ("hantian", "omoured", "armaggheddon"):
+        if n.startswith(clave):
+            return clave
+    if "easyocr" in n:
+        return "easyocr (JaidedAI)"
+    if "rapidocr" in n:
+        return "RapidAI"
+    if "table-transformer" in n:
+        return "Microsoft (TATR)"
+    if "pix2tex" in n:
+        return "pix2tex"
+    if "unimernet" in n:
+        return "UniMERNet"
+    if "opencv" in n or "perspective" in n:
+        return "baseline (OpenCV)"
+    return "otros"
 
+
+def _colores(feature_data) -> tuple[dict[str, str], dict[str, str]]:
+    """(color por motor, color por familia) para la leyenda global."""
     nombres = sorted({n for _t, pts, _u in feature_data for n, _ms, _q, _d in pts})
-    paleta = [c for cmap in ("tab20", "tab20b", "tab20c") for c in plt.get_cmap(cmap).colors]
-    return {nombre: paleta[i % len(paleta)] for i, nombre in enumerate(nombres)}
+    familia = {nombre: _familia(nombre) for nombre in nombres}
+    por_familia = {f: _COLORES_FAMILIA.get(f, "#555555") for f in dict.fromkeys(familia.values())}
+    return {nombre: por_familia[familia[nombre]] for nombre in nombres}, por_familia
+
+
+def _frontera(points):
+    """Motores que nadie domina: no existe otro con ≤ ms y ≥ calidad (mejor en uno).
+
+    Es la envolvente que se dibuja punteada — un hecho del panel, no un ajuste.
+    """
+    return sorted((p for p in points if not any(
+        o[1] <= p[1] and o[2] >= p[2] and (o[1] < p[1] or o[2] > p[2]) for o in points)),
+        key=lambda p: p[1])
 
 
 def _panel(ax, points, title, device, colores=None) -> None:
@@ -242,6 +298,13 @@ def _panel(ax, points, title, device, colores=None) -> None:
     if xm > x0 and y1 > ym:
         ax.add_patch(Rectangle((x0, ym), xm - x0, y1 - ym, zorder=0,
                                facecolor="#2e7d32", alpha=0.07, edgecolor="none"))
+    # Frontera de Pareto (punteada): los motores que nadie domina — mismo lenguaje
+    # visual que la referencia, pero como envolvente y no como recta ajustada: es
+    # un hecho del panel, no un modelo inventado.
+    frontera = _frontera(points)
+    if len(frontera) > 1:
+        ax.plot([p[1] for p in frontera], [p[2] for p in frontera], ":",
+                color="#777777", lw=1.2, zorder=2)
     ax.set_xlabel("Runtime per unit (ms) ↓ (left = faster)", fontsize=7)
     ax.set_ylabel("Quality score ↑", fontsize=7)
     ax.grid(True, which="major", alpha=0.18)
@@ -304,25 +367,25 @@ def main() -> int:
         rows = math.ceil(n / cols)
         fig, axes = plt.subplots(rows, cols, figsize=(13, 3.6 * rows))
         axes = axes.ravel()
-        colores = _colores_por_motor(feature_data)
+        colores, por_familia = _colores(feature_data)
         for k, (title, points, _unit) in enumerate(feature_data):
             _panel(axes[k], points, title.replace("sintético", "Synthetic"), device, colores)
         for ax in axes[n:]:
             ax.axis("off")
 
-        # Leyenda global: un color (y una forma) por motor. Es lo que permite
-        # seguir el mismo modelo de panel en panel sin leer cada etiqueta.
+        # Leyenda global por FAMILIA (quién firma los pesos), no por motor: el
+        # nombre va en la etiqueta de cada punto. Mismo título que la figura de
+        # `layout/all_models.py` para que las dos se lean igual.
         fig.legend(handles=[
-            Line2D([], [], marker="*" if _is_pyocrust(m) else "o", linestyle="",
-                   markersize=8 if _is_pyocrust(m) else 5, color=colores[m], label=m)
-            for m in sorted(colores)
-        ], loc="lower center", bbox_to_anchor=(0.5, 0.030), ncol=6, frameon=False, fontsize=6.5,
-            handletextpad=0.3, columnspacing=1.0)
+            Line2D([], [], marker="o", linestyle="", markersize=7, color=color, label=fam)
+            for fam, color in sorted(por_familia.items())
+        ], loc="lower center", bbox_to_anchor=(0.5, 0.032), ncol=6, frameon=False, fontsize=8,
+            title="Color: model family", title_fontsize=8.5, handletextpad=0.3, columnspacing=1.4)
         fig.suptitle(f"pyocrust — quality vs. runtime by feature · {device.upper()}", fontsize=14)
-        fig.text(0.5, 0.016,
-                 f"★ pyocrust · ● alternativa · zona verde = menos tiempo y más calidad "
-                 f"(mediana del panel). Cada punto es una medición {device.upper()} del mismo banco; "
-                 f"referencias externas excluidas.",
+        fig.text(0.5, 0.014,
+                 f"★ pyocrust · ● alternativa · zona verde = menos tiempo y más calidad (mediana del panel) · "
+                 f"línea punteada = frontera de Pareto (ningún motor la domina). "
+                 f"Cada punto es una medición {device.upper()} del mismo banco; referencias externas excluidas.",
                  ha="center", fontsize=8, color="#555555")
         fig.tight_layout(rect=(0, 0.10, 1, 0.96))
         FIGURES.mkdir(parents=True, exist_ok=True)
@@ -364,6 +427,20 @@ def _self_check() -> None:
     anclas = {(round(t.xy[0], 6), round(t.xy[1], 6)) for t in etiquetas}
     esperado = {(round(ms, 6), round(q, 6)) for _n, ms, q, _d in puntos}
     assert esperado <= anclas, f"etiquetas despegadas de su punto: {sorted(esperado - anclas)}"
+    # El mapa de familias: una regla mal escrita caería en «otros» y pintaría el
+    # punto en gris de relleno sin avisar de que la agrupación está rota.
+    conocidos = ("easyocr (default)", "pp_ocrv6 (tiny)", "rapidocr (default)",
+                 "uvdoc (onnxruntime)", "docling-default (pipeline)", "hantian/v8-n",
+                 "armaggheddon/y26-n (2.6M)", "table-transformer-structure-recognition (default)",
+                 "pix2tex (default)", "unimernet (tiny)", "perspective-4corner (baseline)",
+                 "indra (math)", "PP-StructureV3 (paddleocr)", "pp-formulanet-s (direct)")
+    sin_familia = [n for n in conocidos if _familia(n) not in _COLORES_FAMILIA]
+    assert not sin_familia, f"motores sin familia declarada: {sin_familia}"
+    # Frontera de Pareto con datos conocidos: `a` y `c` los domina `d` (misma
+    # calidad en menos ms) y `b` no lo domina nadie (nadie llega a su calidad).
+    ejemplo = [("a", 10.0, 0.5, "cpu"), ("b", 20.0, 0.9, "cpu"),
+               ("c", 30.0, 0.5, "cpu"), ("d", 5.0, 0.5, "cpu")]
+    assert [p[0] for p in _frontera(ejemplo)] == ["d", "b"], _frontera(ejemplo)
 
     points, device, unit = parse_quality_time("text", "F1 palabra")
     assert len(points) >= 2, points
