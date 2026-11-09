@@ -18,6 +18,10 @@ dist/
 *.so
 *.dylib
 
+# DLL del provider de ORT que hay que copiar junto al .pyd para que registre
+# (se regeneran desde target/<perfil>/; ver benchmarks/GPU.md). No versionar (93 MB).
+pyocrust/onnxruntime_providers_*.dll
+
 # Rust
 *.pdb
 

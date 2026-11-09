@@ -35,6 +35,16 @@ sha2 = "0.10"
 cuda = ["oar-ocr/cuda"]
 directml = ["oar-ocr/directml"]
 
+# Parche local de `ort-sys` 2.0.0-rc.13 (misma version, ver `vendor/ort-sys/`):
+# oar-ocr 0.10.x fija `ort = "=2.0.0-rc.13"` (ORT 1.28), cuyo provider CUDA no
+# trae kernels sm_120 y en Blackwell (RTX PRO 4000, compute 12.0) falla con
+# cudaErrorNoKernelImageForDevice. El unico cambio es `build/download/dist.tsv`:
+# apunta el dist de Windows `cuda13,tensorrt,nvrtx,directml` al binario oficial
+# `ms@1.31.0` de pyke (ORT 1.31, si trae sm_120/sm_120a). La API C de ORT es
+# append-only, asi que los bindings de rc.13 (api-27) enlazan contra la lib 1.31.
+[patch.crates-io]
+ort-sys = { path = "vendor/ort-sys" }
+
 [profile.release]
 opt-level = 3
 lto = true

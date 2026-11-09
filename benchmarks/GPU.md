@@ -43,9 +43,10 @@ en los bancos (tarjeta `t_13a1b2b7`: `VeloceOCR`/`TaskPredictor` aceptan
 ### Estado de EPs en este host
 
 `--features directml` **sí** registra DirectML (`onnxruntime` lo trae
-estáticamente) y **es el EP GPU que se publica**. `--features cuda` compila y,
-con las DLL del provider en el sitio correcto, **registra** CUDA — pero **no
-ejecuta** en este host. Verificado con salida real (2026-11-09):
+estáticamente) y es un EP GPU válido. `--features cuda` compila y, con las DLL
+del provider en el sitio correcto **y el parche de ORT 1.31** (§«Cómo ejecutar
+con CUDA»), **registra y EJECUTA** CUDA en esta GPU Blackwell. Verificado con
+salida real (2026-11-09):
 
 ```
 $ maturin develop --features directml                              # EXIT=0
@@ -54,19 +55,19 @@ $ probe: available_providers() -> ['directml']
          device='directml' -> provider_effective='directml'
          device='cuda'     -> PyOcrValueError (no registra)
 
-$ maturin develop --features cuda                                  # EXIT=0
+$ maturin develop --features cuda   # provider DLL junto al .pyd + parche ort-sys→ORT 1.31
 $ probe (DLL del provider copiadas junto a _pyocrust_core.pyd):
          available_providers() -> ['cuda']          # registra
-         device='auto' -> provider_effective='cuda' # pero:
-         inference -> PyOCRRuntimeError:
-           "... Non-zero status code returned while running HardSigmoid node.
-            Status Message: CUDA error cudaErrorNoKernelImageForDevice:
-            no kernel image is available for execution on the device"
+         device='auto' -> provider_effective='cuda' # y ahora sí ejecuta:
+$ .venv/Scripts/python.exe benchmarks/smoke_cuda.py
+   CUDA pyocrust ok   ...   15 motores: 13 CUDA · 2 SKIP (modelo no descargado) · 0 FAIL
 ```
 
-La causa del fallo de **ejecución** está en §«Cómo ejecutar con CUDA»: la GPU es
-Blackwell **sm_120** y la ORT 1.28 que enlaza el crate no trae kernels para esa
-arquitectura. CUDA registra, pero **ninguna inferencia CUDA puede correr**.
+La causa histórica del fallo de **ejecución** —GPU Blackwell **sm_120** contra la
+ORT 1.28 que enlazaba el crate— está resuelta en §«Cómo ejecutar con CUDA»: se
+parcheó `ort-sys` para enlazar el binario **ORT 1.31** de pyke, que sí trae
+kernels `sm_120`/`sm_120a`. CUDA **registra y ejecuta**; DirectML sigue siendo un
+EP GPU válido para comparar, medido por separado.
 
 
 ## Comparativa CPU vs GPU (`text` y `formula`)
@@ -228,19 +229,16 @@ device GPU; y en este host tampoco una fila `ok` con `provider_effective=cuda`.
 
 ## Cómo ejecutar con CUDA (CUDA 13)
 
-> Estado (2026-11-09): build y **registro** resueltos y verificados. La
-> **ejecución** NO funciona en este host: la GPU es Blackwell **sm_120** y la
-> ORT 1.28 que enlaza el crate no trae kernels para esa arquitectura
-> (`cudaErrorNoKernelImageForDevice`). El EP GPU que se publica es **DirectML**.
-> Para números CUDA reales hace falta una ORT con kernels sm_120 (subir el crate
-> `ort`/`ort-sys` a una versión con ORT ≥ la que introdujo Blackwell, o compilar
-> ORT con `CMAKE_CUDA_ARCHITECTURES=120`).
+> Estado (2026-11-09): build, **registro y ejecución** resueltos y verificados.
+> La GPU es Blackwell **sm_120** y la ORT 1.28 que enlazaba el crate no traía
+> kernels para esa arquitectura (`cudaErrorNoKernelImageForDevice`); se resolvió
+> vendorizando `ort-sys` para enlazar el binario **ORT 1.31** de pyke (trae
+> `sm_120`/`sm_120a`). Smoke real: **13/15 motores `CUDA ok`, 0 FAIL**.
 
 En este host el EP acelerador que registra *por defecto* es **DirectML**
 (`--features directml`; va compilado dentro de la ORT, no hay nada que cargar).
-CUDA necesita un par de pasos extra y aun así no ejecuta aquí. La causa del
-registro NO es que falte la librería: es **dónde busca el provider**; la del
-fallo de ejecución es la **arquitectura de la GPU**.
+CUDA necesita un par de pasos extra. La causa del registro NO es que falte la
+librería: es **dónde busca el provider**.
 
 
 1. El `.pyd` enlaza **estáticamente** su ORT (crate Rust `ort` 2.0.0-rc.13 vía
@@ -270,13 +268,18 @@ vale** (el crate usa 1.28; ABI distinto).
 cd D:/workspace/Plaiground/ac_documentalia/rust-bindings/pyocrust
 export VIRTUAL_ENV="D:/workspace/Plaiground/ac_documentalia/rust-bindings/pyocrust/.venv"
 
-# 1) Build con CUDA. Si el .pyd está bloqueado por otro proceso, maturin puede
-#    fallar al copiar; entonces: cp -f target/maturin/pyocrust_core.dll pyocrust/_pyocrust_core.pyd
+# 1) Build con CUDA. El parche de Cargo.toml ([patch.crates-io] ort-sys) hace que
+#    ort-sys enlace ORT 1.31 (kernels sm_120) automáticamente. Si el .pyd está
+#    bloqueado por otro proceso, maturin puede fallar al copiar; entonces:
+#    cp -f target/debug/pyocrust_core.dll pyocrust/_pyocrust_core.pyd
 .venv/Scripts/maturin.exe develop --features cuda
+
+# 2) Las DLL del provider deben quedar JUNTO al .pyd (ORT no las busca por PATH):
+cp -f target/debug/onnxruntime_providers_cuda.dll target/debug/onnxruntime_providers_shared.dll pyocrust/
 ```
 
 ```python
-# 2) Registrar el runtime CUDA 13 (Windows Py3.8+ ignora PATH → add_dll_directory).
+# 3) Registrar el runtime CUDA 13 (Windows Py3.8+ ignora PATH → add_dll_directory).
 #    Helper del paquete (una sola versión, no un bloque por banco):
 import pyocrust
 print(pyocrust.available_providers())
@@ -296,22 +299,31 @@ deja en `target/<perfil>/`) sale `['cuda']`. `maturin develop` solo instala el
 `.pyd`, así que en un empaquetado real esas DLL tienen que viajar con él.
 
 Con `available_providers()==['cuda']` el motor se construye con
-`provider_effective='cuda'` — **pero en este host la inferencia falla**:
+`provider_effective='cuda'` y **la inferencia ejecuta** (smoke real: 13/15
+motores `CUDA ok`, 2 SKIP por modelo no descargado, 0 FAIL).
 
-```
-CUDA error cudaErrorNoKernelImageForDevice:
-no kernel image is available for execution on the device
-```
+### Por qué fallaba y cómo se cerró (ORT con kernels sm_120)
 
-Causa: la GPU es **RTX PRO 4000 Blackwell, compute capability 12.0 (sm_120)** y
-las kernels precompiladas de la ORT 1.28 del crate no cubren sm_120. Prueba
-independiente: el `onnxruntime` **1.31.1** del propio venv corre el MISMO `.onnx`
-en `CUDAExecutionProvider` sin error (la ORT 1.31 sí trae kernels Blackwell). Es
-decir: driver, GPU y runtime CUDA 13 funcionan; lo que falta son kernels de la
-versión de ORT que enlaza `pyocrust`.
+La GPU es **RTX PRO 4000 Blackwell, compute capability 12.0 (sm_120)**: las
+kernels precompiladas de la **ORT 1.28** que enlazaba el crate (`oar-ocr` 0.10.x
+fija `ort = "=2.0.0-rc.13"` → ORT 1.28) no cubren sm_120 →
+`cudaErrorNoKernelImageForDevice`. Prueba independiente: el `onnxruntime` 1.31.1
+del venv corría el MISMO `.onnx` en CUDA sin error (driver, GPU y runtime CUDA 13
+funcionan; lo que faltaban eran kernels de la versión de ORT). Medido con
+`grep -ao` sobre los providers: ORT 1.28 trae `sm_120` **1 vez** (residual) y
+`sm_120a` **0**; ORT 1.31 trae `sm_120` 24 y `sm_120a` 29.
 
-**Conclusión de este host:** CUDA **registra pero no ejecuta**; la pata GPU se
-mide con **DirectML** (`--features directml`, ya re-medida). Cerrar CUDA exige un
-build de ORT con sm_120 (subir `ort`/`ort-sys`, o compilar ORT con
-`CMAKE_CUDA_ARCHITECTURES=120`) — no es un problema de rutas ni de DLLs.
+No hay versión publicada de `oar-ocr` que enlace ORT ≥1.31 (0.10.2 sigue fijando
+rc.13). Se resolvió **sin tocar el código Rust**: `ort-sys` es el crate que
+gestiona la lib nativa, así que se vendoriza (`vendor/ort-sys/`, misma versión
+2.0.0-rc.13) y se edita **una línea** de `build/download/dist.tsv`, apuntando el
+dist Windows `cuda13,tensorrt,nvrtx,directml` al binario oficial **`ms@1.31.0`**
+de pyke (ORT 1.31, ya trae sm_120). `Cargo.toml` lo activa con
+`[patch.crates-io] ort-sys = { path = "vendor/ort-sys" }`. La API C de ORT es
+append-only, así que los bindings de rc.13 (api-27) enlazan contra la lib 1.31
+sin recompilar el crate `ort` ni `oar-ocr`.
+
+**Conclusión de este host:** CUDA **registra y ejecuta** en sm_120 con este
+parche. DirectML sigue siendo un EP GPU válido para comparar; cada campaña mide
+un solo EP (cambiar de EP obliga a re-medir toda la pata GPU).
 
