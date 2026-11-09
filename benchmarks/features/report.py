@@ -1101,8 +1101,8 @@ def consolidated_table(features: Sequence[str]) -> str:
         "`benchmarks/results/_gpu/<feature>/` — mismo banco, mismo dataset y mismo GT "
         "en ambas. La columna GPU solo lista motores que corrieron en un acelerador "
         "real (`provider_effective`); el resto queda `N/A` (no corre en GPU / `skipped`). "
-        "`N/A` = no ejecutado, jamás un `0`. En este host el acelerador real de pyocrust "
-        "es **DirectML** (`--device gpu` → `device=auto` → `provider_effective=directml`).",
+        "`N/A` = no ejecutado, jamás un `0`. El acelerador real de cada fila lo "
+        "confirma `provider_effective` (columna *provider GPU*), no una suposición del host.",
         "",
         "| Feature | Motor (variante) | Calidad (titular) | ms CPU | ms GPU | provider GPU |",
         "| :--- | :--- | ---: | ---: | ---: | :--- |",

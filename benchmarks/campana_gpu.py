@@ -20,8 +20,20 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 PY = REPO / ".venv" / "Scripts" / "python.exe"
 BENCH = REPO / "benchmarks"
-LIMIT = {"layout": 40}  # el resto, 20
+# Límites del banco estratificado (t_4d2155d3, features/sample_banks.py::BANKS);
+# el resto conserva su banco de 20. Deben casar con la run CPU de referencia.
+LIMIT = {"formula": 10, "table": 8, "full_page": 6, "layout": 40}  # el resto, 20
 FEATURES = ["text", "formula", "layout", "orientation", "rectification", "text_line", "seal", "table", "full_page"]
+
+
+def pyd_sha256() -> str:
+    """sha256 del `.pyd` desplegado: deja constancia de QUÉ binario se midió."""
+    import hashlib
+
+    pyd = REPO / "pyocrust" / "_pyocrust_core.pyd"
+    h = hashlib.sha256(pyd.read_bytes()).hexdigest() if pyd.exists() else "AUSENTE"
+    print(f"[binario] {pyd.name} sha256={h} mtime={pyd.stat().st_mtime if pyd.exists() else '-'}", flush=True)
+    return h
 
 
 def bancos_vivos() -> int:
@@ -37,6 +49,8 @@ def bancos_vivos() -> int:
 vivos = bancos_vivos()
 if vivos != 0:
     raise SystemExit(f"ABORTADO: hay {vivos} banco(s) corriendo; el criterio exige uno a la vez")
+
+pyd_sha256()
 
 for feature in FEATURES:
     n = LIMIT.get(feature, 20)

@@ -123,8 +123,11 @@ def _panel(ax, entries, title) -> None:
     for bar, e in zip(bars, entries):
         ms = f"{e['ms']:.0f} ms" if e["ms"] is not None else "?"
         lic = e["license"] or "unverified"
+        # `quality` puede ser None (métrica no evaluada para ese motor/device):
+        # se rotula "N/A" en vez de reventar al formatear (igual que la ruta Markdown).
+        q = f"{e['quality']:.3f}" if e["quality"] is not None else "N/A"
         ax.text(bar.get_width() + top * 0.01, bar.get_y() + bar.get_height() / 2,
-                f"{e['quality']:.3f} · {ms} · {lic}", va="center", fontsize=6.5)
+                f"{q} · {ms} · {lic}", va="center", fontsize=6.5)
     ax.set_yticks(range(len(vals)))
     ax.set_yticklabels([e["motor"] for e in entries], fontsize=7)
     ax.set_xlim(0, top * 1.65)

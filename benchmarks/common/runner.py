@@ -306,6 +306,27 @@ def select_device_rows(rows: Iterable[dict], device: str) -> list[dict]:
     return [r for r in rows if str(r.get("provider_effective", "")).lower() in GPU_PROVIDERS]
 
 
+def preload_gpu_runtime() -> None:
+    """Carga el runtime CUDA de `torch` **antes** que el provider CUDA de ORT.
+
+    Windows: el provider CUDA de ORT (`onnxruntime_providers_cuda.dll`) resuelve
+    `cudnn64_9.dll` desde `torch/lib` pero `cudnn_ops64_9.dll`/`cublas64_13.dll`
+    del **CUDA Toolkit del PATH** (build distinto). Si eso ocurre primero, el
+    `import torch` posterior revienta con `WinError 127` en `cudnn_cnn64_9.dll` y
+    los motores torch (`easyocr`, `paddle_latex_ocr`, YOLO de `layout`) quedan
+    `skipped` aunque la GPU funcione (medido 2026-11-09). Importando `torch`
+    primero, sus DLL (cudnn/cublas) quedan cargadas y ORT reutiliza ESE cudnn
+    consistente. Idempotente y best-effort: sin torch no hace nada, y un fallo
+    aquí nunca debe abortar el banco.
+    """
+    try:
+        import torch  # noqa: PLC0415
+
+        torch.cuda.is_available()
+    except Exception:  # noqa: BLE001 - best-effort
+        pass
+
+
 def module_available(name: str) -> bool:
     """¿Está instalado `name` en este intérprete? (para decidir `skipped`)."""
     try:
@@ -953,42 +974,70 @@ def _docling_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
     return run
 
 
+# PP-StructureV3 vive en el venv **del banco** (`paddleocr`/`paddlepaddle` ya
+# instalados), pero su pipeline **segfaultea (exit 139) o cuelga** en proceso sobre
+# páginas reales (medido 2026-11-09: muere en una imagen `11112x7925` tras cargar
+# sus 16 submodelos; en sonda 1/5 páginas cuelga con CPU idle). Por eso se ejecuta
+# por **subproceso con timeout**, igual que `docling`/`unimernet`: un segfault o un
+# cuelgue mata solo a ese hijo y la fila sale `error`/`skipped` con motivo — nunca
+# aborta el banco entero. Ojo: el `ms` medido incluye spawn + carga de los 16
+# submodelos + inferencia (como el de docling), no solo la inferencia.
+_PP_STRUCTUREV3_RUNNER = r'''
+import sys, warnings
+warnings.filterwarnings("ignore")
+sys.stdout.reconfigure(encoding="utf-8")
+import numpy as np
+from PIL import Image
+from paddleocr import PPStructureV3
+
+image_path, device = sys.argv[1], sys.argv[2]
+# `enable_mkldnn=False`: este paddle (3.3.1) revienta al ejecutar un modelo por el
+# motor oneDNN/PIR ("ConvertPirAttribute2RuntimeAttribute not support
+# [pir::ArrayAttribute<pir::DoubleAttribute>]"); el EP de CPU nativo si corre.
+pipeline = PPStructureV3(device=device, enable_mkldnn=False)
+results = pipeline.predict(np.asarray(Image.open(image_path).convert("RGB")))
+if not results:
+    sys.exit(0)
+payload = results[0].markdown
+# PP-StructureV3 devuelve el Markdown como dict (`markdown_texts`) o como str.
+markdown = (str(payload.get("markdown_texts", "") or "") if isinstance(payload, dict)
+            else str(payload or ""))
+sys.stdout.write(markdown)
+'''
+
+
 def _pp_structurev3_api_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
     """Pipeline completo de página de **PaddleOCR PP-StructureV3** (Apache-2.0) -> Markdown.
 
     Alternativa externa al `pp_structurev3` de `pyocrust`: el **mismo** pipeline
-    publicado por PaddleOCR (layout + OCR + tablas + fórmulas), envuelto aquí en
-    Python. El motor propio es una implementación distinta del mismo modelo, así
-    que la comparación es 1:1 sobre el mismo GT de documento.
+    publicado por PaddleOCR (layout + OCR + tablas + fórmulas). Corre en
+    **subproceso con timeout** (mismo patrón que `docling`/`unimernet`, ver arriba):
+    el pipeline en proceso segfaultea o cuelga en páginas reales, así que aislarlo
+    evita que aborte el banco. El intérprete es el del propio banco
+    (`sys.executable`), donde ya viven `paddleocr`/`paddlepaddle`.
     """
-    try:
-        from paddleocr import PPStructureV3  # noqa: PLC0415
-    except ImportError as exc:  # pragma: no cover - entorno sin paddleocr
-        raise ProviderUnavailable("pip install paddleocr paddlex[ocr]") from exc
-
-    # `enable_mkldnn=False`: este paddle (3.3.1) revienta al ejecutar un modelo
-    # por el motor oneDNN/PIR ("ConvertPirAttribute2RuntimeAttribute not support
-    # [pir::ArrayAttribute<pir::DoubleAttribute>]"); el EP de CPU nativo si corre.
-    # Sin este flag el backend no levanta ni el warmup (error, no `skipped`).
-    # Carga perezosa: cargar todos los modelos la primera vez, una sola vez por run.
-    pipeline = PPStructureV3(
-        device=("gpu" if device != "cpu" else "cpu"), enable_mkldnn=False
-    )
+    # Chequeo barato en el PADRE: no se importa `paddle` aquí (importar el motor en
+    # proceso es justo lo que colgaba/segfaulteaba). Si falta el paquete -> `skipped`.
+    if importlib.util.find_spec("paddleocr") is None:  # pragma: no cover - entorno sin paddleocr
+        raise ProviderUnavailable("pip install paddleocr paddlex[ocr]")
+    paddle_device = "gpu" if device != "cpu" else "cpu"
 
     def run(image: Image.Image) -> OcrOutput:
-        import numpy as np  # noqa: PLC0415
-
-        start = time.perf_counter()
-        results = pipeline.predict(np.asarray(image.convert("RGB")))
-        elapsed_ms = (time.perf_counter() - start) * 1000.0
-        markdown = ""
-        if results:
-            payload = results[0].markdown
-            if isinstance(payload, dict):
-                markdown = str(payload.get("markdown_texts", "") or "")
-            else:
-                markdown = str(payload or "")
-        return OcrOutput(text=markdown, elapsed_ms=elapsed_ms,
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "page.png"
+            image.convert("RGB").save(path, format="PNG")
+            start = time.perf_counter()
+            proc = subprocess.run(
+                [sys.executable, "-c", _PP_STRUCTUREV3_RUNNER, str(path), paddle_device],
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900,
+            )
+            elapsed_ms = (time.perf_counter() - start) * 1000.0
+        if proc.returncode != 0:
+            tail = (proc.stderr or "").strip().splitlines()[-1:]
+            detail = f"exit {proc.returncode}" + (f": {tail[-1]}" if tail else
+                                                  " (sin stderr: probable segfault/cuelgue del pipeline)")
+            raise RuntimeError(f"pp_structurev3_api: {detail}")
+        return OcrOutput(text=proc.stdout, elapsed_ms=elapsed_ms,
                          extra={"engine": "paddleocr", "model": "PP-StructureV3"})
 
     run.provider_effective = "cpu" if device == "cpu" else "cuda"
@@ -2216,6 +2265,10 @@ def run_backends(
     all_rows: list[dict] = []
     summary: dict[str, dict] = {}
     out_dir.mkdir(parents=True, exist_ok=True)
+    if device != "cpu":
+        # Antes de construir NINGÚN motor: deja cargado el cudnn/cublas de torch
+        # para que el provider CUDA de ORT los reutilice (ver preload_gpu_runtime).
+        preload_gpu_runtime()
     for backend in backends:
         factories = factories or {}
         if backend not in PROVIDERS and backend not in factories:
