@@ -47,12 +47,12 @@
 
 | Motor (variante) | LaTeX similarity ↑ (CPU) | LaTeX similarity ↑ (GPU) | ms CPU | ms GPU | provider GPU |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| indra (math) | 0.326 | 0.243 | 141 | 1989 | directml |
-| paddle_latex_ocr (default) | 0.653 | 0.653 | 16326 | 2276 | cuda |
+| indra (math) | 0.326 | 0.326 | 141 | 460 | cuda |
+| paddle_latex_ocr (default) | 0.653 | 0.653 | 16326 | 2763 | cuda |
 | pix2tex (default) | 0.552 | N/A | 5500 | N/A | n/a (no corre en GPU) |
-| pp-formulanet-s (direct) | 0.499 | 0.499 | 998 | 2487 | directml |
-| pp_structurev3 (default) | 0.398 | 0.398 | 2774 | 2110 | directml |
-| pp_structurev3 (pp-formulanet-s) | 0.497 | 0.497 | 2474 | 2800 | directml |
+| pp-formulanet-s (direct) | 0.499 | N/A | 998 | 1910 | cuda |
+| pp_structurev3 (default) | 0.398 | 0.128 | 2774 | 2236 | cuda |
+| pp_structurev3 (pp-formulanet-s) | 0.497 | N/A | 2474 | 2254 | cuda |
 | unimernet (tiny) | 0.260 | N/A | 17493 | N/A | n/a (no corre en GPU) |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.

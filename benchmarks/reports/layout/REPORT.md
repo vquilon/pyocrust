@@ -88,48 +88,48 @@
 
 | Motor (variante) | mAP@IoU 0.5 ↑ (CPU) | mAP@IoU 0.5 ↑ (GPU) | ms CPU | ms GPU | provider GPU |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| armaggheddon/y11-m | 0.542 | 0.542 | 365 | 37 | cuda |
-| armaggheddon/y11-n | 0.522 | 0.522 | 65 | 33 | cuda |
-| armaggheddon/y11-s | 0.516 | 0.516 | 167 | 32 | cuda |
-| armaggheddon/y26-m (21.8M) | 0.568 | 0.568 | 333 | 34 | cuda |
-| armaggheddon/y26-n (2.6M) | 0.572 | 0.572 | 69 | 32 | cuda |
-| armaggheddon/y26-s | 0.476 | 0.476 | 157 | 32 | cuda |
+| armaggheddon/y11-m | 0.542 | 0.542 | 365 | 42 | cuda |
+| armaggheddon/y11-n | 0.522 | 0.522 | 65 | 30 | cuda |
+| armaggheddon/y11-s | 0.516 | 0.516 | 167 | 29 | cuda |
+| armaggheddon/y26-m (21.8M) | 0.568 | 0.568 | 333 | 31 | cuda |
+| armaggheddon/y26-n (2.6M) | 0.572 | 0.572 | 69 | 29 | cuda |
+| armaggheddon/y26-s | 0.476 | 0.476 | 157 | 30 | cuda |
 | docling-layout-heron-101 (default) | 0.818 | N/A | 1005 | N/A | n/a (no corre en GPU) |
-| hantian/v10-b | 0.484 | 0.484 | 456 | 35 | cuda |
-| hantian/v10-l | 0.533 | 0.533 | 569 | 39 | cuda |
-| hantian/v10-m | 0.526 | 0.526 | 332 | 39 | cuda |
+| hantian/v10-b | 0.484 | 0.484 | 456 | 33 | cuda |
+| hantian/v10-l | 0.533 | 0.533 | 569 | 36 | cuda |
+| hantian/v10-m | 0.526 | 0.526 | 332 | 41 | cuda |
 | hantian/v10-n | 0.461 | 0.461 | 66 | 30 | cuda |
 | hantian/v10-s | 0.495 | 0.495 | 131 | 30 | cuda |
-| hantian/v11-l | 0.502 | 0.502 | 422 | 39 | cuda |
-| hantian/v11-m (21.8M) | 0.520 | 0.520 | 342 | 33 | cuda |
-| hantian/v11-n (2.6M) | 0.520 | 0.520 | 67 | 28 | cuda |
-| hantian/v11-s | 0.473 | 0.473 | 163 | 29 | cuda |
-| hantian/v12-l | 0.550 | 0.550 | 711 | 48 | cuda |
-| hantian/v12-m | 0.523 | 0.523 | 447 | 38 | cuda |
-| hantian/v12-n | 0.547 | 0.547 | 88 | 33 | cuda |
-| hantian/v12-s | 0.542 | 0.542 | 180 | 34 | cuda |
+| hantian/v11-l | 0.502 | 0.502 | 422 | 48 | cuda |
+| hantian/v11-m (21.8M) | 0.520 | 0.520 | 342 | 40 | cuda |
+| hantian/v11-n (2.6M) | 0.520 | 0.520 | 67 | 33 | cuda |
+| hantian/v11-s | 0.473 | 0.473 | 163 | 35 | cuda |
+| hantian/v12-l | 0.550 | 0.550 | 711 | 53 | cuda |
+| hantian/v12-m | 0.523 | 0.523 | 447 | 42 | cuda |
+| hantian/v12-n | 0.547 | 0.547 | 88 | 34 | cuda |
+| hantian/v12-s | 0.542 | 0.542 | 180 | 31 | cuda |
 | hantian/v8-l | 0.486 | 0.486 | 699 | 37 | cuda |
-| hantian/v8-m | 0.494 | 0.494 | 364 | 31 | cuda |
-| hantian/v8-n | 0.545 | 0.545 | 68 | 29 | cuda |
-| hantian/v8-s | 0.495 | 0.495 | 207 | 28 | cuda |
-| hantian/v8-x | 0.490 | 0.490 | 1025 | 43 | cuda |
-| hantian/y26-l | 0.508 | 0.506 | 433 | 39 | cuda |
-| hantian/y26-m | 0.492 | 0.492 | 353 | 31 | cuda |
-| hantian/y26-n | 0.499 | 0.499 | 69 | 32 | cuda |
-| hantian/y26-s | 0.492 | 0.492 | 150 | 33 | cuda |
+| hantian/v8-m | 0.494 | 0.494 | 364 | 33 | cuda |
+| hantian/v8-n | 0.545 | 0.545 | 68 | 25 | cuda |
+| hantian/v8-s | 0.495 | 0.495 | 207 | 27 | cuda |
+| hantian/v8-x | 0.490 | 0.490 | 1025 | 47 | cuda |
+| hantian/y26-l | 0.508 | 0.506 | 433 | 37 | cuda |
+| hantian/y26-m | 0.492 | 0.492 | 353 | 32 | cuda |
+| hantian/y26-n | 0.499 | 0.499 | 69 | 29 | cuda |
+| hantian/y26-s | 0.492 | 0.492 | 150 | 32 | cuda |
 | omoured/v10-b (20.5M) | 0.382 | 0.382 | 415 | 33 | cuda |
 | omoured/v10-l | 0.366 | 0.366 | 550 | 36 | cuda |
-| omoured/v10-m | 0.381 | 0.381 | 292 | 31 | cuda |
+| omoured/v10-m | 0.381 | 0.381 | 292 | 33 | cuda |
 | omoured/v10-n | 0.485 | 0.485 | 70 | 28 | cuda |
-| omoured/v10-s | 0.427 | 0.427 | 140 | 29 | cuda |
-| omoured/v10-x (31.7M) | 0.451 | 0.451 | 748 | 44 | cuda |
-| omoured/v11-l | 0.350 | 0.350 | 481 | 38 | cuda |
-| omoured/v11-m | 0.392 | 0.392 | 354 | 32 | cuda |
-| omoured/v11-n | 0.448 | 0.448 | 137 | 28 | cuda |
-| omoured/v11-s | 0.406 | 0.406 | 144 | 29 | cuda |
-| omoured/v11-x | 0.331 | 0.331 | 849 | 49 | cuda |
-| pp-doclayoutv3 (130M) | 0.796 | 0.796 | 2219 | 437 | directml |
-| pp_structurev3 (default) | 0.751 | 0.751 | 7111 | 6853 | directml |
+| omoured/v10-s | 0.427 | 0.427 | 140 | 28 | cuda |
+| omoured/v10-x (31.7M) | 0.451 | 0.451 | 748 | 54 | cuda |
+| omoured/v11-l | 0.350 | 0.350 | 481 | 45 | cuda |
+| omoured/v11-m | 0.392 | 0.392 | 354 | 38 | cuda |
+| omoured/v11-n | 0.448 | 0.448 | 137 | 36 | cuda |
+| omoured/v11-s | 0.406 | 0.406 | 144 | 43 | cuda |
+| omoured/v11-x | 0.331 | 0.331 | 849 | 55 | cuda |
+| pp-doclayoutv3 (130M) | 0.796 | 0.796 | 2219 | 488 | cuda |
+| pp_structurev3 (default) | 0.751 | 0.751 | 7111 | 2938 | cuda |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.
 

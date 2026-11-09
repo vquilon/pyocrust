@@ -44,8 +44,8 @@
 | Engine (variant) | Markdown F1 ↑ (CPU) | Markdown F1 ↑ (GPU) | ms CPU | ms GPU | GPU provider |
 | :--- | ---: | ---: | ---: | ---: | :--- |
 | docling-default (pipeline) | 0.204 | N/A | 25723 | N/A | n/a (does not run on GPU) |
-| indra (math) | 0.029 | 0.029 | 607 | 4802 | directml |
-| pp_structurev3 (default) | 0.083 | 0.085 | 5865 | 4754 | directml |
+| indra (math) | 0.029 | 0.029 | 607 | 1118 | cuda |
+| pp_structurev3 (default) | 0.083 | 0.085 | 5865 | 1805 | cuda |
 
 > The GPU provider comes from the actual `provider_effective` value in the GPU `summary.json` (`n/a` = the engine does not expose GPU execution in this benchmark). No GPU rows are invented: engines that did not run on an accelerator appear as `N/A`.
 

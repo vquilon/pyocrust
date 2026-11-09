@@ -44,7 +44,7 @@
 | Engine (variant) | SSIM ↑ (CPU) | SSIM ↑ (GPU) | ms CPU | ms GPU | GPU provider |
 | :--- | ---: | ---: | ---: | ---: | :--- |
 | perspective-4corner (baseline (OpenCV, sin pesos)) | 0.491 | N/A | 11 | N/A | n/a (does not run on GPU) |
-| uvdoc (31.7M) | 0.597 | 0.597 | 297 | 298 | directml |
+| uvdoc (31.7M) | 0.597 | 0.590 | 297 | 33 | cuda |
 | uvdoc (onnxruntime) | 0.604 | N/A | 78 | N/A | n/a (does not run on GPU) |
 
 > The GPU provider comes from the actual `provider_effective` value in the GPU `summary.json` (`n/a` = the engine does not expose GPU execution in this benchmark). No GPU rows are invented: engines that did not run on an accelerator appear as `N/A`.

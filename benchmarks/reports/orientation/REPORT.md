@@ -44,7 +44,7 @@
 | Motor (variante) | accuracy ↑ (CPU) | accuracy ↑ (GPU) | ms CPU | ms GPU | provider GPU |
 | :--- | ---: | ---: | ---: | ---: | :--- |
 | craft_mlt_25k+latin_g2 (easyocr) | 0.350 | N/A | 42794 | N/A | n/a (no corre en GPU) |
-| pp-lcnet_x1_0_doc_ori (6.8M) | 1.000 | 1.000 | 1448 | 1608 | directml |
+| pp-lcnet_x1_0_doc_ori (6.8M) | 1.000 | 1.000 | 1448 | 192 | cuda |
 | pp-lcnet_x1_0_doc_ori (onnxruntime) | 1.000 | N/A | 5 | N/A | n/a (no corre en GPU) |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.
