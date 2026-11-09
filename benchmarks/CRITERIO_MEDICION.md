@@ -42,12 +42,16 @@ build + runtime **confirmados end-to-end** el 2026-11-09): `--features cuda` com
 pero el registro del runtime CUDA 13 vive en
 `.venv/Lib/site-packages/sitecustomize.py`, que añade `torch/lib` (y `Library/bin`)
 a la búsqueda de DLL **antes de importar `pyocrust`** — desde Python 3.8 Windows
-ignora `PATH`. Además el banco **precarga `torch`** en
-`common/runner.py::preload_gpu_runtime` para que el provider CUDA de ORT reutilice
-el cuDNN de torch en vez del del CUDA Toolkit del `PATH`; sin esa precarga el
-`import torch` posterior revienta con `WinError 127` en `cudnn_cnn64_9.dll` y
-quedan `skipped` los motores torch (`easyocr`, `paddle_latex_ocr`, los YOLO de
-`layout`).
+ignora `PATH`. Para quien usa el **paquete** (no el repo), el equivalente es el
+helper del propio paquete, `pyocrust.enable_cuda()` (`pyocrust/gpu.py`,
+idempotente), que añade los directorios `nvidia/*/bin*`, `torch/lib` y
+`CUDA_PATH`/`CUDA_HOME` al *search path* y devuelve `available_providers()`; es la
+vía documentada en `README.md` §«Running on CUDA». Además el banco **precarga
+`torch`** en `common/runner.py::preload_gpu_runtime` para que el provider CUDA de
+ORT reutilice el cuDNN de torch en vez del del CUDA Toolkit del `PATH`; sin esa
+precarga el `import torch` posterior revienta con `WinError 127` en
+`cudnn_cnn64_9.dll` y quedan `skipped` los motores torch (`easyocr`,
+`paddle_latex_ocr`, los YOLO de `layout`).
 
 ## Estado de cumplimiento
 
@@ -113,20 +117,21 @@ la run de referencia: eso es justo lo que producía el `n` mezclado. Medido:
 | feature | run CPU | n | motores | run GPU (CUDA) | n | motores | par CPU/GPU | estado |
 | :--- | :--- | ---: | ---: | :--- | ---: | ---: | :--- | :--- |
 | text | 2026-11-06_22-46-46 | 20 | 3 | 2026-11-09_16-19-13 | 20 | 3 | OK | VALIDA |
-| formula | 2026-11-09_14-13-57 | 10 | 7 | 2026-11-09_16-22-29 | 10 | 5 | OK | VALIDA |
+| formula | 2026-11-09_14-13-57 | 10 | 7 | 2026-11-09_17-54-04 | 10 | 5 | OK | VALIDA |
 | layout | 2026-11-09_14-32-35 | 40 | 42 | 2026-11-09_16-25-15 | 40 | 41 | OK | VALIDA |
 | orientation | 2026-11-08_19-54-17 | 20 | 3 | 2026-11-09_16-29-18 | 20 | 1 | OK | VALIDA |
 | rectification | 2026-11-08_19-53-54 | 20 | 3 | 2026-11-09_16-29-33 | 20 | 1 | OK | VALIDA |
 | text_line | 2026-11-06_23-57-00 | 20 | 2 | 2026-11-09_16-29-48 | 20 | 1 | OK | VALIDA |
 | seal | 2026-11-08_15-28-48 | 20 | 2 | 2026-11-09_16-29-57 | 20 | 1 | OK | VALIDA |
 | table | 2026-11-09_14-22-58 | 8 | 5 | 2026-11-09_16-30-07 | 8 | 2 | OK | VALIDA |
-| full_page | 2026-11-09_14-28-38 | 6 | 3 | 2026-11-09_16-30-33 | 6 | 2 | OK | VALIDA |
+| full_page | 2026-11-09_17-15-04 | 6 | 4 | 2026-11-09_16-30-33 | 6 | 2 | OK | VALIDA |
 
 **9/9 VALIDA.** Campaña GPU en serie (un banco a la vez, máquina libre) con el
 build `--features cuda`: **1858 filas GPU `ok`**, 0 incoherencias de proveedor y
 todas las `pyocrust*` con `provider_effective='cuda'`. `pytest benchmarks/tests` →
-175 passed, 2 skipped. El pendiente de re-medir `formula` en GPU quedó resuelto
-por la run `2026-11-09_16-22-29` (n=10, como la CPU).
+175 passed, 2 skipped. La run GPU de `formula` es `2026-11-09_17-54-04` (n=10, como
+la CPU), re-medida tras el fix `65326b8` del LaTeX vacío bajo CUDA: la run
+anterior (`2026-11-09_16-22-29`) era del binario defectuoso y quedó superada.
 
 ## Campaña definitiva (en serie, máquina libre)
 

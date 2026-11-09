@@ -7,12 +7,12 @@
 > fuentes de `oar-ocr` `0.10.1` y con la intención de producto de `DECISIONS.md`.
 > Toda decisión impuesta por `A1` queda registrada como ADR numerado en §4.
 >
-> **Aviso de estado del proyecto (D1, 2026-10-25; actualizado en `D2`, 2026-10-25):**
-> el sign-off final (`S1`, tarjeta `t_d005409b`) sigue **RECHAZADO**. El código que
-> describe este documento existe, compila y pasa sus tests; `S1` impuso **7
-> condiciones**, de las que quedan **6 abiertas** (§9.2): `S1.2` la cerró el commit
-> `b128566` (`t_ab6ff8d0`, ver §9.1). Este documento describe el estado **real**, no
-> el deseado: cada ADR lleva su estado de cumplimiento verificado en §9.1.
+> **Aviso de estado del proyecto (D1, 2026-10-25; actualizado en `D2`, 2026-10-25;
+> **superado por `D5`, 2026-11-09**, §10):** el sign-off final (`S1`, tarjeta
+> `t_d005409b`) cerró como **RECHAZADO** con 7 condiciones y fue **relevado y
+> APROBADO** por `t_e560fff3` (2026-11-09). Este documento describe el estado
+> **real**, no el deseado: cada ADR lleva su estado de cumplimiento verificado en
+> §9.1 y el estado final post-campaña en §10.
 
 ## 1. Objetivo General
 
@@ -91,9 +91,11 @@ pyocrust/
 ├── pyocrust/                   # Paquete Python importable. Comparte nombre con el repositorio
 │   ├── __init__.py             # Fachada pública de alto nivel
 │   ├── __init__.pyi            # Stubs de tipos
+│   ├── gpu.py                  # enable_cuda(): search path del runtime CUDA (D5)
 │   ├── hardware.py             # Inventario físico y dataclasses GPU/RAM (S3.1)
 │   ├── resolver.py             # TaskSpec, PipelineChoice, resolve_pipeline (S3.1)
-│   └── py.typed                # Marcador PEP 561
+│   ├── py.typed                # Marcador PEP 561
+│   └── onnxruntime_providers_*.dll  # EPs que ORT carga del dir del módulo (D5)
 └── tests/
     ├── conftest.py             # Utilidades comunes: PNG sintético con la stdlib y localización
     │                           # de los modelos reales en disco
@@ -101,8 +103,26 @@ pyocrust/
     ├── test_tiling.py          # Troceado con solapamiento
     ├── test_recognize.py       # recognize end-to-end (carga directa, env var y caché)
     ├── test_indra.py           # Smoke Indra (S2.2)
-    └── data/sample_text.png    # Imagen real de dos líneas para los tests de reconocimiento
+    ├── test_models.py          # Caché fría (ModelScope y HuggingFace) y preflight (D5)
+    ├── test_catalog.py         # Catálogo y perfiles de pipeline (S3.0)
+    ├── test_license.py         # Clasificación y bloqueo por defecto (ADR-017)
+    ├── test_hardware.py        # Inventario físico (S3.1)
+    ├── test_resolver.py        # Resolvedor de pipeline (S3.1)
+    ├── test_tasks.py           # Las 11 tareas de TaskPredictor (S2.4)
+    ├── test_providers.py       # Selección de EP y provider_effective (D5)
+    ├── test_gpu.py             # Contrato de pyocrust.enable_cuda() (D5)
+    └── data/
+        ├── sample_text.png     # Imagen real de dos líneas para los tests de reconocimiento
+        ├── sample_formula.png  # Fórmula real para el test de LaTeX (S2.1)
+        └── indra_math.png      # Fórmula con math para el smoke de Indra (S2.2)
 ```
+
+> **Ampliación del árbol en `D5` (2026-11-09).** El árbol histórico de `D1` no
+> listaba `pyocrust/gpu.py` (helper `enable_cuda()`), ni ocho de los trece
+> `tests/test_*.py`, ni los fixtures `sample_formula.png` e `indra_math.png`. Todos
+> existen y están verificados con `read_file`. Tampoco listaba
+> `benchmarks/tests/test_pp_structurev3_backend.py`, que fija el contrato del
+> adaptador aislado en subproceso (§10.4).
 
 | Ruta | Estado (D1, 2026-10-25) | Nota |
 | :--- | :--- | :--- |
@@ -192,7 +212,14 @@ Firmas reales de estructura (cita `A1` sobre `0.10.1`):
 > `.table_structure_dict_path` (`src/engines/oar_structure.rs:130-137`). Manda la
 > API real del crate; el riesgo R1 queda cerrado (§5).
 
-### 3.1.1 Contrato actual de Indra (`S2.2`, parcial)
+### 3.1.1 Contrato actual de Indra (`S2.2`, **Hecho**; sólo queda el límite TLS)
+
+> **Reetiquetado en `D5` (2026-11-09).** La cabecera histórica decía «parcial».
+> `S2.2` es **Hecho** en el board (`t_027743e2`, 2026-11-02): los 9 artefactos
+> están en disco (`models_status()['presets']['indra']` 9/9), `VeloceOCR('indra')`
+> reconoce y produce `StructureResult`. Lo único que sigue **sin verificar** es la
+> descarga fría por HuggingFace desde cero, por el bloqueo TLS del host (§10.1).
+> La nota «parcial» de `S2.2` en §1.1 queda como estado histórico.
 
 Esta sección actualiza las instantáneas históricas `D1`/`D2` de este documento
 (dos implementaciones/presets); no cierra sus condiciones ni sustituye sus evidencias.
@@ -215,6 +242,14 @@ backend del mismo trait. `VeloceOCR('indra').recognize(...)` devuelve
   Markdown; una prueba Python y una Rust de giro inverso pasadas. No constituye
   validación de calidad matemática ni de GPU. La descarga Rust HF falla por TLS;
   el diagnóstico con `urllib` no valida `ensure_models`. Suite global pendiente.
+
+> **Estado real (`D5`, 2026-11-09).** La suite global **no** está pendiente: el
+> preset `indra` corre en la campaña (§10.3) y la suite del paquete está en
+> **162 passed, 1 skipped** (`t_052d7c9c`). El test de descarga fría por HF
+> (`test_cache_fria_huggingface_descarga_indra_y_verifica_sha256`) queda `skip`
+> por el TLS del host, **no** por un fallo del descargador: el artefacto baja con
+> `curl --ssl-no-revoke` y su SHA-256 cuadra con el registro. GPU y calidad
+> matemática siguen sin aceptación formal (§10.5 y §10.8).
 
 ### 3.1.2 Contrato actual de `TaskPredictor` (`S2.4`, APROBADO acotado)
 
@@ -395,6 +430,18 @@ ninguno: un inventario físico de GPU, `detect_hardware()`, no basta). Pedir
 `device="cuda"`/`"directml"` sin un EP que registre lanza `PyOcrValueError` en el
 constructor: **nunca** se etiqueta CPU como GPU.
 
+**Helper de search path (`D5`, 2026-11-09).** `pyocrust.enable_cuda() -> list[str]`
+(`pyocrust/gpu.py:42`, reexportado en `pyocrust/__init__.py:42`) añade al *search
+path* de Windows (`os.add_dll_directory`) los directorios donde ya viven las DLL
+del runtime CUDA (`nvidia/*/bin*`, `torch/lib`, `CUDA_PATH`/`CUDA_HOME`) y
+devuelve `available_providers()` tras intentarlo. Es *best-effort* e idempotente;
+en Linux/macOS es un no-op (el cargador respeta `RPATH`/`LD_LIBRARY_PATH`). Existe
+porque ORT carga `onnxruntime_providers_cuda.dll` buscando en el **directorio del
+módulo** y sus dependientes (`cublas64_13.dll`, `cublasLt64_13.dll`) no se
+encuentran por `PATH` desde Python 3.8. Verificado en la campaña CUDA
+(`t_8cd2897e`): con él, `available_providers()` → `['cuda']`. Contrato fijado por
+`tests/test_gpu.py`.
+
 **Superficie 2 — `TaskPredictor` (11 tareas):**
 
 ```python
@@ -474,8 +521,14 @@ Verificado en `src/storage/config.rs:103-133` y por los tests `test_nivel_1..3` 
 >
 > **Actualización (`S2.0`, `113a490`).** El camino (2) **ya se invoca**: `ensure_models`
 > llama a `download::fetch` para cada artefacto obligatorio que falte
-> (`src/storage/models.rs:224-242`). El bloque de arriba es el estado histórico de `D1`;
+> (`src/storage/models.rs:226`). El bloque de arriba es el estado histórico de `D1`;
 > ADR-007 queda **cumplido** (§9.1).
+>
+> **Verificado en `D5` (2026-11-09).** `ensure_models` (`src/storage/models.rs:226-248`)
+> es quien invoca `download::fetch` (`src/storage/download.rs:154`) a través de
+> `download_all` (`:298`, pool `rayon` de `DOWNLOAD_THREADS = 4` en `:24`). El
+> camino HF está conectado y cubierto por el test de caché fría, que en este host
+> sale `skip` por TLS (§10.1). La nota «parcial» de `D1` queda como histórica.
 
 ### 3.3 Gestión de Memoria y Concurrencia de Alto Rendimiento
 
@@ -505,21 +558,33 @@ El componente `SmartImageProcessor` admite dos estrategias de segmentación visu
 > para descartarlas acto seguido y devolver solo `(x, y, ancho, alto)`. Con
 > parámetros válidos y un `overlap` alto, el número de mosaicos explota y agota la
 > memoria del proceso. Pendiente de corrección (`S1.1`, bloqueante).
+>
+> **Cerrado (`4502d1e`; re-verificado en `D5`).** El adaptador `pyapi` ya no
+> materializa: `full_page_tiling_boxes` (`src/core/image_processor.rs:150-182`)
+> devuelve solo la geometría `(x, y, ancho, alto)` y `full_page_tiling`
+> (`:184-200`) es la utilidad opt-in que sí materializa, pero **no** la usa el
+> adaptador de Python. `S1.1` está cerrada (§9.2) y el bloque de arriba queda como
+> estado histórico de `D1`.
 
 ### 3.5 Contrato de la campaña de benchmarks (medición, no marketing)
 
 `benchmarks/` (fuera de `src/`) es el banco de evidencia del paquete, con un banco por
 feature. La campaña `t_347622f2`/`t_c2e5a1a9`/`t_7188f49a`/`t_9fe2c075` fija cuatro
 reglas que los informes (`SUMMARY.md`, `SCOREBOARD.md`, `CPU_VS_GPU.md`,
-`reports/<feature>/REPORT.md`) deben cumplir; incumplirlas invalida la comparación:
+`reports/<feature>/REPORT.md`) deben cumplir; incumplirlas invalida la comparación.
+**Estado vigente (`D5`, 2026-11-09):** esas reglas las refuerza
+`benchmarks/CRITERIO_MEDICION.md` (9 reglas «férreas») y la sonda
+`benchmarks/validez_medicion.py`, que hoy da **9/9 `VALIDA`** (§10.3).
 
-1. **`n` uniforme por feature.** Todas las filas salen del mismo barrido (`--limit 20`).
+1. **`n` uniforme por feature.** Todas las filas salen del mismo barrido.
    `SUMMARY` y `SCOREBOARD` se generan del mismo colector de CSV
    (`benchmarks/features/summary.py::collect_rows`), de modo que no divergen; los
    `REPORT.md` por feature los genera `report.py` (desde los CSV de cada run) y
-   `QUALITY_VS_TIME` deriva de esos `REPORT.md`. `SCOREBOARD.md` declara `n` por fila:
-   las pocas alternativas de control de `formula` con solo run `n=5` se muestran como
-   tales, nunca fusionadas con las de `n=20`.
+   `QUALITY_VS_TIME` deriva de esos `REPORT.md`. `SCOREBOARD.md` declara `n` por fila.
+   **Matizado en `D5`:** el `--limit` ya no es 20 en todas las features: la muestra
+   estratificada vigente es `formula` 10, `table` 8, `full_page` 6, `layout` 40 y
+   20 en el resto. La uniformidad se exige **dentro** de cada feature y **entre** su
+   run CPU y su run GPU, no entre features distintas.
 2. **CPU vs GPU reales.** Cada adaptador reporta `provider_effective` (el EP que de
    verdad ejecutó). `--device gpu` sobre un motor sin acelerador queda `skipped` con
    motivo; un *fallback* a CPU jamás se etiqueta como GPU (`benchmarks/reports/CPU_VS_GPU.md`).
@@ -534,6 +599,13 @@ reglas que los informes (`SUMMARY.md`, `SCOREBOARD.md`, `CPU_VS_GPU.md`,
 Queda abierto `t_b304e350`: retirar las referencias externas que no están medidas sobre
 el mismo dataset/GT y re-ejecutarlas en CPU+GPU. El detalle por motor y la provenance
 (comando, dataset, `n`, runtime) viven en `benchmarks/`.
+
+> **Estado real (`D5`, 2026-11-09).** `t_b304e350` está **archivada** (`needs_input`),
+> no cerrada: lo que se hizo fue retirar el concepto de «referencias externas» de
+> **todos** los artefactos publicados (`t_a62cc581`), no re-medirlas. Los `REFERENCES.md`
+> se conservan como documentación de candidatos y sin cifras, pero ya nada los parsea
+> hacia tablas ni gráficas. El criterio vigente es **9/9 `VALIDA`** (§10.3) y la
+> muestra es la estratificada, no `n=20` uniforme.
 
 ## 4. Registro de Decisiones de Arquitectura (ADR)
 
@@ -743,24 +815,24 @@ cumplimiento verificado; el cuadro completo está en §9.1.
 
 ## 6. Estado Actual
 
-Actualizado en `D1` (2026-10-25), reconciliado en `D3` (2026-11-06) y auditado en `D4` (2026-11-08) leyendo el árbol real y el board `pyocrust`.
+Actualizado en `D1` (2026-10-25), reconciliado en `D3` (2026-11-06), auditado en `D4` (2026-11-08) leyendo el árbol real y el board `pyocrust`, y **corregido en `D5` (2026-11-09)** tras la campaña definitiva (§10).
 
 | Elemento | Estado | Evidencia |
 | :--- | :--- | :--- |
-| `DESIGN.md` | Reconciliado en `D1` | Este documento |
-| `PLANNING.md` | Reconciliado en `D1` | Mapea cada tarea a su tarjeta con estado real |
-| Crate `pyocrust_core` | Existe y compila | `Cargo.toml`, `src/**`; `cargo test --lib` = **65/0** (2026-11-08) |
+| `DESIGN.md` | Reconciliado en `D1`; estado final en §10 (`D5`) | Este documento |
+| `PLANNING.md` | Reconciliado en `D1`; actualización `D5` en §0 | Mapea cada tarea a su tarjeta con estado real |
+| Crate `pyocrust_core` | Existe y compila | `Cargo.toml`, `src/**`; `cargo test --lib` = **67/0** (`t_e560fff3`, 2026-11-09) |
 | Paquete `pyocrust` | Existe e importa | `pyocrust/__init__.py`; `maturin develop` ejecutado (`pyocrust/_pyocrust_core.pyd`) |
-| Suite de integración (Python) | **160 passed, 0 skipped, 0 failed** | `pytest tests/ -q` (2026-11-08) |
-| Sign-off `S1` | **RECHAZADO** y sin reelevar; las **7** condiciones `S1.1`-`S1.7` están cerradas | §9.2; tarjeta `t_e560fff3` |
+| Suite de integración (Python) | **162 passed, 1 skipped, 0 failed** | `pytest tests/ -q` (2026-11-09, `t_052d7c9c`); el `skip` es el TLS del CDN de HuggingFace, no código (§10.1) |
+| Sign-off `S1` | **APROBADO** (relevado por `t_e560fff3`, 2026-11-09) | §10.2; las **7** condiciones `S1.1`-`S1.7` verificadas línea a línea |
 | ADR cumplidos | **17 de 17** | §9.1 |
-| Benchmarks (9 features, `n=20`) | **Campaña medida** (2026-11-07) | `benchmarks/{SUMMARY,SCOREBOARD,CPU_VS_GPU}.md`; contrato §3.5 |
+| Benchmarks (9 features) | **Campaña medida y válida** (2026-11-09): CPU `t_53080e14` + CUDA `t_8cd2897e` | `benchmarks/validez_medicion.py` → **9/9 VALIDA**; §3.5 y §10.3 |
 
 Lo que este documento **no** sabe:
 
 * el contenido del árbol de `oar-ocr` `0.10.1` no está descargado en el host: las citas internas de §3 y §4 atribuidas a `A1` siguen siendo de segunda mano;
-* el **benchmark** existe (9 features, `n=20`, CPU/GPU; §3.5): el rendimiento medido no cubre aún todas las variantes de pipeline;
-* la verificación de las condiciones de §9.2 está rehecha en `D4` (2026-11-08): las siete están **cerradas**; lo que sigue abierto es el sign-off global.
+* el **benchmark** existe (9 features, CPU+CUDA; §3.5 y §10.3): el rendimiento medido no cubre todas las variantes de pipeline, y la calidad de fórmula en GPU queda `N/A` para `pyocrust_formula`/`pyocrust_formulanet` (§10.5);
+* la verificación de las condiciones de §9.2 está rehecha por `t_e560fff3` (2026-11-09): las siete están **cerradas** y el sign-off global está **APROBADO** (§10.2). Lo que sigue abierto es el trabajo de las tarjetas de §10.6, no el sign-off.
 
 ## 7. Resolución de Rutas, Almacenamiento y Descargador Hugging Face
 
@@ -822,7 +894,7 @@ Interfaz implementada: `fn fetch(url: &str, dest: &Path, sha256_hex: &str) -> Re
 * **v2 — paralelismo inter-página.** Solo si una medición lo justifica, y siempre con `intra_threads = 1` para no pelearse con el pool intra-op de ORT (ADR-008).
 * **Features de aceleración adicionales.** `tensorrt`, `openvino`, `coreml` y `webgpu` existen en `oar-ocr`; se añaden cuando haya un objetivo de despliegue que los pida, no antes.
 * **Gestión explícita de VRAM.** Si la liberación por RAII resulta insuficiente en producción, el camino es un `close()`/context manager que suelte el último `Arc`, **no** un `Drop` manual con llamadas a CUDA (ADR-005).
-* **Cierre de las condiciones de `S1`.** Las siete están **cerradas** (`S1.1` `4502d1e`; `S1.2` `b128566`; `S1.3` y `S1.5` `c30a3a9`; `S1.4` por `S2.0`; `S1.6` `D3`, re-verificada en `D4`; `S1.7` `D1`). Lo que sigue abierto es el **sign-off global**, que está `RECHAZADO` y sin reelevar (tarjeta `t_e560fff3`).
+* **Cierre de las condiciones de `S1`.** Las siete están **cerradas** (`S1.1` `4502d1e`; `S1.2` `b128566`; `S1.3` y `S1.5` `c30a3a9`; `S1.4` por `S2.0`; `S1.6` `D3`, re-verificada en `D4`; `S1.7` `D1`). El **sign-off global** quedó **RECHAZADO** y fue reelevado por `t_e560fff3` (2026-11-09): veredicto **APROBADO** (§10.2). Lo que sigue abierto es el trabajo de las tarjetas de §10.6, no el sign-off.
 
 ## 9. Reconciliación `D1` (2026-10-25)
 
@@ -850,15 +922,15 @@ Verificado leyendo el árbol real de `src/` (no las intenciones).
 | ADR-016 | Variables de entorno documentadas | Cumplido | `catalog.rs:37` (`ENV`), `resolver.py:83` (`PYOCRUST_OFFLINE`), `README.md` Variables de entorno ||
 | ADR-017 | Licencias de los pesos + flags de política | **Cumplido** | `src/storage/license.rs`; `cargo test` 64/0; `pytest tests/` 157 passed/1 skipped; sign-off `L5` **APROBADO** |
 
-### 9.2 Condiciones abiertas del sign-off `S1` (tarjeta `t_d005409b`, RECHAZADO)
+### 9.2 Condiciones abiertas del sign-off `S1` (tarjeta `t_d005409b`, RECHAZADO → **APROBADO**)
 
-`S1` cerró como **RECHAZADO** con 7 condiciones (comentario del 2026-10-25). Estado a día de `D3` (2026-11-06):
+`S1` cerró como **RECHAZADO** con 7 condiciones (comentario del 2026-10-25). Estado a día de `D3` (2026-11-06): **las siete cerradas**. El re-sign-off `t_e560fff3` (2026-11-09) las verificó línea a línea contra el árbol y emitió **APROBADO** (§10.2).
 
 | Id | Condición | Gravedad | Estado | Evidencia |
 | :--- | :--- | :--- | :--- | :--- |
 | S1.1 | `pyapi::full_page_tiling` materializa los mosaicos y los descarta (OOM con `overlap` alto) | Bloqueante | **Cerrada (`4502d1e`)** | `src/core/image_processor.rs:150-185` (cajas sin materializar) |
 | S1.2 | `StructureResult` (ADR-003) no existía ni cruzaba a Python | Bloqueante | **Cerrada (`D2`, `b128566`)** | `src/core/types.rs:400-409`; `src/engines/oar_structure.rs:148-171` |
-| S1.3 | `PyOcrValueError`/`PyOcrRuntimeError` no heredan de `PyOcrError` | Mayor | **Cerrada (`c30a3a9`)** | `src/core/error.rs:147-149` (base `PyOcrError`) |
+| S1.3 | `PyOcrValueError`/`PyOcrRuntimeError` no heredan de `PyOcrError` | Mayor | **Cerrada (`c30a3a9`)** | `src/core/error.rs:182-184` (base `PyOcrError`) |
 | S1.4 | `VeloceOCR::new` no ejecuta el preflight (ni el descargador) | Mayor | **Cerrada (`S2.0`)** | `src/storage/models.rs:224-242` (`ensure_models` conecta el descargador) |
 | S1.5 | `OAR_HOME` relativa rompe la autodescarga de `oar-ocr` | Mayor | **Cerrada (`c30a3a9`)** | `src/storage/config.rs:115-126,144-155` |
 | S1.6 | `VeloceOCR::new` retiene el GIL durante la carga | Menor | **Cerrada (`D3`)**, re-verificada en `D4` | `src/lib.rs:100,102` (`py.detach` en `ensure_models` y en `create_engine`) |
@@ -866,12 +938,25 @@ Verificado leyendo el árbol real de `src/` (no las intenciones).
 
 `S1.2` la cerró el código de `t_ab6ff8d0` (`b128566`) y `S1.3`/`S1.5`, el de `c30a3a9`. `S1.1` la cerró `4502d1e` y `S1.4`, `S2.0` (`t_54cab62c`). `S1.6` la cerró `D3` (`py.detach` en `src/lib.rs:100,102`) y `D4` (2026-11-08) la re-verificó: **no queda ninguna condición abierta**.
 
+> **Cifras de línea corregidas en `D5`.** Las citas de esta tabla se verificaron una
+> por una contra el árbol: `src/core/error.rs:147-149` → **182-184** (las tres
+> `create_exception!`); `src/storage/models.rs:224-242` → **226-248** (`ensure_models`);
+> `src/storage/config.rs:115-126,144-155` → **103-133** (`resolve_models_dir_from`) y
+> **145-158** (`resolve_models_dir`); `src/core/types.rs:400-409` → **419-433**
+> (`StructureResult`); `src/engines/oar_structure.rs:148-171` → **181-216**
+> (`recognize` + `convert_structure`). La sustancia no cambiaba: sólo el número de
+> línea, que había quedado desplazado por las ediciones posteriores.
+
 > **Nota de `D2` sobre las demás condiciones.** Mientras `D2` corría aterrizó el commit `c30a3a9`
 > (`S1.3`-`S1.6`), que cierra la jerarquía de excepciones (`src/core/error.rs:147-149`) y la
 > reexportación absoluta de `OAR_HOME` (`src/storage/config.rs:115-126,144-155`); el mismo árbol trae ya
 > el preflight conectado (`src/lib.rs:60`, de `b128566`) y el GIL liberado al crear el motor
 > (`src/lib.rs:62`). Ambas condiciones se cerraron después: `S1.4` con `S2.0` y `S1.6` con `D3`;
 > la auditoría `D4` (2026-11-08) lo confirma en `src/lib.rs:100,102`.
+>
+> **Las citas de línea de esta nota son las históricas de `D2`** (2026-10-25), no las
+> vigentes: `D5` las corrigió en la tabla de arriba. Se conservan para no reescribir
+> el rastro de `D2`.
 
 ### 9.3 Divergencias documentales cerradas en `D1`
 
@@ -884,4 +969,184 @@ Verificado leyendo el árbol real de `src/` (no las intenciones).
 | Cliente de descarga | §7.3 "la decisión la fija `I3`" | `reqwest::blocking`, `timeout` 1800 s (`src/storage/download.rs:125-128`) | §7.3 actualizado |
 | Firma de `OARStructureBuilder` | R1 abierto, firmas de 2 parámetros | `OARStructureBuilder::new(layout)` + métodos específicos | §3.1 y §5: R1 cerrado |
 | Ficheros de `tests/` | §2 enumeraba 3 | hay además `conftest.py` y `data/sample_text.png` | §2 ampliado |
-| Estado del proyecto | §1.1/§6 sin sign-off | `S1` RECHAZADO con 7 condiciones | §6 y §9.2 |
+| Estado del proyecto | §1.1/§6 sin sign-off | `S1` cerró **RECHAZADO** y fue reelevado: **APROBADO** (`t_e560fff3`, 2026-11-09) | §6, §9.2 y §10.2 |
+
+## 10. Reconciliación `D5` — estado final tras la campaña (2026-11-09)
+
+Bloque **datado y nuevo**: no reescribe §9 ni las actualizaciones previas. Lo que
+hace es (a) añadir el estado que las supera y (b) corregir *in situ* las tablas de
+estado actual que ya no describen el árbol. Fuentes: `git log` (`7e69290`,
+`9a824cf`, `7cfc1e5`, `6347910`, `4015fe1`, `ca48b32`), el árbol leído con
+`read_file`, y los `summary.json` de las runs vigentes.
+
+### 10.1 Cifras de suites (verificadas por los workers, no re-ejecutadas aquí)
+
+| Suite | Recuento | Quién lo midió | Tarjeta |
+| :--- | :--- | :--- | :--- |
+| `cargo test --lib` | **67 passed, 0 failed** | re-sign-off `S1` | `t_e560fff3` |
+| `pytest tests/` (`.venv` del repo) | **161 passed, 0 failed** | re-sign-off `S1` | `t_e560fff3` |
+| `pytest tests/` tras la campaña CPU | **162 passed, 1 skipped** | cierre de `S1.4` (test HF fría) | `t_052d7c9c` |
+| `pytest benchmarks/tests` | **175 passed, 2 skipped** | cierre de la campaña CUDA | `t_8cd2897e` |
+
+El `skip` de `t_052d7c9c` es **entorno, no código**: el TLS de `reqwest`+`rustls`
+no completa la revocación del certificado del CDN de HuggingFace
+(`us.aws.cdn.hf.co`, `CRYPT_E_NO_REVOCATION_CHECK`); el test queda `skip` con el
+error exacto, nunca verde. El artefacto sí es bajable por CDN con
+`curl --ssl-no-revoke` (389 948 B, SHA-256 `f2bd4cba…`), luego el test pasaría en
+un host sin ese bloqueo.
+
+### 10.2 Sign-off global `S1`: **APROBADO** (2026-11-09)
+
+`t_e560fff3` emitió **APROBADO** verificando las siete condiciones `S1.1`-`S1.7`
+línea a línea contra el árbol real (no contra la prosa de los documentos):
+`S1.1` `src/core/image_processor.rs:150-189`, `S1.2` `src/core/types.rs:419` y
+`src/engines/oar_structure.rs:181`, `S1.3` `src/core/error.rs:182-184`,
+`S1.4` `src/storage/models.rs:226`, `S1.5` `src/storage/config.rs:145`,
+`S1.6` `src/lib.rs:100,102`, `S1.7` `DESIGN.md` §3.3 y ADR-005.
+
+**Este documento deja de decir «`S1` RECHAZADO y sin reelevar»**: el re-sign-off lo
+relevó y lo aprobó. Las siete condiciones siguen cerradas y ahora además hay
+veredicto favorable. Lo que **no** aprueba `S1` es la calidad de los benchmarks ni
+el cierre de las tarjetas de trabajo abierto de §10.6.
+
+### 10.3 Campaña vigente y validez de medición (2026-11-09)
+
+Reproducida aquí con `benchmarks/validez_medicion.py` (sonda sin red, **no** es una
+corrida de banco): **9/9 `VALIDA`**, `RC=0`.
+
+| feature | run CPU | n | motores | run GPU | n | motores | estado |
+| :--- | :--- | ---: | ---: | :--- | ---: | ---: | :--- |
+| `text` | `2026-11-06_22-46-46` | 20 | 3 | `2026-11-09_16-19-13` | 20 | 3 | VALIDA |
+| `formula` | `2026-11-09_14-13-57` | 10 | 7 | `2026-11-09_17-54-04` | 10 | 5 | VALIDA |
+| `layout` | `2026-11-09_14-32-35` | 40 | 42 | `2026-11-09_16-25-15` | 40 | 41 | VALIDA |
+| `orientation` | `2026-11-08_19-54-17` | 20 | 3 | `2026-11-09_16-29-18` | 20 | 1 | VALIDA |
+| `rectification` | `2026-11-08_19-53-54` | 20 | 3 | `2026-11-09_16-29-33` | 20 | 1 | VALIDA |
+| `text_line` | `2026-11-06_23-57-00` | 20 | 2 | `2026-11-09_16-29-48` | 20 | 1 | VALIDA |
+| `seal` | `2026-11-08_15-28-48` | 20 | 2 | `2026-11-09_16-29-57` | 20 | 1 | VALIDA |
+| `table` | `2026-11-09_14-22-58` | 8 | 5 | `2026-11-09_16-30-07` | 8 | 2 | VALIDA |
+| `full_page` | `2026-11-09_17-15-04` | 6 | 4 | `2026-11-09_16-30-33` | 6 | 2 | VALIDA |
+
+**La muestra no es `n=20` uniforme**: `formula` 10, `table` 8, `full_page` 6,
+`layout` 40; el resto 20. La regla 1 de §3.5 («`n` uniforme por feature») se cumple
+**dentro** de cada feature; la regla que fija `n=20` quedó superada por el muestreo
+estratificado (`ca48b32`, `t_a1e6dc20`).
+
+**EP de la pata GPU: CUDA 13** (`--features cuda`, ORT 1.31 parcheado en
+`vendor/ort-sys`), no DirectML. Binario de la campaña: `pyocrust/_pyocrust_core.pyd`
+sha256 `9acaf1878d27013c32be2a66d8631affcca700d488d0071a3a219e707e77c937`
+(37 456 896 B), verificado aquí con `sha256sum`. `available_providers()` →
+`['cuda']`. Las 1858 filas GPU `ok` declaran `provider_effective='cuda'`; 0
+incoherencias. **Ese binario se reconstruyó tras la campaña** con el fix de §10.5
+(commit `65326b8`): el `.pyd` actual ya no tiene ese hash (§10.9). Las cifras de la
+pata GPU son las de la run medida con el binario de campaña, no las del rebuild.
+
+### 10.4 Defectos reales encontrados y corregidos en la campaña
+
+| Defecto | Causa | Corrección | Tarjeta |
+| :--- | :--- | :--- | :--- |
+| `pp_structurev3_api` segfaulteaba (exit 139) o colgaba el banco `full_page` | PaddleOCR PP-StructureV3 en **proceso**; nunca produjo fila pese a estar en `DEFAULT_BACKENDS` | Aislado en **subproceso con timeout 900 s** (`benchmarks/common/runner.py:1009`). Smoke real 2026-11-09 (3 páginas, rc=0, 3/3 `ok`, Markdown de 600+ chars) → **devuelto al `DEFAULT_BACKENDS`** (`benchmarks/features/full_page/bank.py:86`); es CPU-only | `t_53080e14`, `t_4298724b`, `t_838df3ad` |
+| Colisión cuDNN: `import torch` moría (`WinError 127`, `cudnn_cnn64_9.dll`) y tiraba `easyocr`/`paddle_latex_ocr`/los 40 YOLO | El provider CUDA de ORT resolvía cudnn del Toolkit del `PATH` antes que la de `torch` | `preload_gpu_runtime()` precarga `torch` **antes** del provider (`benchmarks/common/runner.py:309`) | `t_8cd2897e` |
+| `SCOREBOARD.md` no se regeneraba | `scoreboard._panel` formateaba `quality` sin guardar `None` | None-guard (`benchmarks/features/scoreboard.py:113-128`) | `t_8cd2897e` |
+| `formula` muestreaba 80-100 % `equation_hard` | `_odb_det_groups(cap)` cortaba las primeras `limit` páginas del orden estratificado antes del reparto por página | `balance_keys=("data_source","layout","subset")` re-estratifica el pool elegible (`benchmarks/common/datasets.py:348-376`); asertado por `test_ninguna_feature_omnidocbench_muestrea_en_un_solo_estrato` | `t_a1e6dc20` |
+
+### 10.5 Hallazgo abierto (fuera de criterio, con tarjeta)
+
+Bajo CUDA, `pyocrust_formula` y `pyocrust_formulanet` emiten **LaTeX aislado
+vacío** en las 10 muestras: su `latex_sim`/`latex_exact` queda `""` (no evaluada)
+y su `cer` sale 1.0. No rompe `n` ni el EP — la fila es `ok` con
+`provider_effective='cuda'` — pero la **calidad** de fórmula en GPU sale `N/A`
+donde en CPU sí la hay (0.497 / 0.499). **No se presenta como cerrado.**
+
+**Causa raíz aislada (2026-11-09, `t_e1630cbe` → `t_d80c2e58`).** No es el banco
+ni el *scorer*: es el **reuso de sesión por sesión** de PP-FormulaNet bajo CUDA.
+La 1ª inferencia de un motor recién construido da el LaTeX correcto (idéntico a
+CPU) y **todas las siguientes salen vacías**, incluso repitiendo la misma imagen.
+El `--warmup 1` del banco consume esa única inferencia buena, de ahí el 10/10.
+El mecanismo es el workaround `CUDA_LAUNCH_BLOCKING=1` del propio `oar-ocr-core`
+(onnxruntime#4829), que llega **tarde**: `resolve_auto()` sondea el EP CUDA e
+inicializa el contexto antes de que el builder lo aplique.
+
+**Estado del fix (2026-11-09, `t_d80c2e58` — `done` con verificación):** el commit
+`65326b8` adelanta `ensure_cuda_launch_blocking()` en `available_providers()` y
+`resolve_device()` (`src/core/device.rs`), con su test de regresión
+`tests/test_recognize.py::test_cuda_pp_formulanet_da_el_mismo_latex_no_vacio_en_inferencias_seguidas`.
+Verificado por el coder con el binario reconstruido (`f4c2a201…`): sonda aislada
+`[90,90,90]` (antes `[90,0,0]`), `pytest tests/test_recognize.py` **12 passed**
+(regresión ROJA→VERDE), banco `--limit 10 --device gpu` con CER 1.4669/1.1641
+(antes 1.0000 exacto) y `pyocrust_formulanet` reproduciendo 10/10 el LaTeX de CPU,
+y `cargo test -j 2` **67 passed**.
+
+**Lo que sigue abierto:** las **filas GPU publicadas** de `formula`
+(`2026-11-09_16-22-29`) son del binario defectuoso, no del arreglado. La
+re-medición de la pata GPU de `formula` es la tarjeta `t_5c3b7dfe` (`running`). El
+defecto de código está corregido y verificado; las cifras publicadas **no**.
+
+### 10.6 Tarjetas de trabajo abierto al cerrar `D5`
+
+Estado leído del board `pyocrust` (no de la prosa de este documento) el
+2026-11-09: **154 `done`, 5 `archived`, 2 `running`, 1 `todo`**.
+
+| Tarjeta | Título | Estado real | Motivo |
+| :--- | :--- | :--- | :--- |
+| `t_5c3b7dfe` | Re-medir la pata GPU de `formula` tras el fix de `CUDA_LAUNCH_BLOCKING` | `running` | Las filas GPU publicadas de `formula` son del binario defectuoso; el fix está verificado pero las cifras no están re-medidas |
+| `t_dc3aaced` | Reconciliar `DESIGN.md`/`PLANNING.md`/`README` con el estado final | `running` | Esta tarjeta |
+| `t_b7f13064` | Desglose por tipología de página (digital/escaneada/manuscrita) en los informes | `todo` | Trabajo nuevo creado después de este bloque; no forma parte de `D5` |
+
+Cerradas **después** de que este bloque se escribiera (constan `done` en el board,
+no se copia su estado de memoria): `t_c9f93b67` (docs GPU/CRITERIO), `t_e1630cbe`
+(investigación del LaTeX vacío), `t_d80c2e58` (fix verificado, §10.5) y `t_838df3ad`
+(campaña `full_page` n=6 con 4 motores + cadena de informes, §10.3).
+
+Archivadas (`archived`, `needs_input`): `t_b304e350`, `t_a2b49874`, `t_64abfa16`,
+`t_62aef58e`, `t_d6479bc0`. No están cerradas: quedan fuera de alcance de `D5`.
+
+### 10.7 Divergencias con la documentación vigente (corregidas *in situ*)
+
+| Dónde | Decía | Estado real (`D5`) | Resolución |
+| :--- | :--- | :--- | :--- |
+| §6, §9.2, §8, cabecera | «`S1` **RECHAZADO** y sin reelevar» | **APROBADO** (`t_e560fff3`, 2026-11-09) | §6 y §9.2 corregidos en este bloque |
+| §6 | «Suite de integración **160 passed, 0 skipped**» | **162 passed, 1 skipped** (`t_052d7c9c`) | §6 corregido; el `skip` es entorno TLS, no código |
+| §6 | «`cargo test --lib` = **65/0**» | **67/0** (`t_e560fff3`) | §6 corregido |
+| §3.5 regla 1 | «Todas las filas salen del mismo barrido (`--limit 20`)» | Muestra estratificada: `formula` 10, `table` 8, `full_page` 6, `layout` 40; resto 20 | §3.5 matizado: uniforme **dentro** de cada feature |
+| §3.5 | «Campaña `t_347622f2`/…» | Campaña definitiva `t_53080e14` (CPU) + `t_8cd2897e` (CUDA) | §3.5 actualizado |
+| §3.1.1 | «Contrato actual de Indra (`S2.2`, **parcial**)» | `S2.2` **Hecho** (`t_027743e2`); 9/9 artefactos en disco y `VeloceOCR('indra')` reconoce | §3.1.1 reetiquetado; queda el límite TLS documentado |
+| §3.4 | «Defecto abierto (`D1`, condición `S1.1`)… Pendiente de corrección» | **Cerrado** en `4502d1e` (§9.2) | §3.4 corregido |
+| §3.2 | «Estado real (`D1`): solo el camino (1) está activo… ADR-007 **parcial**» | Camino (2) conectado en `ensure_models` (`src/storage/models.rs:226`) | §3.2 corregido |
+| §6, §9.1 | «ADR-007 **parcial**» | **Cumplido** (`S2.0`) | §9.1 ya lo decía; §6 alineado |
+| §2 | Árbol sin `pyocrust/gpu.py`, `tests/test_gpu.py`, `tests/test_providers.py`, `tests/test_models.py`, `tests/test_catalog.py`, `tests/test_license.py`, `tests/test_hardware.py`, `tests/test_resolver.py`, `tests/test_tasks.py` | Existen | §2 ampliado |
+| §2 | `tests/data/` con un solo PNG | `sample_text.png`, `sample_formula.png`, `indra_math.png` | §2 corregido |
+| §10.3 (esta revisión) | «Binario medido … verificado aquí» sobre el `.pyd` de campaña | El `.pyd` se reconstruyó con el fix `65326b8`: hash `f4c2a201…`, no `9acaf187…` | §10.3 y §10.9 registran ambos hashes; las cifras de la pata GPU son las de la run de campaña |
+| §10.5 (esta revisión) | «el fix está en el árbol, sin verificar» | `t_d80c2e58` cerró `done` con verificación (sonda `[90,90,90]`, 12 passed, CER 1.4669/1.1641, `cargo test` 67) | §10.5 y §10.6 actualizados; sigue abierta la re-medición `t_5c3b7dfe` |
+
+### 10.8 Lo que este documento **no** sabe
+
+* Las citas internas de `oar-ocr` `0.10.1` (§3, §4, marcadas «cita `A1`») siguen
+  siendo de segunda mano: el árbol del crate no está descargado en el host.
+* El **wheel publicado en CI** no se ha verificado en una máquina con CUDA: la
+  receta de `benchmarks/GPU.md` §«Cómo ejecutar con CUDA (CUDA 13)» está
+  verificada en el `.venv` del repo, no en una instalación `pip install
+  pyocrust-gpu`.
+* La calidad de **fórmula en GPU** está sin medir **con el binario arreglado**
+  para `pyocrust_formula`/`pyocrust_formulanet`: las filas publicadas son del
+  binario defectuoso (§10.5) y la re-medición `t_5c3b7dfe` no ha terminado.
+* `pp_structurev3_api` ya **está** en el `DEFAULT_BACKENDS` de `full_page`
+  (`benchmarks/features/full_page/bank.py:86`) y **ya tiene fila publicada**: la
+  run vigente `2026-11-09_17-15-04` (n=6, 4 motores) lo incluye con
+  `markdown_f1=0.086` (`benchmarks/reports/SUMMARY.md`). `t_838df3ad` cerró `done`.
+* Las tarjetas `running` de §10.6 pueden cerrarse después de este bloque; sus
+  estados se releyeron aquí, no se infieren.
+
+### 10.9 Citas de código sobre un árbol en movimiento
+
+Las citas de este bloque se hicieron sobre el árbol del 2026-11-09. **Dos hashes
+delatan el movimiento**, y se registran en vez de ocultarse:
+
+| Artefacto | Hash | Significado |
+| :--- | :--- | :--- |
+| `pyocrust/_pyocrust_core.pyd` **de campaña** | `9acaf1878d27013c32be2a66d8631affcca700d488d0071a3a219e707e77c937` (37 456 896 B) | El binario con el que se midió la pata GPU de §10.3 |
+| `pyocrust/_pyocrust_core.pyd` **actual** | `f4c2a2016458f79f55e6cdc2eef672e111180c2fa266bf9dfd907379c09a2300` | Rebuild con el fix `65326b8`, **verificado** (§10.5) |
+
+Lo que **no** se trata como vigente aquí: las **filas GPU publicadas** de `formula`
+(`2026-11-09_16-22-29`), que son del binario defectuoso y están a la espera de la
+re-medición `t_5c3b7dfe`. El auditor de citas es re-ejecutable: basta recitar
+`src/**` y `benchmarks/**` y recalcular el sha256 del `.pyd`.
