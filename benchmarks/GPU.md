@@ -362,12 +362,37 @@ sin recompilar el crate `ort` ni `oar-ocr`.
 parche. DirectML sigue siendo un EP GPU válido para comparar; cada campaña mide
 un solo EP (cambiar de EP obliga a re-medir toda la pata GPU).
 
-## Hallazgo abierto (fuera de criterio de la campaña)
+## Resuelto: LaTeX aislado vacío bajo CUDA (`CUDA_LAUNCH_BLOCKING` aplicado tarde)
 
-Bajo CUDA, `pyocrust_formula` y `pyocrust_formulanet` emiten **LaTeX aislado
-vacío** en las 10 muestras de la run `2026-11-09_16-22-29` (`latex_sim` y
-`latex_exact` vacíos en el CSV) → su calidad de fórmula en GPU sale `N/A`.
-**No** rompe `n` ni el EP: las filas siguen `ok` con
-`provider_effective='cuda'`. CPU y DirectML sí traen calidad de fórmula.
-Investigación en `t_e1630cbe`.
+Bajo CUDA, `pyocrust_formula` y `pyocrust_formulanet` emitían **LaTeX aislado
+vacío desde la 2ª inferencia de cada sesión** (la 1ª era correcta): la run
+`2026-11-09_16-22-29` sale con `latex_sim`/`latex_exact` vacíos y **ese run GPU
+de `formula` queda superado**. El `--warmup 1` del runner **no** era la causa ni
+un fix: solo consumía esa única inferencia buena (con `--warmup 0` únicamente
+salía la muestra 0). Subir el warmup no arregla nada.
+
+Causa real (tarjetas `t_e1630cbe` medición · `t_d80c2e58` fix): el workaround del
+propio crate para onnxruntime#4829 —`CUDA_LAUNCH_BLOCKING=1`, que serializa el
+`Loop` autorregresivo de PP-FormulaNet— **llegaba tarde**. `pyocrust` sondea el
+EP CUDA (`OrtSessionConfig::resolve_auto`) al resolver `device`
+(`resolve_device`/`available_providers`) para reportar `provider_effective`
+honesto, y ese sondeo **arranca el contexto CUDA**; la runtime CUDA lee
+`CUDA_LAUNCH_BLOCKING` **una sola vez**, al inicializar el contexto, así que el
+`ensure_cuda_launch_blocking()` del crate (dentro de `OARStructureBuilder::build`
+y del adaptador de fórmulas) ya no surtía efecto. El provider CUDA (93.8 MB) no
+era el culpable: serializando, el mismo binario funciona.
+
+Arreglo: `ensure_cuda_launch_blocking()` adelantado a `src/core/device.rs`
+(inicio de `available_providers()` y de `resolve_device()` no-`cpu`), gateado a
+`feature="cuda"`, commit `65326b8`.
+
+Verificado con el binario reconstruido: `.venv/Scripts/python.exe
+benchmarks/features/formula/bank.py --limit 10 --device gpu
+--backends pyocrust_formula,pyocrust_formulanet` da CER 1.4669 / 1.1641 (**antes
+1.0000 exacto = predicción vacía**) y `pyocrust_formulanet` reproduce 10/10 el
+mismo LaTeX que CPU (`latex_sim` idéntico columna a columna). Regresión:
+`tests/test_recognize.py::test_cuda_pp_formulanet_da_el_mismo_latex_no_vacio_en_inferencias_seguidas`.
+
+**Pendiente:** re-medir las filas GPU de `formula` de la campaña CUDA vigente con
+este binario (las de `2026-11-09_16-22-29` son del defecto).
 
