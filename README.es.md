@@ -129,15 +129,13 @@ proveedor). El tamaño de muestra es estratificado por feature: `formula` 10,
 `table` 8, `full_page` 6, `layout` 40 y 20 en el resto. Detalle y tablas por
 motor en [`benchmarks/reports/SUMMARY.md`](benchmarks/reports/SUMMARY.md).
 
-Lo que **no** está cerrado: `pp_structurev3_api` ha vuelto al `DEFAULT_BACKENDS` de
-`full_page` tras un smoke real de 3 páginas, pero su fila **aún no está
-publicada** (la run vigente es anterior a su entrada), y bajo CUDA el LaTeX aislado
-de `pyocrust_formula`/`pyocrust_formulanet` sale vacío, así que la calidad de
-fórmula en GPU está `N/A` ahí (en CPU sí se mide). El defecto del LaTeX vacío ya
-tiene la causa raíz aislada —`CUDA_LAUNCH_BLOCKING` se aplica demasiado tarde,
-después de inicializar el contexto CUDA— y el fix está commiteado (`65326b8`) y
-en verificación; **no** se da por corregido aquí. Ambos tienen su tarjeta de
-seguimiento; ver `DESIGN.md` §10.5-§10.6.
+Lo que **no** está cerrado: bajo CUDA el LaTeX aislado de
+`pyocrust_formula`/`pyocrust_formulanet` sale vacío, así que la calidad de fórmula
+en GPU está `N/A` ahí (en CPU sí se mide). Ese defecto está corregido y verificado
+(`65326b8`: el workaround `CUDA_LAUNCH_BLOCKING` se aplicaba demasiado tarde),
+pero las filas GPU **publicadas** siguen siendo del binario defectuoso y están en
+re-medición; **no** se dan por corregidas aquí. Tarjeta de seguimiento: `t_5c3b7dfe`;
+ver `DESIGN.md` §10.5-§10.6.
 
 ## Presets y salida
 
@@ -573,7 +571,7 @@ comparables.
 | `text_line` | accuracy | 1.000 | pp-lcnet_x1_0_textline_ori (onnxruntime) 1.000 | medido |
 | `seal` | recall@IoU 0.5 | 0.750 | pp-ocrv4_mobile_seal_det (onnxruntime) 0.750 | medido |
 | `table` | TEDS estrut. | 0.914 | tableformer (docling) 0.905 | medido |
-| `full_page` | Markdown F1 | 0.083 | docling-default (pipeline) 0.204 | medido |
+| `full_page` | Markdown F1 | 0.086 | docling-default (pipeline) 0.204 | medido |
 
 **El tamaño de muestra es estratificado por feature**, no uniforme: `formula`
 `n=10`, `table` `n=8`, `full_page` `n=6`, `layout` `n=40` y 20 en el resto

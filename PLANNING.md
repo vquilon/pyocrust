@@ -7,7 +7,44 @@ Este documento detalla la hoja de ruta secuencial para la implementación del pa
 > Cada entrada lleva identificador, tarjeta del board (`pyocrust`), estado y criterio de aceptación.
 > Estados: `Pendiente` / `En curso` / `Hecho` / `Bloqueado` / `Descartado`. Todo cambio de estado va fechado.
 >
-> **Estado global (D1, 2026-10-25; actualizado en `D2`, `S2.0` y `D4`):** las fases 0-5 están **Hechas** y las **siete** condiciones de `S1` quedaron **cerradas** (`S1.1` `4502d1e`, `S1.2` `b128566`, `S1.3` y `S1.5` `c30a3a9`, `S1.4` por `S2.0`, `S1.6` `D3`, `S1.7` `D1`). El sign-off global `S1` sigue **RECHAZADO** y **sin reelevar** (tarjeta `t_e560fff3`). El proyecto **no** está aprobado: `D1`/`D2`/`D3`/`D4` reconcilian la documentación, no la implementación.
+> **Estado global (D1, 2026-10-25; actualizado en `D2`, `S2.0`, `D4` y `D5`):** las fases 0-5 están **Hechas** y las **siete** condiciones de `S1` quedaron **cerradas** (`S1.1` `4502d1e`, `S1.2` `b128566`, `S1.3` y `S1.5` `c30a3a9`, `S1.4` por `S2.0`, `S1.6` `D3`, `S1.7` `D1`). El sign-off global `S1` se **relevó** y `t_e560fff3` lo emitió **APROBADO** (2026-11-09). El proyecto **sí** tiene sign-off de diseño; lo que queda abierto es trabajo de campaña y documentación (§0, actualización `D5`), no una condición de `S1`.
+
+### Actualización `D5` — reconciliación final tras la campaña (2026-11-09)
+
+* **Tarjeta:** `t_dc3aaced`. **Responsable:** `escriba`. **Estado:** Hecho (2026-11-09).
+* **Alcance:** reconciliar `DESIGN.md`, `PLANNING.md`, `README.md`/`README.es.md` y
+  los informes de `benchmarks/` con el estado **final** del árbol y de la campaña,
+  una vez cerrada la tarjeta de orquestación `t_53080e14`. No reescribe los bloques
+  previos: añade el que los supera y corrige *in situ* las tablas de estado actual.
+* **Fuentes contrastadas:** `git log` (`7e69290`, `9a824cf`, `7cfc1e5`, `6347910`,
+  `4015fe1`, `ca48b32`), el árbol leído con `read_file`, y los `summary.json` de las
+  runs vigentes. `benchmarks/validez_medicion.py` reproducido aquí (sonda sin red):
+  **9/9 `VALIDA`**, `RC=0`.
+* **Cifras de suites (medidas por los workers, no re-ejecutadas aquí):**
+  `cargo test --lib` **67/0**; `pytest tests/` **161 passed** (`t_e560fff3`) y
+  **162 passed, 1 skipped** tras `t_052d7c9c`; `pytest benchmarks/tests`
+  **175 passed, 2 skipped** (`t_8cd2897e`). El `skip` es el TLS del CDN de
+  HuggingFace, no código.
+* **Sign-off:** `t_e560fff3` verificó las siete condiciones `S1.1`-`S1.7` línea a
+  línea contra el árbol y emitió **APROBADO**. Las cabeceras de `DESIGN.md` y de
+  este documento dejan de decir «RECHAZADO y sin reelevar».
+* **Campaña vigente:** CPU `t_53080e14` + CUDA `t_8cd2897e` (EP **CUDA 13**, no
+  DirectML). Muestra estratificada: `formula` 10, `table` 8, `full_page` 6,
+  `layout` 40; resto 20. Binario de la campaña
+  `pyocrust/_pyocrust_core.pyd` sha256 `9acaf187…` (37 456 896 B); **reconstruido
+  después** con el fix `65326b8` (hash `f4c2a201…`, sin verificar). Ver `DESIGN.md`
+  §10.9.
+* **Defectos cerrados en la campaña:** `pp_structurev3_api` aislado en subproceso
+  con timeout (`t_53080e14`/`t_4298724b`); colisión cuDNN resuelta precargando
+  `torch` (`t_8cd2897e`); `scoreboard._panel` con None-guard; muestreo de `formula`
+  re-estratificado (`t_a1e6dc20`).
+* **Trabajo abierto que este bloque **no** cierra:** `t_5c3b7dfe` (re-medir la pata
+  GPU de `formula`, cuyas filas publicadas son del binario defectuoso). `t_838df3ad`
+  (campaña `full_page` n=6 con 4 motores + cadena de informes), `t_c9f93b67`,
+  `t_e1630cbe` y `t_d80c2e58` constan `done` en el board.
+* **Fuera de alcance (histórico):** los recuentos por fase de `S2.x`/`S3`/`B9`
+  (53/53, 138 passed, 40 pass/4 skip…) son el estado **medido en su momento** y no
+  se reescriben; solo se corrigen las afirmaciones de estado actual.
 
 ### Actualización `D4` — auditoría de estado vs código (2026-11-08)
 
@@ -39,24 +76,38 @@ Este documento detalla la hoja de ruta secuencial para la implementación del pa
 > afirmaciones de estado actual, no la evidencia que midieron.
 
 **Trabajo abierto real, con tarjeta en el board `pyocrust`.** Todas creadas en `blocked`
-como backlog: el dispatcher no las toma hasta que se desbloqueen.
+como backlog: el dispatcher no las toma hasta que se desbloqueen. **Estado re-leído en `D5` (2026-11-09).**
 
-| Tarjeta | Qué falta | Responsable |
-| :--- | :--- | :--- |
-| ~~`t_457cd882`~~ | **Cerrada (2026-11-08)**: el preflight exige tamaño **y** SHA-256 para todo preset (sidecar primero; re-hash solo si falta). Verificado con 67 tests Rust y 161 Python | `hefesto` |
-| `t_e560fff3` | Re-sign-off global `S1`: sigue `RECHAZADO` y sin reelevar con las siete condiciones cerradas | `arquitecto` |
-| `t_065205ea` | GPU real: `available_providers()` es `[]` en el wheel actual; validar el EP acelerador | `probador` |
-| `t_2766a41a` | `pp_ocrv6_small` y `pp_ocrv6_medium` nunca ejecutados (0/3 y 0/3 artefactos; ningún test los corre) | `probador` |
-| `t_052d7c9c` | Test de descarga **fría** por HuggingFace (indra): `test_models.py` solo cubre la caché fría de ModelScope | `probador` |
-| ~~`t_a62cc581`~~ | **Cerrada (2026-11-08)**: Fase 11 — «referencias externas» retirado de todos los artefactos publicados (4 guardas nuevas; `benchmarks/tests` 149 passed/2 skipped) | `hefesto` |
-| ~~`t_5366b7ce`~~ | **Cerrada (2026-11-08)**: `OcrTask` era un enum muerto —eliminado junto a su re-export (despacho real por cadena de preset y `task: &str`) | `hefesto` |
+| Tarjeta | Qué falta | Responsable | Estado `D5` |
+| :--- | :--- | :--- | :--- |
+| ~~`t_457cd882`~~ | **Cerrada (2026-11-08)**: el preflight exige tamaño **y** SHA-256 para todo preset (sidecar primero; re-hash solo si falta). Verificado con 67 tests Rust y 161 Python | `hefesto` | `done` |
+| ~~`t_e560fff3`~~ | **Cerrada (2026-11-09)**: re-sign-off global `S1` → **APROBADO** | `arquitecto` | `done` |
+| ~~`t_065205ea`~~ | **Cerrada (2026-11-09)**: GPU real validada — `available_providers()` → `['directml']` con el build `--features directml` y `provider_effective='directml'` | `probador` | `done` |
+| ~~`t_2766a41a`~~ | **Cerrada (2026-11-09)**: `pp_ocrv6_small`/`medium` descargados (SHA-256 == registro) y ejecutados | `probador` | `done` |
+| ~~`t_052d7c9c`~~ | **Cerrada (2026-11-09)**: test de descarga fría por HuggingFace; `skip` por TLS del host, no código | `probador` | `done` |
+| ~~`t_a62cc581`~~ | **Cerrada (2026-11-08)**: Fase 11 — «referencias externas» retirado de todos los artefactos publicados | `hefesto` | `done` |
+| ~~`t_5366b7ce`~~ | **Cerrada (2026-11-08)**: `OcrTask` era un enum muerto — eliminado junto a su re-export | `hefesto` | `done` |
+| `t_838df3ad` | `pp_structurev3_api`: smoke 2-3 páginas → devolverlo al `DEFAULT_BACKENDS` + campaña `full_page` + cadena de informes | `hefesto` | `done` |
+| `t_c9f93b67` | `GPU.md` y `CRITERIO_MEDICION.md`: reflejar la pata GPU medida en CUDA 13 | `escriba` | `done` |
+| `t_e1630cbe` | LaTeX aislado vacío de `pyocrust_formula`/`formulanet` bajo CUDA (calidad GPU `N/A`) | `probador` | `done` |
+| `t_d80c2e58` | Fix del LaTeX vacío bajo CUDA (`CUDA_LAUNCH_BLOCKING` llega tarde) | `coder` | `done` |
+| `t_5c3b7dfe` | Re-medir la pata GPU de `formula` tras el fix | `probador` | `running` |
 
 **Deuda registrada sin tarjeta:**
 
 * **Granularidad de commits de `E1`/`I1` (§8):** no se corrige — exigiría reescribir
-  historia, que §8 prohíbe explícitamente.
+  historia, que §8 proíbe explícitamente.
+* **Calidad de fórmula en GPU** para `pyocrust_formula`/`pyocrust_formulanet`: sí
+  tiene tarjeta (`t_e1630cbe`), pero **no** está medida — la fila GPU sale con
+  `latex_sim` vacío y `cer=1.0` (§0, actualización `D5`).
 
-### Actualización `S2.2` — Indra (parcial)
+### Actualización `S2.2` — Indra (parcial → **Hecho**, 2026-11-09)
+
+> **Reetiquetado en `D5`.** La tarjeta `t_027743e2` consta **Hecho** en el board
+> (2026-11-02): los 9 artefactos están en disco y `VeloceOCR('indra')` reconoce.
+> Lo único que sigue sin verificar es la descarga fría por HuggingFace desde cero,
+> por el bloqueo TLS del host (§0, actualización `D5`). El bloque de abajo es el
+> estado comunicado en su momento; se conserva como histórico.
 
 * **Tarjeta:** `t_027743e2`, abierta; aceptación arquitectónica parcial, no cierre.
 * **Implementado:** tercer preset `indra` junto a `pp_ocrv6*` y `pp_structurev3`,
@@ -185,7 +236,7 @@ como backlog: el dispatcher no las toma hasta que se desbloqueen.
 
 ## 0. Mapa de tareas a tarjetas del board
 
-Board: `pyocrust` (`%LOCALAPPDATA%\hermes\kanban\boards\pyocrust\kanban.db`). Estado leído en `D1` el 2026-10-25 directamente de la base de datos del board.
+Board: `pyocrust` (`%LOCALAPPDATA%\hermes\kanban\boards\pyocrust\kanban.db`). Estado leído en `D1` el 2026-10-25 directamente de la base de datos del board; **re-leído en `D5` (2026-11-09)** con una sonda read-only sobre la misma base.
 
 | Id | Fase | Título | Tarjeta | Responsable | Estado | Fecha de cambio |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -198,12 +249,22 @@ Board: `pyocrust` (`%LOCALAPPDATA%\hermes\kanban\boards\pyocrust\kanban.db`). Es
 | `V1` | 5 | Tests de integración (config, tiling, recognize) | `t_523ca1e7` | `probador` | Hecho | 2026-10-25 |
 | `C1` | 5 | Atacar la implementación antes del sign-off | `t_b674050d` | `critico` | Hecho | 2026-10-25 |
 | `S1` | 5 | Sign-off final contra `DESIGN.md` | `t_d005409b` | `arquitecto` | Hecho (**RECHAZADO**) | 2026-10-25 |
+| `S1-R` | 5 | Re-sign-off global `S1` | `t_e560fff3` | `arquitecto` | **Hecho (APROBADO)** | 2026-11-09 |
 | `D1` | 6 | Reconciliar `DESIGN.md` y `PLANNING.md` con lo implementado | `t_7449f60f` | `escriba` | Hecho | 2026-10-25 |
 | `D2` | 6 | Reconciliar `DESIGN.md` y `PLANNING.md` con ADR-003 cumplido | `t_bbf33ff6` | `escriba` | Hecho | 2026-10-25 |
+| `D3` | 6 | Reconciliar `DESIGN`/`PLANNING`/`FEATURES` con el board y el árbol real | `t_6e4e7dad` | `hefesto` | Hecho | 2026-11-06 |
+| `D4` | 6 | Auditar el estado declarado contra el código | — (sin tarjeta propia) | `hefesto` | Hecho | 2026-11-08 |
+| `D5` | 6 | Reconciliar la documentación con el estado final tras la campaña | `t_dc3aaced` | `escriba` | **Hecho** | 2026-11-09 |
 
-Dependencias: `A1` → `E1` → `I1` → `I2` → `I3` → `I4` → (`V1`, `C1`) → `S1` → `D1` → `D2`. `C1` ataca lo verificado por `V1`; `D1` cierra la documentación después del sign-off; `S1.2` se cerró después con `t_ab6ff8d0` (`b128566`) y `D2` reconcilia la documentación con ese cierre.
+Dependencias: `A1` → `E1` → `I1` → `I2` → `I3` → `I4` → (`V1`, `C1`) → `S1` → `D1` → `D2`. `C1` ataca lo verificado por `V1`; `D1` cierra la documentación después del sign-off; `S1.2` se cerró después con `t_ab6ff8d0` (`b128566`) y `D2` reconcilia la documentación con ese cierre. `D3`/`D4`/`D5` son reconciliaciones posteriores; `S1-R` reelevó el sign-off.
 
 > **Corrección de responsables (D1):** el board asigna `I2` e `I4` al perfil `coder`, no a `hefesto` como decía la versión previa de esta tabla. Se corrige aquí contra el estado real del board.
+>
+> **Estado del board en `D5` (2026-11-09):** 154 `done`, 5 `archived`, 2 `running`, 1 `todo`.
+> Las `running` son `t_dc3aaced` (esta tarjeta) y `t_5c3b7dfe`; la `todo` es
+> `t_b7f13064` (desglose por tipología de página, creada después de este bloque).
+> Las `archived` son `t_b304e350`, `t_a2b49874`, `t_64abfa16`,
+> `t_62aef58e` y `t_d6479bc0` (todas `needs_input` o retiradas).
 
 ### 0.1 Cumplimiento de la lista de cambios obligatorios de `A1`
 
@@ -532,14 +593,14 @@ Dependencias: `S2.0` (modelos) → `S2.1` (fórmulas en structure) → `S2.2` (i
 > `S3.2` verifica con tests; `S3.3` ataca; `S3.4` sign-off; `S3.5` reconcilia
 > `DESIGN.md`, `PLANNING.md` y `README.md`.
 
-|| Id | Fase | Título | Tarjeta | Responsable | Estado | Fecha de cambio ||
-|| :--- | :--- | :--- | :--- | :--- | :--- | :--- ||
-|| `S3.0` | 9 | Catálogo documentado de modelos y pipelines | `t_585372c9` | `coder` | Hecho | 2026-11-01 ||
-|| `S3.1` | 9 | Detección de hardware y resolvedor de pipeline | `t_edec41d8` | `coder` | Hecho | 2026-11-01 ||
-|| `S3.2` | 9 | Tests del catálogo, hardware y resolvedor | `t_223cb785` | `probador` | Hecho | 2026-11-01 ||
-|| `S3.3` | 9 | Atacar el catálogo y el resolvedor | `t_9c0acbbd` | `critico` | Hecho | 2026-11-01 ||
-|| `S3.4` | 9 | Sign-off del catálogo y el resolvedor | `t_f2064743` | `arquitecto` | Hecho | 2026-11-01 ||
-|| `S3.5` | 9 | Documentar el catálogo y el resolvedor | `t_f6ad65e6` | `escriba` | Hecho | 2026-11-01 ||
+| Id | Fase | Título | Tarjeta | Responsable | Estado | Fecha de cambio |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `S3.0` | 9 | Catálogo documentado de modelos y pipelines | `t_585372c9` | `coder` | Hecho | 2026-11-01 |
+| `S3.1` | 9 | Detección de hardware y resolvedor de pipeline | `t_edec41d8` | `coder` | Hecho | 2026-11-01 |
+| `S3.2` | 9 | Tests del catálogo, hardware y resolvedor | `t_223cb785` | `probador` | Hecho | 2026-11-01 |
+| `S3.3` | 9 | Atacar el catálogo y el resolvedor | `t_9c0acbbd` | `critico` | Hecho | 2026-11-01 |
+| `S3.4` | 9 | Sign-off del catálogo y el resolvedor | `t_f2064743` | `arquitecto` | Hecho | 2026-11-01 |
+| `S3.5` | 9 | Documentar el catálogo y el resolvedor | `t_f6ad65e6` | `escriba` | Hecho | 2026-11-01 |
 
 Dependencias: `S3.0` → `S3.1` → `S3.2` → `S3.3` → `S3.4` → `S3.5`.
 Además `S3.5` depende directamente de `S3.0` y `S3.1` (criterios de aceptación que requieren el catálogo y el resolvedor).
@@ -701,9 +762,9 @@ Dependencias: `L1` → `L2` → `L3` → `L4` → `L5` → `L6`.
 | Tarea `Formula` / LaTeX accesible desde Python | **Implementado (`S2.1`; verificado en `D4`, 2026-11-08)** | Lo cerró `S2.1`: `OARStructureBuilder::with_formula_recognition` (`src/engines/oar_structure.rs:158-163`) y `StructureResult.formulas` (`:243-254`) | `tests/test_recognize.py::test_el_latex_de_una_formula_es_accesible_desde_python` **1 passed**, con fixture real `tests/data/sample_formula.png` |
 | Verificación SHA-256 de los artefactos ModelScope en el preflight | **Implementado (`t_457cd882`, 2026-11-08)** | Lo cerró esa tarjeta: `hash_matches` (sidecar primero, re-hash solo si falta) exige tamaño **y** hash para todo preset | `src/storage/models.rs`; 67 tests Rust y 161 Python en verde |
 
-## 7. Trabajo pendiente tras `S1` (RECHAZADO)
+## 7. Trabajo pendiente tras `S1` (RECHAZADO → **APROBADO**)
 
-Condiciones abiertas del dictamen `S1` (comentario de `t_d005409b`, 2026-10-25). Copia fiel de `DESIGN.md` §9.2; son trabajo de **código** y no entran en `D1` ni en `D2`.
+Condiciones abiertas del dictamen `S1` (comentario de `t_d005409b`, 2026-10-25). Copia fiel de `DESIGN.md` §9.2; son trabajo de **código** y no entraron en `D1` ni en `D2`. **Las siete quedaron cerradas y `t_e560fff3` emitió APROBADO (2026-11-09).**
 
 | Id | Condición | Gravedad | Estado (D2) | Evidencia |
 | :--- | :--- | :--- | :--- | :--- |
@@ -712,12 +773,14 @@ Condiciones abiertas del dictamen `S1` (comentario de `t_d005409b`, 2026-10-25).
 | S1.3 | `PyOcrValueError`/`PyOcrRuntimeError` no heredan de `PyOcrError` | Mayor | **Cerrada (`c30a3a9`)** | `src/core/error.rs:147-149` |
 | S1.4 | `VeloceOCR::new` no ejecuta el preflight (ni el descargador) | Mayor | **Cerrada (`S2.0`, `t_54cab62c`)** | `src/storage/models.rs:224-242` (`ensure_models` conectado); `DESIGN.md` ADR-007 |
 | S1.5 | `OAR_HOME` relativa rompe la autodescarga de `oar-ocr` | Mayor | **Cerrada (`c30a3a9`)** | `src/storage/config.rs:115-126,144-155` |
-| S1.6 | `VeloceOCR::new` retiene el GIL durante la carga | Menor | **Cerrada (`D3`, re-verificada 2026-11-07)** | `src/lib.rs:100,102` (`py.detach` en `ensure_models` y `create_engine`) |
+| S1.6 | `VeloceOCR::new` retiene el GIL durante la carga | Menor | **Cerrada (`D3`)**, re-verificada en `D4` | `src/lib.rs:100,102` (`py.detach` en `ensure_models` y en `create_engine`) |
 | S1.7 | Retirar de `DESIGN.md` las capacidades de VRAM inexistentes | Menor | **Hecho en `D1`** | `DESIGN.md` §3.3 y ADR-005 |
 
 `S1.2` la resolvió `arquitecto` por la opción A (implementar `StructureResult`) y la cerró `t_ab6ff8d0` (`b128566`, `D2`); `S1.3` y `S1.5` las cerró `c30a3a9`, que aterrizó mientras `D2` corría.
 
 > **Nota (`D2`, actualizada en `D3` y cerrada en 2026-11-07).** `S1.6` queda **cerrada**: `VeloceOCR::new` libera el GIL con `py.detach` (PyO3 0.30, antes `allow_threads`) tanto en la descarga/preflight (`src/lib.rs:100`, `ensure_models`) como en la construcción del motor (`src/lib.rs:102`, `create_engine`). `S1.1` la cerró `4502d1e` y `S1.4`, `S2.0` (`t_54cab62c`): `ensure_models` conecta el descargador nativo con paralelismo de 4 hilos y sidecar SHA-256.
+>
+> **Cifras de línea corregidas en `D5` (2026-11-09).** Las citas de esta tabla se verificaron contra el árbol: `src/core/error.rs:147-149` → **182-184**; `src/storage/models.rs:224-242` → **226-248**; `src/storage/config.rs:115-126,144-155` → **103-133** y **145-158**; `src/core/types.rs:400-409` → **419-433**; `src/engines/oar_structure.rs:148-171` → **181-216**. La sustancia no cambió: sólo el número de línea.
 
 ## 8. Disciplina de commits (verificada en `D1`)
 

@@ -49,7 +49,7 @@ Tabla consolidada generada por `features/summary.py`: [`reports/SUMMARY.md`](rep
 | `text_line` | accuracy | 1.000 | pp-lcnet_x1_0_textline_ori (onnxruntime) 1.000 | [text_line/2026-11-06_23-57-00](results/text_line/2026-11-06_23-57-00) | medido |
 | `seal` | recall@IoU 0.5 | 0.750 | pp-ocrv4_mobile_seal_det (onnxruntime) 0.750 | [seal/2026-11-08_15-28-48](results/seal/2026-11-08_15-28-48) | medido |
 | `table` | TEDS | 0.914 | tableformer (docling) 0.905 | [table/2026-11-09_14-22-58](results/table/2026-11-09_14-22-58) | medido |
-| `full_page` | Markdown F1 | 0.083 | docling-default (pipeline) 0.204 | [full_page/2026-11-09_14-28-38](results/full_page/2026-11-09_14-28-38) | medido |
+| `full_page` | Markdown F1 | 0.086 | docling-default (pipeline) 0.204 | [full_page/2026-11-09_17-15-04](results/full_page/2026-11-09_17-15-04) | medido |
 
 
 ### `text` — FUNSD, n=20 (detección + reconocimiento)
@@ -181,28 +181,64 @@ La regla dura del eje de proveedor está documentada en [`GPU.md`](GPU.md): un
 fallback CPU **nunca** se etiqueta GPU; `pyocrust` confirma `provider_effective`
 fila a fila y el banco marca `skipped` si no hay acelerador real.
 
-Resumen de comparativas CPU vs GPU (`text`, `formula`, `layout`, `table`,
-`full_page`, `orientation`, `text_line`, `rectification`) con el provider
+Resumen de comparativas CPU vs GPU de las 9 features con el provider
 **CUDA** vigente: [`reports/CPU_VS_GPU.md`](reports/CPU_VS_GPU.md) (valores
 medidos en `benchmarks/results/` y `benchmarks/results/_gpu/`). El EP vigente es
-CUDA; DirectML queda como EP alternativo medido históricamente.
+CUDA 13; DirectML queda como EP alternativo medido históricamente (más lento en
+los modelos pequeños: ver `GPU.md` §`full_page`, 8955 → 24812 ms/página).
 
 ```bash
-# GPU vigente en este host: CUDA 13 (build --features cuda, ver GPU.md)
+# GPU vigente en este host: CUDA 13 (build --features cuda, ver GPU.md §Cómo ejecutar con CUDA)
 .venv/Scripts/python.exe -m maturin develop --release --features cuda
 
-# text CPU + GPU
-.venv/Scripts/python.exe benchmarks/features/text/bank.py    --limit 5 --device cpu --backends pyocrust,rapidocr,easyocr
-.venv/Scripts/python.exe benchmarks/features/text/bank.py    --limit 5 --device gpu --backends pyocrust,rapidocr,easyocr --output-dir benchmarks/results/_gpu
+# text CPU + GPU (n=20, el del banco vigente)
+.venv/Scripts/python.exe benchmarks/features/text/bank.py    --limit 20 --device cpu --backends pyocrust,rapidocr,easyocr
+.venv/Scripts/python.exe benchmarks/features/text/bank.py    --limit 20 --device gpu --backends pyocrust,rapidocr,easyocr --output-dir benchmarks/results/_gpu
 
-# formula CPU + GPU (solo motores que emiten LaTeX)
-.venv/Scripts/python.exe benchmarks/features/formula/bank.py --limit 5 --device cpu --backends pyocrust_formula,pyocrust_formulanet,pix2tex
-.venv/Scripts/python.exe benchmarks/features/formula/bank.py --limit 5 --device gpu --backends pyocrust_formula,pyocrust_formulanet,pix2tex --output-dir benchmarks/results/_gpu
+# formula CPU + GPU (n=10, muestra estratificada; solo motores que emiten LaTeX)
+.venv/Scripts/python.exe benchmarks/features/formula/bank.py --limit 10 --device cpu --backends pyocrust_formula,pyocrust_formulanet,pix2tex
+.venv/Scripts/python.exe benchmarks/features/formula/bank.py --limit 10 --device gpu --backends pyocrust_formula,pyocrust_formulanet,pix2tex --output-dir benchmarks/results/_gpu
 ```
 
 El resto de features (`layout`, `table`, `full_page`, `orientation`, `text_line`,
-`rectification`) se reproduce siguiendo la misma pauta; los comandos completos
-están en [`GPU.md`](GPU.md) §Reproducir.
+`rectification`, `seal`) se reproduce siguiendo la misma pauta con su `--limit`
+estratificado (`layout` 40, `table` 8, `full_page` 6, resto 20); los comandos
+completos están en [`GPU.md`](GPU.md) §Reproducir.
+
+## Eje `task_type` (qué mide cada fila)
+
+El `task_type` **no** es la feature del banco: es la **capacidad** que ejercita la
+fila, y un mismo motor puede producir varios. Se resuelve en
+`common/runner.py::TASK_TYPES` (línea 1879) o lo fuerza el propio banco con
+`task_override` (`formula` y `table` lo fijan explícitamente). La columna
+`feature` sí identifica el banco que produjo la fila (`FEATURE_TYPES`, `:1961`).
+La regla exacta es `task_type = task_override or TASK_TYPES.get(backend, "text")`
+(`common/runner.py:2029`): sin `task_override`, un motor que no está en
+`TASK_TYPES` cae a `"text"` por defecto.
+
+| Banco | `task_type` de sus filas | Motores que lo producen |
+| :--- | :--- | :--- |
+| `text` | `text` | `pyocrust`, `rapidocr`, `easyocr`, `tesseract` — todos por el **fallback** `"text"` (no están en `TASK_TYPES`) |
+| `formula` | `formula` (forzado por `task_override`) | `pyocrust_formula`, `pyocrust_formulanet`, `pyocrust_indra`, `paddle_latex_ocr`, `pix2tex`, `unimernet`, `pyocrust_structure` |
+| `layout` | `layout` | `pyocrust_layout`, `docling_heron_101`, `deformable_detr`, los 39 YOLO |
+| `layout` | `structure` | `pyocrust_structure` (el pipeline completo, no un detector de layout) |
+| `table` | `table` (forzado por `task_override`) | `pyocrust_table`, `tatr`, `paddleocr_slanet`, `docling_tableformer`, `pyocrust_structure` |
+| `full_page` | `full_page` | `pyocrust_indra`, `docling`, `pp_structurev3_api` |
+| `full_page` | `structure` | `pyocrust_structure` (el pipeline completo, medido en la tarea de estructura) |
+| `orientation` | `orientation` | `pyocrust_orientation`, `lcnet_doc_ori`, `easyocr_rotation` |
+| `text_line` | `text_line` | `pyocrust_textline`, `lcnet_textline_ori`, `rapidocr_mobile_cls` |
+| `rectification` | `rectification` | `pyocrust_rectify`, `uvdoc`, `opencv_perspective` |
+| `seal` | `seal` | `pyocrust_seal`, `onnx_seal_det` |
+
+Verificado contra los CSV de las runs vigentes: solo `pyocrust_structure` produce
+dos `task_type` distintos según el banco (`structure` en `layout`/`full_page`,
+`formula`/`table` cuando el banco lo fuerza).
+
+**Exclusiones honestas:** `formula` no publica los OCR de texto (`rapidocr`,
+`easyocr`, `tesseract`) porque no emiten LaTeX y su `latex_sim` mediría texto plano
+contra GT LaTeX — el corte vive en `common/runner.py::FORMULA_BACKENDS_EXCLUDED`
+(`:1990`) y lo aplican `report.py` y `summary.py`. Las runs viejas que los
+contienen siguen en disco (provenance) pero ya no publican filas.
 
 ## Estado anterior B10 — dataset documental (2026-11-01; superado por la muestra estratificada de 2026-11-09)
 
@@ -355,12 +391,17 @@ CPU solicitado, `provider_effective=unverified`, `warmup=1`, `repeats=1`:
 
 ### Contrato vigente (sustituye las definiciones históricas inferiores)
 
-* **28 columnas** (22 históricas + 6 aditivas), cabecera exacta:
-  `run_timestamp,backend,dataset,image_id,cer,wer,cer_ord,wer_ord,word_f1,exact_match,elapsed_ms,n_regions,mean_confidence,n_chars_gt,n_chars_pred,status,error,task_type,model_name,model_variant,markdown_f1,block_f1,latex_exact,latex_sim,latex_token_f1,feature,box_recall,box_iou_mean`.
+* **47 columnas** (22 históricas + 25 aditivas), cabecera exacta y **verificada en
+  runtime** (`common/runner.py::CSV_FIELDS`, 47 entradas):
+  `run_timestamp,backend,dataset,image_id,cer,wer,cer_ord,wer_ord,word_f1,exact_match,elapsed_ms,n_regions,mean_confidence,n_chars_gt,n_chars_pred,status,error,task_type,model_name,model_variant,markdown_f1,block_f1,latex_exact,latex_sim,latex_token_f1,feature,box_recall,box_iou_mean,device_requested,provider_effective,layout_map,layout_recall,table_teds,ori_acc,rect_sim,stratum,title_recall,title_precision,title_text_f1,title_seq_tau,read_order_tau,figure_recall,figure_precision,figure_caption_recall,figure_caption_precision,figure_caption_pair_f1,figure_caption_text_f1`.
   Las aditivas del banco por feature: `latex_exact`/`latex_sim`/`latex_token_f1`
-  (solo `task_type=formula`), `feature` (banco que produjo la fila) y
-  `box_recall`/`box_iou_mean` (detección; solo si el dataset anota cajas GT, si no
-  quedan vacías). El contrato lo aplica `common/runner.py::CSV_FIELDS`.
+  (solo `task_type=formula`), `feature` (banco que produjo la fila),
+  `box_recall`/`box_iou_mean` (detección; solo si el dataset anota cajas GT),
+  `device_requested`/`provider_effective` (honestidad de proveedor),
+  `layout_map`/`layout_recall`/`table_teds`/`ori_acc`/`rect_sim` (métricas de
+  feature, vacías donde no aplican), `stratum` (`data_source × layout`),
+  y las métricas propias de `full_page` (`title_*`, `read_order_tau`, `figure_*`).
+  El contrato lo aplica `common/runner.py::CSV_FIELDS`.
 * **Backends** registrados en `run_benchmarks.py --backends`:
   `pyocrust` (`pp_ocrv6` tiny → `text`), `pyocrust_structure` (`pp_structurev3` →
   `structure`), `pyocrust_formula` (`pp_structurev3` + `pp-formulanet-s` →
@@ -485,7 +526,15 @@ Los que no estén instalados aparecen como `skipped` en el `summary.json` de la 
 
 ## Contrato del CSV
 
-Una fila por combinación `(backend, imagen)`. Cabecera exacta, **17 columnas**:
+> **Historial.** Esta sección describe el CSV **histórico de 17 columnas** del
+> primer banco (`run_benchmarks.py`), que ya **no** es el contrato vigente: el
+> runner actual escribe **47 columnas** (`common/runner.py::CSV_FIELDS`, verificadas
+> en runtime). El contrato vigente está en la sección «Contrato vigente» del
+> bloque `B9` (más arriba). Se conserva aquí como registro; no describe lo que
+> produce el banco hoy.
+
+Una fila por combinación `(backend, imagen)`. Cabecera del CSV **histórico de 17
+columnas**:
 
 ```text
 run_timestamp,backend,dataset,image_id,cer,wer,cer_ord,wer_ord,word_f1,exact_match,elapsed_ms,n_regions,mean_confidence,n_chars_gt,n_chars_pred,status,error

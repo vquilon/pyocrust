@@ -128,14 +128,12 @@ are stratified per feature: `formula` 10, `table` 8, `full_page` 6, `layout` 40,
 the rest 20. Details and per-engine tables in
 [`benchmarks/reports/SUMMARY.md`](benchmarks/reports/SUMMARY.md).
 
-What is **not** closed: `pp_structurev3_api` is back in the `full_page`
-`DEFAULT_BACKENDS` after a real 3-page smoke, but its row is **not published yet**
-(the current run predates it), and under CUDA the isolated LaTeX of
+What is **not** closed: under CUDA the isolated LaTeX of
 `pyocrust_formula`/`pyocrust_formulanet` comes out empty, so GPU formula quality is
-`N/A` there (CPU does measure it). The empty-LaTeX defect has its root cause
-isolated — `CUDA_LAUNCH_BLOCKING` is applied too late, after the CUDA context is
-initialized — and the fix is committed (`65326b8`) and being verified; it is
-**not** treated as fixed here. Both have their own tracking cards; see
+`N/A` there (CPU does measure it). That defect is fixed and verified (`65326b8`:
+the `CUDA_LAUNCH_BLOCKING` workaround was applied too late), but the **published**
+GPU formula rows still come from the defective binary and are being re-measured;
+they are **not** treated as corrected here. Tracking card: `t_5c3b7dfe`; see
 `DESIGN.md` §10.5-§10.6.
 
 ## Presets and output
@@ -570,7 +568,7 @@ with external references, which are not published as comparable.
 | `text_line` | accuracy | 1.000 | pp-lcnet_x1_0_textline_ori (onnxruntime) 1.000 | measured |
 | `seal` | recall@IoU 0.5 | 0.750 | pp-ocrv4_mobile_seal_det (onnxruntime) 0.750 | measured |
 | `table` | TEDS (struct.) | 0.914 | tableformer (docling) 0.905 | measured |
-| `full_page` | Markdown F1 | 0.083 | docling-default (pipeline) 0.204 | measured |
+| `full_page` | Markdown F1 | 0.086 | docling-default (pipeline) 0.204 | measured |
 
 **Sample sizes are stratified per feature**, not uniform: `formula` `n=10`,
 `table` `n=8`, `full_page` `n=6`, `layout` `n=40`, the rest `n=20`
