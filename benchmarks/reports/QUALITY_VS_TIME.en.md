@@ -54,14 +54,14 @@
 | hantian/v8-x | cpu | 1025 | 0.490 | AGPL-3.0 |
 | **pp-doclayoutv3 (130M)** | cpu | 2219 | 0.796 | Apache-2.0 |
 | **pp_structurev3 (default)** | cpu | 7111 | 0.751 | Apache-2.0 |
-| hantian/v8-n | gpu | 29 | 0.545 | AGPL-3.0 |
-| armaggheddon/y26-n (2.6M) | gpu | 32 | 0.572 | MIT |
-| armaggheddon/y11-m | gpu | 37 | 0.542 | MIT |
-| hantian/v10-l | gpu | 39 | 0.533 | AGPL-3.0 |
-| hantian/v8-x | gpu | 43 | 0.490 | AGPL-3.0 |
-| hantian/v12-l | gpu | 48 | 0.550 | AGPL-3.0 |
-| **pp-doclayoutv3 (130M)** | gpu | 437 | 0.796 | Apache-2.0 |
-| **pp_structurev3 (default)** | gpu | 6853 | 0.751 | Apache-2.0 |
+| hantian/v8-n | gpu | 25 | 0.545 | AGPL-3.0 |
+| armaggheddon/y26-n (2.6M) | gpu | 29 | 0.572 | MIT |
+| hantian/v10-l | gpu | 36 | 0.533 | AGPL-3.0 |
+| armaggheddon/y11-m | gpu | 42 | 0.542 | MIT |
+| hantian/v8-x | gpu | 47 | 0.490 | AGPL-3.0 |
+| hantian/v12-l | gpu | 53 | 0.550 | AGPL-3.0 |
+| **pp-doclayoutv3 (130M)** | gpu | 488 | 0.796 | Apache-2.0 |
+| **pp_structurev3 (default)** | gpu | 2938 | 0.751 | Apache-2.0 |
 
 ## orientation — Synthetic — device `cpu+gpu` · measured engines
 
@@ -70,7 +70,7 @@
 | **pp-lcnet_x1_0_doc_ori (onnxruntime)** | cpu | 5 | 1.000 | Apache-2.0 |
 | **pp-lcnet_x1_0_doc_ori (6.8M)** | cpu | 1448 | 1.000 | Apache-2.0 |
 | craft_mlt_25k+latin_g2 (easyocr) | cpu | 42794 | 0.350 | Apache-2.0 |
-| **pp-lcnet_x1_0_doc_ori (6.8M)** | gpu | 1608 | 1.000 | Apache-2.0 |
+| **pp-lcnet_x1_0_doc_ori (6.8M)** | gpu | 192 | 1.000 | Apache-2.0 |
 
 ## rectification — Synthetic — device `cpu+gpu` · measured engines
 
@@ -79,7 +79,7 @@
 | perspective-4corner (baseline (OpenCV, sin pesos)) | cpu | 11 | 0.491 | Apache-2.0 |
 | **uvdoc (onnxruntime)** | cpu | 78 | 0.604 | Apache-2.0 |
 | **uvdoc (31.7M)** | cpu | 297 | 0.597 | Apache-2.0 |
-| **uvdoc (31.7M)** | gpu | 298 | 0.597 | Apache-2.0 |
+| **uvdoc (31.7M)** | gpu | 33 | 0.590 | Apache-2.0 |
 
 ## text_line — Synthetic — device `cpu+gpu` · measured engines
 
@@ -87,7 +87,7 @@
 | :--- | :--- | ---: | ---: | :--- |
 | **pp-lcnet_x1_0_textline_ori (onnxruntime)** | cpu | 5 | 1.000 | Apache-2.0 |
 | **pp-lcnet_x1_0_textline_ori (6.8M)** | cpu | 26 | 1.000 | Apache-2.0 |
-| **pp-lcnet_x1_0_textline_ori (6.8M)** | gpu | 25 | 1.000 | Apache-2.0 |
+| **pp-lcnet_x1_0_textline_ori (6.8M)** | gpu | 152 | 1.000 | Apache-2.0 |
 
 ## seal — Synthetic — device `cpu+gpu` · measured engines
 
@@ -95,7 +95,7 @@
 | :--- | :--- | ---: | ---: | :--- |
 | **pp-ocrv4_mobile_seal_det (onnxruntime)** | cpu | 217 | 0.750 | Apache-2.0 |
 | **pp-ocrv4_mobile_seal_det (4.8M)** | cpu | 643 | 0.750 | Apache-2.0 |
-| **pp-ocrv4_mobile_seal_det (4.8M)** | gpu | 608 | 0.750 | Apache-2.0 |
+| **pp-ocrv4_mobile_seal_det (4.8M)** | gpu | 178 | 0.750 | Apache-2.0 |
 
 ## table — OmniDocBench — device `cpu` · measured engines
 
@@ -114,5 +114,5 @@
 | **indra (math)** | cpu | 607 | 0.029 | OpenRAIL-M-Mod |
 | **pp_structurev3 (default)** | cpu | 5865 | 0.083 | Apache-2.0 |
 | docling-default (pipeline) | cpu | 25723 | 0.204 | MIT |
-| **pp_structurev3 (default)** | gpu | 4754 | 0.085 | Apache-2.0 |
-| **indra (math)** | gpu | 4802 | 0.029 | OpenRAIL-M-Mod |
+| **indra (math)** | gpu | 1118 | 0.029 | OpenRAIL-M-Mod |
+| **pp_structurev3 (default)** | gpu | 1805 | 0.085 | Apache-2.0 |

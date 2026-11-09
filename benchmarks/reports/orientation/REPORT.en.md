@@ -44,7 +44,7 @@
 | Engine (variant) | accuracy ↑ (CPU) | accuracy ↑ (GPU) | ms CPU | ms GPU | GPU provider |
 | :--- | ---: | ---: | ---: | ---: | :--- |
 | craft_mlt_25k+latin_g2 (easyocr) | 0.350 | N/A | 42794 | N/A | n/a (does not run on GPU) |
-| pp-lcnet_x1_0_doc_ori (6.8M) | 1.000 | 1.000 | 1448 | 1608 | directml |
+| pp-lcnet_x1_0_doc_ori (6.8M) | 1.000 | 1.000 | 1448 | 192 | cuda |
 | pp-lcnet_x1_0_doc_ori (onnxruntime) | 1.000 | N/A | 5 | N/A | n/a (does not run on GPU) |
 
 > The GPU provider comes from the actual `provider_effective` value in the GPU `summary.json` (`n/a` = the engine does not expose GPU execution in this benchmark). No GPU rows are invented: engines that did not run on an accelerator appear as `N/A`.

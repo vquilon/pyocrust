@@ -39,9 +39,9 @@
 
 | Motor (variante) | Word F1 ↑ (CPU) | Word F1 ↑ (GPU) | ms CPU | ms GPU | provider GPU |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| easyocr (default) | 0.401 | 0.399 | 4600 | 1098 | cuda |
-| pp_ocrv6 (tiny) | 0.717 | 0.684 | 970 | 1182 | directml |
-| rapidocr (default) | 0.585 | 0.585 | 6748 | 5530 | cuda |
+| easyocr (default) | 0.401 | 0.399 | 4600 | 1263 | cuda |
+| pp_ocrv6 (tiny) | 0.717 | 0.684 | 970 | 330 | cuda |
+| rapidocr (default) | 0.585 | 0.585 | 6748 | 5842 | cuda |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.
 

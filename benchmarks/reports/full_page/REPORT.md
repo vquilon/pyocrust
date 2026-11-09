@@ -44,8 +44,8 @@
 | Motor (variante) | Markdown F1 ↑ (CPU) | Markdown F1 ↑ (GPU) | ms CPU | ms GPU | provider GPU |
 | :--- | ---: | ---: | ---: | ---: | :--- |
 | docling-default (pipeline) | 0.204 | N/A | 25723 | N/A | n/a (no corre en GPU) |
-| indra (math) | 0.029 | 0.029 | 607 | 4802 | directml |
-| pp_structurev3 (default) | 0.083 | 0.085 | 5865 | 4754 | directml |
+| indra (math) | 0.029 | 0.029 | 607 | 1118 | cuda |
+| pp_structurev3 (default) | 0.083 | 0.085 | 5865 | 1805 | cuda |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.
 

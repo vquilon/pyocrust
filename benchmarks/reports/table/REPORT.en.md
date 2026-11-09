@@ -48,8 +48,8 @@
 | Engine (variant) | Structural TEDS ↑ (CPU) | Structural TEDS ↑ (GPU) | ms CPU | ms GPU | GPU provider |
 | :--- | ---: | ---: | ---: | ---: | :--- |
 | SLANet_plus (paddleocr) | 0.889 | N/A | 72 | N/A | n/a (does not run on GPU) |
-| pp_structurev3 (default) | 0.753 | 0.753 | 3530 | 3370 | directml |
-| slanet_plus (default) | 0.914 | 0.914 | 1103 | 632 | directml |
+| pp_structurev3 (default) | 0.753 | 0.753 | 3530 | 1479 | cuda |
+| slanet_plus (default) | 0.914 | 0.914 | 1103 | 172 | cuda |
 | table-transformer-structure-recognition (default) | 0.790 | N/A | 131 | N/A | n/a (does not run on GPU) |
 | tableformer (docling) | 0.905 | N/A | 28609 | N/A | n/a (does not run on GPU) |
 

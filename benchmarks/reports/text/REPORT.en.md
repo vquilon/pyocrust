@@ -39,9 +39,9 @@
 
 | Engine (variant) | Word F1 ↑ (CPU) | Word F1 ↑ (GPU) | ms CPU | ms GPU | GPU provider |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| easyocr (default) | 0.401 | 0.399 | 4600 | 1098 | cuda |
-| pp_ocrv6 (tiny) | 0.717 | 0.684 | 970 | 1182 | directml |
-| rapidocr (default) | 0.585 | 0.585 | 6748 | 5530 | cuda |
+| easyocr (default) | 0.401 | 0.399 | 4600 | 1263 | cuda |
+| pp_ocrv6 (tiny) | 0.717 | 0.684 | 970 | 330 | cuda |
+| rapidocr (default) | 0.585 | 0.585 | 6748 | 5842 | cuda |
 
 > The GPU provider comes from the actual `provider_effective` value in the GPU `summary.json` (`n/a` = the engine does not expose GPU execution in this benchmark). No GPU rows are invented: engines that did not run on an accelerator appear as `N/A`.
 
