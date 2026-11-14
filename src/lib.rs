@@ -9,6 +9,8 @@
 
 use pyo3::prelude::*;
 
+use oar_ocr::core::config::OrtSessionConfig;
+
 pub mod core;
 pub mod engines;
 pub mod storage;
@@ -96,20 +98,29 @@ impl VeloceOCR {
         let paths = config.resolve_paths(&spec);
 
         // `device` opt-in (ADR-010): el EP se resuelve y prueba **antes** de
-        // construir el pipeline; el default `"cpu"` no toca ninguna GPU.
-        let selection = crate::core::device::resolve_device(device)?;
+        // construir el pipeline; el default `"cpu"` no toca ninguna GPU. El VLM
+        // corre sobre Candle y resuelve su propio dispositivo (no sondea ONNX
+        // Runtime): su `provider_effective` sale de `engines::vlm`.
+        let vlm = matches!(spec, crate::core::ModelSpec::Vlm(_));
+        let (ort_session, provider_effective) = if vlm {
+            (OrtSessionConfig::new(), engines::vlm_provider_effective(device)?)
+        } else {
+            let selection = crate::core::device::resolve_device(device)?;
+            (selection.config, selection.provider_effective)
+        };
 
         // `S2.0`: preflight → descarga en paralelo de lo que falte → re-preflight.
         // Se libera el GIL: la descarga es I/O de red, no inferencia.
         py.detach(|| storage::models::ensure_models(&config.models_dir, &spec))?;
 
-        let engine = py.detach(|| engines::create_engine(&spec, &paths, &selection.config))?;
+        let engine =
+            py.detach(|| engines::create_engine(&spec, &paths, &ort_session, device))?;
 
         Ok(Self {
             engine,
             config,
             license,
-            provider_effective: selection.provider_effective,
+            provider_effective,
         })
     }
 

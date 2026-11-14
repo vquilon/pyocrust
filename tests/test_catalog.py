@@ -155,9 +155,14 @@ def test_pipeline_profiles_campos_documentados():
         assert isinstance(perfil["ram_bytes"], int) or perfil["ram_bytes"] is None, (
             f"{perfil['id']}: ram_bytes debe ser int o None"
         )
-        assert isinstance(perfil["artifacts"], (list, tuple)) and perfil["artifacts"], (
-            f"{perfil['id']}: artifacts debe ser una lista no vacía"
+        assert isinstance(perfil["artifacts"], (list, tuple)), (
+            f"{perfil['id']}: artifacts debe ser una lista"
         )
+        # El preset VLM no registra artefactos por fichero (sus snapshots los
+        # gestiona `oar-ocr-vl` bajo el root del wrapper), así que declara la
+        # lista vacía a propósito; el resto de pipelines declaran todos los suyos.
+        if perfil["family"] != "vlm":
+            assert perfil["artifacts"], f"{perfil['id']}: artifacts debe ser no vacía"
     assert any(p["disk_bytes"] for p in perfiles), "ningún pipeline declara disk_bytes real"
 
 

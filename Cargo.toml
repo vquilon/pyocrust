@@ -46,7 +46,17 @@ coreml = ["oar-ocr/coreml"]
 # VLM (Candle / `oar-ocr-vl`): opt-in, **nunca** por defecto (ADR-001). No añade
 # dependencias de Python (todo es Rust): lo que crece es el `.pyd`, no el
 # `pip install`. Los pesos se descargan en runtime, no viajan en el wheel.
-vl = ["dep:oar-ocr-vl"]
+#
+# `oar-ocr-vl/auto-download` (ureq + sha2 + dirs) es lo que resuelve y baja los
+# snapshots bajo `$OAR_HOME/models/<org>/<name>/<commit>`; el wrapper reexporta
+# su root resuelto como `OAR_HOME`, así que caen bajo el root del wrapper.
+vl = ["dep:oar-ocr-vl", "oar-ocr-vl/auto-download"]
+
+# VLM sobre GPU (Candle CUDA). Añade `candle-flash-attn`, que compila kernels
+# con `nvcc` (CUDA Toolkit completo): build largo y específico de GPU. Es la
+# única vía de `device="cuda"` para el preset VLM; sin esta feature, pedirlo da
+# un error tipado (nunca CPU etiquetado como CUDA).
+vl-cuda = ["vl", "oar-ocr-vl/cuda"]
 
 # Parche local de `ort-sys` 2.0.0-rc.13 (misma version, ver `vendor/ort-sys/`):
 # oar-ocr 0.10.x fija `ort = "=2.0.0-rc.13"` (ORT 1.28), cuyo provider CUDA no

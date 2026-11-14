@@ -221,16 +221,18 @@ impl ModelPaths {
                 formula_tokenizer: None,
                 spec: spec.clone(),
             },
-            // Un VLM no resuelve ficheros sueltos: los dos checkpoints viven en
-            // `$OAR_HOME/models/<org>/<name>/` con la revisión resuelta dentro.
+            // Un VLM no resuelve ficheros sueltos: los dos checkpoints son
+            // snapshots inmutables que `oar-ocr-vl` deja en
+            // `$OAR_HOME/models/<org>/<name>/<commit>` (su `cache_root` es el
+            // propio `OAR_HOME`, que el wrapper reexporta a su root resuelto).
             // `detection_model` lleva el directorio del VLM y
             // `layout_detection_model` el del detector PP-DocLayout que compone
             // (`all()` los devuelve en ese orden, igual que `artifact_count`).
             ModelSpec::Vlm(model) => Self {
-                detection_model: root.join(model.checkpoint_repo()),
+                detection_model: root.join("models").join(model.checkpoint_repo()),
                 recognition_model: None,
                 character_dict: None,
-                layout_detection_model: Some(root.join(model.layout_repo())),
+                layout_detection_model: Some(root.join("models").join(model.layout_repo())),
                 table_classification_model: None,
                 wired_table_structure_model: None,
                 wireless_table_structure_model: None,
@@ -652,13 +654,14 @@ mod tests {
         assert_eq!(spec.artifact_count(), 2);
         assert_eq!(paths.all().len(), spec.artifact_count());
         assert_eq!(paths.spec, spec);
+        // Snapshots de `oar-ocr-vl` bajo `<root>/models/<org>/<name>`.
         assert_eq!(
             paths.detection_model,
-            Path::new("/models").join(model.checkpoint_repo())
+            Path::new("/models/models").join(model.checkpoint_repo())
         );
         assert_eq!(
             paths.layout_detection_model,
-            Some(Path::new("/models").join(model.layout_repo()))
+            Some(Path::new("/models/models").join(model.layout_repo()))
         );
         // Not a single-file ONNX pipeline: those fields stay empty.
         assert_eq!(paths.recognition_model, None);

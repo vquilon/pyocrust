@@ -224,6 +224,13 @@ fn hash_matches(path: &Path, expected_sha256: &str) -> bool {
 /// disco no toca la red; si `PYOCRUST_OFFLINE` está activo y falta algo, falla con
 /// el error tipado y el comando exacto que lo traería.
 pub fn ensure_models(root: &Path, spec: &ModelSpec) -> Result<(), OcrError> {
+    // Un preset VLM no tiene artefactos por fichero: sus dos checkpoints son
+    // snapshots que resuelve/descarga el auto-download de `oar-ocr-vl`
+    // (`engines::vlm::ensure_vlm_models`), que respeta `PYOCRUST_OFFLINE`.
+    if let ModelSpec::Vlm(model) = spec {
+        return crate::engines::ensure_vlm_models(root, *model);
+    }
+
     let paths = ModelPaths::new(root, spec);
     let first = preflight_paths(&paths);
     if first.is_ready() {
