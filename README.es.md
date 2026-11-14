@@ -153,6 +153,7 @@ ver `DESIGN.md` §10.5-§10.6.
 | `pp_ocrv6` / `pp_ocrv6_tiny`, `pp_ocrv6_small`, `pp_ocrv6_medium` | `OcrResult` |
 | `pp_structurev3` | `StructureResult` |
 | `indra` | `StructureResult` (Markdown, regiones y bloques) |
+| `glm_ocr` (solo `vl`) | `StructureResult` (solo Markdown; `elements`/`regions` vacíos) |
 
 `VeloceOCR('indra')` usa el mismo `ensure_models`, con `.math(true)` y nueve
 artefactos requeridos en `<models_dir>/indra/`. `models_status()['indra']` es el
@@ -277,6 +278,7 @@ Los tamaños son los del registro y del disco local; no son memoria de ejecució
 | `pp_ocrv6` (Tiny) | 3 | ~6,3 MB |
 | `pp_structurev3` | 11 | ~936 MB |
 | `indra` (requeridos) | 9 | ~27 MB |
+| `glm_ocr` (solo `vl`) | 2 snapshots | ~2,6 GB + ~133 MB |
 
 Los diccionarios de texto y tabla, el tokenizer de fórmulas y los JSON de
 metadatos son compañeros del modelo, no modelos separados.
@@ -391,9 +393,9 @@ alguno de sus artefactos no está en `oar-ocr`.
 | `PYOCRUST_OFFLINE` | Si es `1`, `true` o `yes` (case-insensitive), bloquea descargas. El resolvedor lo lee para reflejar el modo en `PipelineChoice.offline`. |
 | `CUDA_LAUNCH_BLOCKING` | Depuración de CUDA. La propaga `oar-ocr` / ONNX Runtime. |
 | `RUST_LOG` | Logging del crate Rust (`oar-ocr`, `reqwest`). |
-| `OAR_VL_DTYPE` | Documentada en `oar-ocr` para VLM. **Sin efecto en v1** (feature `vl` reservada para v2, ADR-001). |
-| `OAR_VL_ATTN_FULL_SEQ_THRESHOLD` | Ídem. **Sin efecto en v1**. |
-| `OAR_VL_DISABLE_*` | Familia de flags de VLM. **Sin efecto en v1**. |
+| `OAR_VL_DTYPE` | Dtype del VLM, lo lee `oar-ocr-vl`. Solo aplica con la feature `vl`; sin ella, no tiene efecto. |
+| `OAR_VL_ATTN_FULL_SEQ_THRESHOLD` | Umbral de atención de secuencia completa de visión, lo lee `oar-ocr-vl` (`0` fuerza atención por chunks). Solo aplica con `vl`. |
+| `OAR_VL_DISABLE_*` | Familia de flags de VLM (`OAR_VL_DISABLE_CUDA_GRAPH`, `OAR_VL_DISABLE_SPECULATIVE`, …), las lee `oar-ocr-vl`. Solo aplica con `vl`. |
 
 ## Catálogo y recomendación (`S3`, aprobación acotada)
 
@@ -520,17 +522,24 @@ python -m pytest tests/ -q   # tests de integración (tarjeta V1)
 | `cuda` | Proveedor CUDA de ONNX Runtime (NVIDIA; Linux/Windows). |
 | `coreml` | Proveedor CoreML de ONNX Runtime (Neural Engine/GPU de Apple; macOS). |
 | `directml` | Proveedor DirectML de ONNX Runtime (Windows). |
+| `vl` | VLM opt-in: habilita el preset `glm_ocr` (VLM GLM-OCR 0.9B, MIT) sobre Candle / `oar-ocr-vl`. Nunca en el build por defecto (ADR-001). |
+| `vl-cuda` | `vl` + Candle CUDA (`cuda` de `oar-ocr-vl`); compila `candle-flash-attn` con `nvcc`. |
 
 ```bash
 maturin develop --features cuda        # GPU NVIDIA (Linux/Windows)
 maturin develop --features coreml      # Neural Engine/GPU de Apple (macOS)
+maturin develop --features vl          # Preset VLM `glm_ocr` (Candle, CPU)
+maturin develop --features vl-cuda     # VLM en GPU NVIDIA (Candle CUDA; requiere nvcc)
 ```
 
 La descarga de modelos desde ModelScope (`auto-download`) viene activada por
 defecto en `oar-ocr` (ADR-010); el segundo camino de descarga, el descargador
 propio desde Hugging Face, se implementa en `src/storage/download.rs` (tarjeta `I3`).
-La feature `vl` (Candle / `oar-ocr-vl`) está reservada para v2 (ADR-001) y no
-se declara todavía: no hay nada que compilar detrás de ella.
+La feature `vl` (Candle / `oar-ocr-vl`) es **opt-in** y nunca en el build por
+defecto (ADR-001): activa el preset `glm_ocr` (VLM GLM-OCR 0.9B, MIT). Sin ella,
+`VeloceOCR("glm_ocr")` da un error tipado. Corre sobre Candle, no ONNX
+Runtime, así que los proveedores ONNX no aplican a esa vía y `device="cuda"`
+requiere `--features vl-cuda`.
 
 Los modelos se resuelven en este orden de prioridad (ver `DESIGN.md` §3.2):
 parámetro `custom_path` → `OAR_HOME` / `OCR_MODELS_CACHE_DIR` → `~/.oar`.
