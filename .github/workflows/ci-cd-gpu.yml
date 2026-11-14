@@ -21,23 +21,30 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Solo plataformas con CUDA:
-        #   - Linux x86_64 / aarch64 y Windows x86_64 (ORT GPU publicado).
-        #   - macOS FUERA: no existe CUDA en Apple.
+        # El acelerador depende de la plataforma (mismo wheel `pyocrust-gpu`):
+        #   - Linux x86_64 / Windows x86_64 -> CUDA (`--features cuda`), ORT GPU.
+        #   - macOS aarch64 (Apple Silicon) -> CoreML (`--features coreml`); no
+        #     existe CUDA en Apple, CoreML usa el Neural Engine/GPU vía Metal.
+        #   - Linux aarch64 FUERA: `ort-sys` (build/download/dist.tsv) no publica
+        #     un dist CUDA para `aarch64-unknown-linux-gnu` (solo `none`), y
+        #     `resolve_dist()` aborta el build si el dist no cubre `cuda`.
         # abi3-py310 -> un único wheel por plataforma cubre CPython 3.10-3.14.
         job:
-          # --- LINUX ---
+          # --- LINUX / WINDOWS: CUDA ---
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             python-architecture: x64
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            python-architecture: x64
-
-          # --- WINDOWS ---
+            features: cuda
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             python-architecture: x64
+            features: cuda
+
+          # --- macOS: CoreML ---
+          - os: macos-26
+            target: aarch64-apple-darwin
+            python-architecture: arm64
+            features: coreml
 
     steps:
     - uses: actions/checkout@v7
@@ -70,8 +77,8 @@ jobs:
       uses: PyO3/maturin-action@v1
       with:
         target: ${{ matrix.job.target }}
-        # `cuda` liga el execution provider CUDA de ONNX Runtime (oar-ocr/cuda).
-        args: --release --features cuda --out dist --interpreter "python3.10"
+        # La feature la fija la matriz: `cuda` (Linux/Windows) o `coreml` (macOS).
+        args: --release --features ${{ matrix.job.features }} --out dist --interpreter "python3.10"
         manylinux: "2_28"
         # Ver ci-cd.yml: hace falta openssl.pc para el build script de ort-sys, y
         # no es el mismo paquete en los dos contenedores Linux.
@@ -92,7 +99,7 @@ jobs:
       uses: PyO3/maturin-action@v1
       with:
         target: ${{ matrix.job.target }}
-        args: --release --features cuda --out dist --interpreter "${{ steps.setup-python.outputs.python-path }}"
+        args: --release --features ${{ matrix.job.features }} --out dist --interpreter "${{ steps.setup-python.outputs.python-path }}"
         manylinux: auto
 
     - name: Store the distribution packages

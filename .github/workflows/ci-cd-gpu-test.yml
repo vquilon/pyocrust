@@ -1,7 +1,8 @@
 name: Publish pyocrust-gpu to TestPyPI
 
 # Gemelo de ci-cd-gpu.yml apuntando a TestPyPI. Ver ese fichero para el porqué
-# del paquete separado, la matriz (solo CUDA) y el parche de metadatos.
+# del paquete separado, la matriz (CUDA en Linux/Windows, CoreML en macOS) y el
+# parche de metadatos.
 on:
   release:
     types: [published]
@@ -15,20 +16,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Ver ci-cd-gpu.yml: solo plataformas con CUDA (macOS excluido).
+        # Ver ci-cd-gpu.yml: el acelerador depende de la plataforma (CUDA en
+        # Linux x86_64/Windows, CoreML en macOS; Linux aarch64 excluido).
         job:
-          # --- LINUX ---
+          # --- LINUX / WINDOWS: CUDA ---
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             python-architecture: x64
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            python-architecture: x64
-
-          # --- WINDOWS ---
+            features: cuda
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             python-architecture: x64
+            features: cuda
+
+          # --- macOS: CoreML ---
+          - os: macos-26
+            target: aarch64-apple-darwin
+            python-architecture: arm64
+            features: coreml
 
     steps:
     - uses: actions/checkout@v7
@@ -59,7 +64,7 @@ jobs:
       uses: PyO3/maturin-action@v1
       with:
         target: ${{ matrix.job.target }}
-        args: --release --features cuda --out dist --interpreter "python3.10"
+        args: --release --features ${{ matrix.job.features }} --out dist --interpreter "python3.10"
         manylinux: "2_28"
         before-script-linux: |
           if command -v yum &>/dev/null; then yum install -y openssl-devel
@@ -78,7 +83,7 @@ jobs:
       uses: PyO3/maturin-action@v1
       with:
         target: ${{ matrix.job.target }}
-        args: --release --features cuda --out dist --interpreter "${{ steps.setup-python.outputs.python-path }}"
+        args: --release --features ${{ matrix.job.features }} --out dist --interpreter "${{ steps.setup-python.outputs.python-path }}"
         manylinux: auto
 
     - name: Store the distribution packages
