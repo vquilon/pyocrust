@@ -1085,6 +1085,13 @@ HF_VLM_MODELS: dict[str, tuple[str, str | None, str, float]] = {
     "paddleocr_vl": ("PaddlePaddle/PaddleOCR-VL",  "OCR:",              "PaddleOCRVLForConditionalGeneration", 1.80),
 }
 
+# Timeout por página del subproceso VLM. 1200 s se quedaba corto para PaddleOCR-VL
+# en **CPU** sobre las páginas densas (NaViT a resolución dinámica: medido hasta 652 s
+# en las que sí acaban, y >1200 s en las dos más densas -> `TimeoutExpired` -> n=4/6).
+# 9000 s (2,5 h/página) cubre el peor caso estimado (~18-24x el tiempo de GPU medido,
+# ~3,6-4,9 ks) y sigue cabiendo en el presupuesto de la campaña CPU (`max_runtime` 4 h).
+HF_VLM_TIMEOUT_S = 9000
+
 
 def _hf_repo_cached(repo: str, min_bytes: int) -> bool:
     """¿El snapshot de `repo` está en la caché HF con sus pesos (>= `min_bytes`)?
@@ -1136,7 +1143,9 @@ def _hf_vlm_backend(backend: str, device: str = "cpu") -> Callable[[Image.Image]
     """VLM documental SOTA (`full_page`) por su ruta **`transformers`** -> Markdown.
 
     Corre en el venv aislado de docling (transformers 5.x + torch CUDA) por
-    **subproceso con timeout**, un modelo a la vez. La fila GPU solo se etiqueta
+    **subproceso con timeout** (`HF_VLM_TIMEOUT_S`, hoy 9000 s = 2,5 h por página:
+    PaddleOCR-VL en CPU tarda cientos de segundos en las páginas densas), un modelo a
+    la vez. La fila GPU solo se etiqueta
     `cuda` si ese venv **ve la GPU** (sonda); si no, `skipped` con motivo, nunca una
     fila CPU disfrazada de CUDA. Sin los pesos en caché -> `skipped` con el comando
     de descarga, para que un banco que no los pida no baje ~2 GiB a mitad de run.
@@ -1164,7 +1173,7 @@ def _hf_vlm_backend(backend: str, device: str = "cpu") -> Callable[[Image.Image]
             proc = subprocess.run(
                 [str(DOCLING_VENV_PYTHON), "-c", _HF_VLM_RUNNER, repo, prompt or "", class_name,
                  str(path), "cpu" if device == "cpu" else "cuda"],
-                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=1200,
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=HF_VLM_TIMEOUT_S,
             )
             elapsed_ms = (time.perf_counter() - start) * 1000.0
         if proc.returncode != 0:
