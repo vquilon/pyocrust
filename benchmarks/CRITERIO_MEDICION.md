@@ -38,6 +38,15 @@
    GPU con el **mismo** proveedor (directml **o** cuda, nunca mezcla): los tiempos de
    una tabla CPU vs GPU solo son comparables dentro del mismo EP. Cambiar de EP — o tocar
    el runner — obliga a re-medir **toda** la pata GPU, no una sola feature.
+10. **La pata GPU se mide donde el motor es pesado y en producción se usa con GPU.** Los
+   rivales de `layout` (detectores), `table` (TableFormer/TATR/SLANet), `formula` (UniMERNet,
+   pix2tex) y `full_page` (pipelines/VLM) van en GPU: medirlos solo en CPU los deja en
+   desventaja y la comparación deja de ser justa. En las features clásicas (`orientation`,
+   `text_line`, `rectification`, `seal`) los motores corren en milisegundos en CPU y dos de
+   ellos son **el mismo peso que `pyocrust` por otra vía** (`lcnet_doc_ori`,
+   `lcnet_textline_ori`): una fila GPU ahí no cambia el ranking ni la posición de pyocrust,
+   solo añade horas de campaña. Esos se quedan `n/a` **a propósito** — el criterio es
+   comparación **justa**, no simétrica.
 
 ## Modo CUDA
 
