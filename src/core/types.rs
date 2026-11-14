@@ -89,6 +89,45 @@ impl OcrSize {
     }
 }
 
+/// VLM soportado por `oar-ocr-vl` (Candle), fuera del build por defecto (ADR-001).
+///
+/// Un VLM no cabe en `oar-ocr` (ONNX Runtime): vive en otro crate y su carga la
+/// hace `oar-ocr-vl`. Los repos son los IDs de `AnyPageParserModel::as_str` de
+/// `oar-ocr-vl` `0.10.2` (`src/api/any_page_parser.rs:128-173`); un test con la
+/// feature `vl` comprueba que ambos lados no se desalinean.
+///
+/// GLM-OCR compone un detector PP-DocLayout externo, así que el preset exige
+/// **dos** checkpoints (el VLM y el layout), no un fichero suelto.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum VlmModel {
+    /// GLM-OCR (`zai-org/GLM-OCR`, MIT): página completa → Markdown.
+    GlmOcr,
+}
+
+impl VlmModel {
+    /// Nombre estable del preset VLM, para la factoría y la fachada de Python.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::GlmOcr => "glm_ocr",
+        }
+    }
+
+    /// Repo del checkpoint del VLM (HuggingFace / ModelScope).
+    pub fn checkpoint_repo(self) -> &'static str {
+        match self {
+            Self::GlmOcr => "zai-org/GLM-OCR",
+        }
+    }
+
+    /// Repo del checkpoint de layout que el VLM compone (`DEFAULT_LAYOUT_REPO` de
+    /// `oar-ocr-vl`).
+    pub fn layout_repo(self) -> &'static str {
+        match self {
+            Self::GlmOcr => "PaddlePaddle/PP-DocLayoutV3_safetensors",
+        }
+    }
+}
+
 /// Preset de pipeline (ADR-002, `DESIGN.md` §3.1).
 ///
 /// No es `#[pyclass]`: los presets se seleccionan por cadena desde Python.
@@ -104,6 +143,10 @@ pub enum ModelSpec {
     PpStructureV3,
     /// Indra page reader, including inline math, from `<root>/indra/`.
     Indra,
+    /// VLM sobre `oar-ocr-vl` (Candle). Sólo existe de verdad con la feature
+    /// `vl`; sin ella el preset se rechaza con `OcrError::InvalidInput` en la
+    /// factoría, nunca se crea un motor vacío (ADR-001).
+    Vlm(VlmModel),
 }
 
 impl ModelSpec {
@@ -113,15 +156,22 @@ impl ModelSpec {
             Self::PpOcrV6(_) => "pp_ocrv6",
             Self::PpStructureV3 => "pp_structurev3",
             Self::Indra => "indra",
+            Self::Vlm(model) => model.as_str(),
         }
     }
 
     /// Número de fuentes que el preset exige en disco.
+    ///
+    /// En un VLM son **dos checkpoints** (el modelo y el detector PP-DocLayout
+    /// que compone), no ficheros sueltos: `oar-ocr-vl` los guarda como
+    /// snapshots inmutables en `$OAR_HOME/models/<org>/<name>/<commit>` y su
+    /// auto-download los resuelve (tarjeta 02).
     pub fn artifact_count(&self) -> usize {
         match self {
             Self::PpOcrV6(_) => 3,
             Self::PpStructureV3 => 11,
             Self::Indra => 9,
+            Self::Vlm(_) => 2,
         }
     }
 }
@@ -162,6 +212,25 @@ impl ModelPaths {
                 recognition_model: Some(root.join("indra/rec.onnx")),
                 character_dict: None,
                 layout_detection_model: None,
+                table_classification_model: None,
+                wired_table_structure_model: None,
+                wireless_table_structure_model: None,
+                wired_table_cell_detection_model: None,
+                table_structure_dict: None,
+                formula_recognition_model: None,
+                formula_tokenizer: None,
+                spec: spec.clone(),
+            },
+            // Un VLM no resuelve ficheros sueltos: los dos checkpoints viven en
+            // `$OAR_HOME/models/<org>/<name>/` con la revisión resuelta dentro.
+            // `detection_model` lleva el directorio del VLM y
+            // `layout_detection_model` el del detector PP-DocLayout que compone
+            // (`all()` los devuelve en ese orden, igual que `artifact_count`).
+            ModelSpec::Vlm(model) => Self {
+                detection_model: root.join(model.checkpoint_repo()),
+                recognition_model: None,
+                character_dict: None,
+                layout_detection_model: Some(root.join(model.layout_repo())),
                 table_classification_model: None,
                 wired_table_structure_model: None,
                 wireless_table_structure_model: None,
@@ -569,5 +638,40 @@ mod tests {
         let empty = OcrResult::default();
         assert_eq!(empty.text(), "");
         assert_eq!(empty.confidence(), 0.0);
+    }
+
+    #[test]
+    fn vlm_preset_name_and_artifact_count_match_its_paths() {
+        let model = VlmModel::GlmOcr;
+        let spec = ModelSpec::Vlm(model);
+        assert_eq!(spec.as_str(), "glm_ocr");
+        assert_eq!(model.as_str(), "glm_ocr");
+
+        let paths = ModelPaths::new(Path::new("/models"), &spec);
+        // Dos checkpoints: el VLM y el detector PP-DocLayout que compone.
+        assert_eq!(spec.artifact_count(), 2);
+        assert_eq!(paths.all().len(), spec.artifact_count());
+        assert_eq!(paths.spec, spec);
+        assert_eq!(
+            paths.detection_model,
+            Path::new("/models").join(model.checkpoint_repo())
+        );
+        assert_eq!(
+            paths.layout_detection_model,
+            Some(Path::new("/models").join(model.layout_repo()))
+        );
+        // Not a single-file ONNX pipeline: those fields stay empty.
+        assert_eq!(paths.recognition_model, None);
+        assert_eq!(paths.character_dict, None);
+        assert_eq!(paths.formula_recognition_model, None);
+    }
+
+    #[test]
+    fn vlm_specs_are_distinct_from_the_onnx_presets() {
+        assert_ne!(ModelSpec::Vlm(VlmModel::GlmOcr), ModelSpec::Indra);
+        assert_ne!(
+            ModelSpec::Vlm(VlmModel::GlmOcr),
+            ModelSpec::PpOcrV6(OcrSize::Tiny)
+        );
     }
 }

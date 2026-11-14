@@ -61,18 +61,22 @@ impl VeloceOCR {
             "pp_ocrv6_medium" => crate::core::ModelSpec::PpOcrV6(crate::core::OcrSize::Medium),
             "pp_structurev3" => crate::core::ModelSpec::PpStructureV3,
             "indra" => crate::core::ModelSpec::Indra,
+            // VLM (ADR-001): el nombre sólo existe con la feature `vl`; sin ella
+            // cae al `_` y sale un `InvalidInput` tipado, nunca un preset fantasma.
+            #[cfg(feature = "vl")]
+            "glm_ocr" => crate::core::ModelSpec::Vlm(crate::core::VlmModel::GlmOcr),
             _ => {
                 return Err(OcrError::InvalidInput {
                     message: format!(
-                        "unknown preset '{preset}'. Expected one of: pp_ocrv6, pp_ocrv6_tiny, pp_ocrv6_small, pp_ocrv6_medium, pp_structurev3, indra"
+                        "unknown preset '{preset}'. Expected one of: pp_ocrv6, pp_ocrv6_tiny, \
+                         pp_ocrv6_small, pp_ocrv6_medium, pp_structurev3, indra{}",
+                        if cfg!(feature = "vl") { ", glm_ocr" } else { "" }
                     ),
                 }.into());
             }
         };
 
-        let license = storage::license::License::for_artifacts(
-            storage::registry::artifacts_for(&spec).iter().map(|artifact| artifact.name),
-        );
+        let license = storage::license::License::for_spec(&spec);
         if !license.allows(license_commercial_use, license_acknowledge) {
             return Err(crate::core::error::PyOcrValueError::new_err(format!(
                 "{}. Notes: {}",

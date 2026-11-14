@@ -374,6 +374,11 @@ pub fn artifacts_for(spec: &ModelSpec) -> &'static [Artifact] {
         ModelSpec::PpOcrV6(OcrSize::Medium) => PP_OCRV6_MEDIUM,
         ModelSpec::PpStructureV3 => PP_STRUCTUREV3,
         ModelSpec::Indra => INDRA_REQUIRED,
+        // A VLM has no loose files in the registry: its snapshots (the VLM and
+        // the PP-DocLayout detector it composes) are downloaded by
+        // `oar-ocr-vl`'s own auto-download under `$OAR_HOME/models/<org>/<name>/<commit>`
+        // (tarjeta 02), with its own revision resolution and hashes.
+        ModelSpec::Vlm(_) => &[],
     }
 }
 
@@ -383,6 +388,11 @@ pub fn indra_artifacts() -> &'static [Artifact] {
 }
 
 /// Presets con su nombre estable, en el orden en que los reporta `models_status`.
+///
+/// No incluye los presets VLM: `oar-ocr-vl` gestiona sus propios snapshots
+/// (no hay `Artifact` por fichero que verificar), así que un preset VLM no
+/// tiene preflight de ficheros. El catálogo los lista aparte
+/// (`catalog::profiles`).
 pub fn presets() -> Vec<(&'static str, ModelSpec)> {
     vec![
         ("pp_ocrv6_tiny", ModelSpec::PpOcrV6(OcrSize::Tiny)),

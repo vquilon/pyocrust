@@ -17,23 +17,38 @@ pub use crate::core::OcrEngineBackend;
 mod oar_structure;
 mod oar_text;
 mod oar_indra;
+mod vlm;
 
 pub use oar_structure::{create_oar_structure_engine, OarStructureEngine};
 pub use oar_text::{create_oar_text_engine, OarTextEngine};
+pub use vlm::VlmEngine;
+
+/// Nombres que acepta `create_backend`.
+///
+/// Sin la feature `vl` no se anuncia `glm_ocr`: un preset que el build no trae
+/// no debe aparecer en el mensaje de error (sería un preset fantasma).
+const PRESET_NAMES: &str = if cfg!(feature = "vl") {
+    "pp_ocrv6, pp_structurev3, indra, glm_ocr"
+} else {
+    "pp_ocrv6, pp_structurev3, indra"
+};
 
 /// Factoría por nombre de preset.
 ///
 /// `DESIGN.md` §3.1 exige dos backends: `pp_ocrv6` (texto) y `pp_structurev3`
 /// (estructura). Los nombres son estables y coinciden con `ModelSpec::as_str`.
+/// Devuelve motores **sin modelo cargado** (igual que `OarTextEngine::new`).
 pub fn create_backend(name: &str) -> Result<Box<dyn OcrEngineBackend>, OcrError> {
     match name {
         "pp_ocrv6" => Ok(Box::new(OarTextEngine::new())),
         "pp_structurev3" => Ok(Box::new(OarStructureEngine::new())),
         "indra" => Ok(Box::new(oar_indra::OarIndraEngine::default())),
+        #[cfg(feature = "vl")]
+        "glm_ocr" => Ok(Box::new(VlmEngine::new(crate::core::VlmModel::GlmOcr))),
+        #[cfg(not(feature = "vl"))]
+        "glm_ocr" => Err(vlm::requires_vl_error(crate::core::VlmModel::GlmOcr)),
         _ => Err(OcrError::InvalidInput {
-            message: format!(
-                "unknown preset '{name}'. Expected one of: pp_ocrv6, pp_structurev3, indra"
-            ),
+            message: format!("unknown preset '{name}'. Expected one of: {PRESET_NAMES}"),
         }),
     }
 }
@@ -43,6 +58,7 @@ pub fn create_backend(name: &str) -> Result<Box<dyn OcrEngineBackend>, OcrError>
 /// `ort_session` es la configuración de sesión ya resuelta por
 /// `core::device::resolve_device`: fija qué EP corre el pipeline (CPU por
 /// defecto). Sin ella los builders no fijan EP y ONNX Runtime cae a CPU.
+/// Los presets VLM no la usan: Candle no enlaza ONNX Runtime.
 pub fn create_engine(
     spec: &ModelSpec,
     paths: &ModelPaths,
@@ -60,6 +76,7 @@ pub fn create_engine(
             engine.load_model(paths)?;
             Ok(Box::new(engine))
         }
+        ModelSpec::Vlm(model) => vlm::create_vlm_engine(model, paths),
     }
 }
 
@@ -99,5 +116,45 @@ mod tests {
         let paths = ModelPaths::new(std::path::Path::new("/nonexistent/models"), &spec);
         let engine = create_engine(&spec, &paths, &OrtSessionConfig::new());
         assert!(matches!(engine, Err(OcrError::ModelLoad { .. })));
+    }
+
+    #[test]
+    fn create_engine_for_a_vlm_preset_is_typed_either_way() {
+        use crate::core::VlmModel;
+        let spec = ModelSpec::Vlm(VlmModel::GlmOcr);
+        let paths = ModelPaths::new(std::path::Path::new("/nonexistent/models"), &spec);
+        // Con `vl` los checkpoints no están en disco (`ModelLoad`); sin `vl` el
+        // preset no existe en este build (`InvalidInput`). Nunca un pánico.
+        let err = create_engine(&spec, &paths, &OrtSessionConfig::new())
+            .err()
+            .expect("the VLM preset must fail with a typed error");
+        match err {
+            OcrError::ModelLoad { .. } => assert!(cfg!(feature = "vl")),
+            OcrError::InvalidInput { .. } => assert!(!cfg!(feature = "vl")),
+            other => panic!("expected a typed error for the VLM preset, got {other:?}"),
+        }
+    }
+
+    #[cfg(feature = "vl")]
+    #[test]
+    fn factory_knows_glm_ocr_only_with_the_vl_feature() {
+        assert!(create_backend("glm_ocr").is_ok());
+        assert!(PRESET_NAMES.contains("glm_ocr"));
+    }
+
+    #[cfg(not(feature = "vl"))]
+    #[test]
+    fn factory_rejects_glm_ocr_without_the_vl_feature() {
+        let err = create_backend("glm_ocr")
+            .err()
+            .expect("'glm_ocr' must not exist without the `vl` feature");
+        assert!(matches!(err, OcrError::InvalidInput { .. }), "{err:?}");
+
+        assert!(!PRESET_NAMES.contains("glm_ocr"), "no preset fantasma: {PRESET_NAMES}");
+        let err = create_backend("glm_ocr_typo").err().expect("unknown preset must fail");
+        match err {
+            OcrError::InvalidInput { message } => assert!(!message.contains("glm_ocr,"), "{message}"),
+            other => panic!("expected InvalidInput, got {other:?}"),
+        }
     }
 }

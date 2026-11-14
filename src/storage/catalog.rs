@@ -10,6 +10,9 @@ use pyo3::types::PyDict;
 use super::registry;
 use super::license::License;
 
+#[cfg(feature = "vl")]
+use crate::core::types::{ModelSpec, VlmModel};
+
 /// Documented metadata for a model or its required companion artifact.
 /// Sizes use find(name), never duplicated literals; params is unknown upstream.
 pub struct ModelEntry {
@@ -118,6 +121,34 @@ fn is_restricted(license: &License) -> bool {
     license.spdx == "Unknown" || !license.commercial_use || license.acknowledge
 }
 
+/// Perfil del preset VLM (feature `vl`).
+///
+/// Sus snapshots los descarga `oar-ocr-vl`, no el registro del wrapper: ni el
+/// tamaño en disco ni la RAM se conocen sin medirlos, y **no se inventan**
+/// (`disk_bytes = None`, `artifacts = []`).
+#[cfg(feature = "vl")]
+fn vlm_profile(model: VlmModel) -> PipelineProfile {
+    let license = License::for_spec(&ModelSpec::Vlm(model));
+    PipelineProfile {
+        id: model.as_str(),
+        family: "vlm",
+        quality: "accuracy",
+        output_format: "markdown",
+        disk_bytes: None,
+        ram_bytes: None,
+        artifacts: Vec::new(),
+        description: match model {
+            VlmModel::GlmOcr => "GLM-OCR page-to-Markdown VLM (Candle / oar-ocr-vl)",
+        },
+        license: license.spdx,
+        license_commercial_use: license.commercial_use,
+        license_acknowledge: license.acknowledge,
+        license_restricted: is_restricted(&license),
+        license_notes: license.notes,
+        license_url: license.url,
+    }
+}
+
 pub fn profiles() -> Vec<PipelineProfile> {
     let mut entries = Vec::new();
     for (id, spec) in registry::presets() {
@@ -130,6 +161,10 @@ pub fn profiles() -> Vec<PipelineProfile> {
         };
         entries.push(profile(id, family, quality, format, registry::artifacts_for(&spec)));
     }
+    // Preset VLM (feature `vl`): no sale de `registry::presets()` porque no tiene
+    // artefactos por fichero; se lista aquí, con su propia licencia.
+    #[cfg(feature = "vl")]
+    entries.push(vlm_profile(VlmModel::GlmOcr));
     for &task in TASKS {
         if let Some(artifacts) = registry::task_artifacts(task) {
             entries.push(profile(task, "task", "default", "json", artifacts));
@@ -208,5 +243,34 @@ mod tests {
         assert_eq!(indra.license, "OpenRAIL-M-Mod");
         assert!(!indra.license_commercial_use);
         assert!(indra.license_restricted);
+    }
+
+    #[cfg(feature = "vl")]
+    #[test]
+    fn vlm_preset_is_listed_with_an_honest_permissive_profile() {
+        let profiles = profiles();
+        let vlm = profiles
+            .iter()
+            .find(|profile| profile.id == "glm_ocr")
+            .expect("el preset VLM debe listarse con la feature `vl`");
+        assert_eq!(vlm.family, "vlm");
+        assert_eq!(vlm.output_format, "markdown");
+        assert_eq!(vlm.license, "MIT");
+        assert!(vlm.license_commercial_use);
+        assert!(!vlm.license_restricted);
+        // Nada medido: ni artefactos por fichero ni tamaño en disco inventados.
+        assert!(vlm.artifacts.is_empty());
+        assert_eq!(vlm.disk_bytes, None);
+        assert_eq!(vlm.ram_bytes, None);
+    }
+
+    #[cfg(not(feature = "vl"))]
+    #[test]
+    fn vlm_preset_is_absent_without_the_vl_feature() {
+        let profiles = profiles();
+        assert!(
+            profiles.iter().all(|profile| profile.id != "glm_ocr"),
+            "sin la feature `vl` no debe anunciarse un preset VLM"
+        );
     }
 }

@@ -15,6 +15,8 @@ use pyo3::types::PyDict;
 
 use super::registry;
 
+use crate::core::types::ModelSpec;
+
 /// License terms assigned to one model or its companion artifacts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct License {
@@ -31,6 +33,19 @@ const APACHE: License = License {
     acknowledge: false,
     notes: "Paddle/PP model family; Apache-2.0 license.",
     url: Some("https://www.apache.org/licenses/LICENSE-2.0"),
+};
+
+/// GLM-OCR (`zai-org/GLM-OCR`), el VLM que trae `oar-ocr-vl` con la
+/// feature `vl`. No es un artefacto del registro del wrapper: sus snapshots los
+/// descarga el auto-download del propio crate VLM, así que se clasifica por el
+/// repo del checkpoint (metadatos de HuggingFace: `license: mit`,
+/// revisión `2e85a62840ccac27daa451df36c736c4636b8628`).
+const GLM_OCR: License = License {
+    spdx: "MIT",
+    commercial_use: true,
+    acknowledge: false,
+    notes: "GLM-OCR weights (zai-org/GLM-OCR): MIT. The detector it composes, PP-DocLayoutV3 (PaddlePaddle/PP-DocLayoutV3_safetensors), is Apache-2.0. Both permissive: commercial use allowed, no attribution gate. Served by oar-ocr-vl (Candle), not by the wrapper's own downloader.",
+    url: Some("https://huggingface.co/zai-org/GLM-OCR"),
 };
 
 const INDRA: License = License {
@@ -79,6 +94,11 @@ impl License {
         if is_indra(&name) {
             return INDRA;
         }
+        // VLM (`oar-ocr-vl`): se clasifica por el repo del checkpoint, no por un
+        // fichero del registro del wrapper (allí no hay ninguno).
+        if name.contains("glm-ocr") {
+            return GLM_OCR;
+        }
 
         let paddle_terms = [
             "pp-ocrv3", "pp-ocrv4", "pp-ocrv5", "pp-ocrv6", "ppocr",
@@ -125,6 +145,20 @@ impl License {
             });
         }
         result.unwrap_or(UNKNOWN)
+    }
+
+    /// Licencia efectiva de un preset.
+    ///
+    /// El camino normal es la combinación más restrictiva de sus artefactos. Un
+    /// VLM no registra artefactos sueltos (sus snapshots los baja
+    /// `oar-ocr-vl`), así que declara su licencia con el repo del checkpoint:
+    /// sin esto una lista vacía caería al `Unknown` de default-deny y
+    /// bloquearía un preset con licencia verificada.
+    pub fn for_spec(spec: &ModelSpec) -> Self {
+        match spec {
+            ModelSpec::Vlm(model) => Self::for_artifact(model.checkpoint_repo()),
+            _ => Self::for_artifacts(registry::artifacts_for(spec).iter().map(|a| a.name)),
+        }
     }
 
     /// Whether the requested use meets this license's declared restrictions.
@@ -231,5 +265,46 @@ mod tests {
         assert!(message.contains("license_acknowledge=True"));
         assert!(message.contains("cumulative"));
         assert!(License::for_artifact("no-existe.onnx").block_message("x").contains("unverified license"));
+    }
+
+    #[test]
+    fn glm_ocr_is_mit_and_the_vlm_spec_is_not_default_denied() {
+        let license = License::for_artifact("zai-org/GLM-OCR");
+        assert_eq!(license.spdx, "MIT");
+        assert!(license.commercial_use);
+        assert!(!license.restricted());
+        assert!(license.allows(true, false));
+
+        let spec = crate::core::types::ModelSpec::Vlm(crate::core::types::VlmModel::GlmOcr);
+        assert_eq!(License::for_spec(&spec).spdx, "MIT");
+        assert!(License::for_spec(&spec).allows(true, false));
+    }
+
+    #[test]
+    fn a_vlm_spec_does_not_fall_into_the_empty_registry_default_deny() {
+        // Un preset VLM no registra artefactos sueltos: si `for_spec` delegara en
+        // la lista vacía, caería al `Unknown` restringido y bloquearía el preset.
+        assert_eq!(License::for_artifacts(std::iter::empty::<&str>()).spdx, "Unknown");
+        assert!(License::for_artifacts(std::iter::empty::<&str>()).restricted());
+
+        let spec = crate::core::types::ModelSpec::Vlm(crate::core::types::VlmModel::GlmOcr);
+        assert!(!License::for_spec(&spec).restricted());
+    }
+
+    #[test]
+    fn for_spec_matches_for_artifacts_on_the_onnx_presets() {
+        use crate::core::types::{OcrSize, ModelSpec};
+        for spec in [
+            ModelSpec::PpOcrV6(OcrSize::Tiny),
+            ModelSpec::PpStructureV3,
+            ModelSpec::Indra,
+        ] {
+            let artifacts = registry::artifacts_for(&spec);
+            assert_eq!(
+                License::for_spec(&spec).spdx,
+                License::for_artifacts(artifacts.iter().map(|a| a.name)).spdx,
+                "for_spec debe seguir siendo el combinado de los artefactos en {spec:?}"
+            );
+        }
     }
 }

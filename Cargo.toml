@@ -19,6 +19,12 @@ pyo3 = { version = "0.30", features = ["extension-module", "abi3-py310"] }
 # quedan como features opcionales de este crate.
 oar-ocr = { version = "0.10.1", features = ["simd", "auto-download"] }
 
+# Motor VLM opcional (Candle). ADR-001: es un crate **distinto** de `oar-ocr`
+# (`oar-ocr` es ONNX Runtime; este no enlaza ORT nunca) y queda **fuera del build
+# por defecto** bajo la feature `vl` (tarjeta 01). Sus features `cuda`/`metal`
+# no se activan aquí; el dispositivo lo elige el wrapper en runtime (tarjeta 02).
+oar-ocr-vl = { version = "0.10.2", optional = true }
+
 # Tipos de imagen compartidos con el preprocesamiento nativo (ADR-009, tarjeta I2).
 image = "0.25"
 
@@ -36,6 +42,11 @@ sha2 = "0.10"
 cuda = ["oar-ocr/cuda"]
 directml = ["oar-ocr/directml"]
 coreml = ["oar-ocr/coreml"]
+
+# VLM (Candle / `oar-ocr-vl`): opt-in, **nunca** por defecto (ADR-001). No añade
+# dependencias de Python (todo es Rust): lo que crece es el `.pyd`, no el
+# `pip install`. Los pesos se descargan en runtime, no viajan en el wheel.
+vl = ["dep:oar-ocr-vl"]
 
 # Parche local de `ort-sys` 2.0.0-rc.13 (misma version, ver `vendor/ort-sys/`):
 # oar-ocr 0.10.x fija `ort = "=2.0.0-rc.13"` (ORT 1.28), cuyo provider CUDA no

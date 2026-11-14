@@ -19,7 +19,7 @@ pub use image_processor::{
 };
 pub use types::{
     BoundingBox, LayoutRegion, ModelPaths, ModelSpec, OcrOutput, OcrResult, OcrSize,
-    StructureResult, TextRegion,
+    StructureResult, TextRegion, VlmModel,
 };
 
 /// Contrato del backend OCR (`DESIGN.md` §3.1, ADR-002, ADR-006).
