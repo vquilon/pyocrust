@@ -83,7 +83,8 @@ pub struct DeviceSelection {
 ///
 /// * `"cpu"` (por defecto) — EP CPU explícito; no sondea ni inicializa ninguna GPU.
 /// * `"auto"` — CUDA > DirectML entre los candidatos compilados; CPU si ninguno registra.
-/// * `"cuda"` / `"directml"` — exige que ese EP registre; si no, error honesto.
+/// * `"cuda"` / `"directml"` / `"coreml"` — exige que ese EP registre; si no,
+///   error honesto.
 pub fn resolve_device(device: &str) -> Result<DeviceSelection, OcrError> {
     // Pedir un acelerador dispara un sondeo de EP dentro de este match
     // (`resolve_auto`), y el sondeo arranca el runtime CUDA. El workaround de
@@ -105,7 +106,7 @@ pub fn resolve_device(device: &str) -> Result<DeviceSelection, OcrError> {
                 provider_effective: effective,
             })
         }
-        "cuda" | "directml" => {
+        "cuda" | "directml" | "coreml" => {
             let resolved = OrtSessionConfig::auto().resolve_auto();
             let mut providers = resolved.get_execution_providers();
             match providers
@@ -133,7 +134,7 @@ pub fn resolve_device(device: &str) -> Result<DeviceSelection, OcrError> {
         }
         other => Err(OcrError::InvalidInput {
             message: format!(
-                "unknown device '{other}'. Expected one of: cpu, auto, cuda, directml"
+                "unknown device '{other}'. Expected one of: cpu, auto, cuda, directml, coreml"
             ),
         }),
     }
@@ -171,7 +172,7 @@ mod tests {
         // If the accelerator really registers here, requesting it succeeds and
         // reports itself; if it does not, the request fails instead of silently
         // downgrading to CPU (never a GPU row that is really CPU).
-        for device in ["cuda", "directml"] {
+        for device in ["cuda", "directml", "coreml"] {
             match resolve_device(device) {
                 Ok(selection) => {
                     assert_eq!(selection.provider_effective, device);
