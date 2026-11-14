@@ -80,11 +80,14 @@
 | table-transformer-structure-recognition | 0.790 | 8 | measured | MIT |
 | **pp_structurev3** | 0.753 | 8 | measured | Apache-2.0 |
 
-## full_page — OmniDocBench — `measured` · **measured dataset**: `omnidocbench_full_page`
+## full_page — OmniDocBench (EN) — `measured` · **measured dataset**: `omnidocbench_full_page_en`
 
 | Engine | Value | n | Source | license |
 | :--- | ---: | ---: | :--- | :--- |
-| docling-default (pipeline) | 0.204 | 6 | measured | MIT |
-| PP-StructureV3 (paddleocr) | 0.086 | 6 | measured | Apache-2.0 |
-| **pp_structurev3** | 0.083 | 6 | measured | Apache-2.0 |
-| **indra (math)** | 0.029 | 6 | measured | OpenRAIL-M-Mod |
+| PaddleOCR-VL (0.9B) | 0.669 | 4 | measured | Apache-2.0 |
+| LightOnOCR-2-1B (1B) | 0.590 | 6 | measured | Apache-2.0 |
+| GLM-OCR (0.9B) | 0.559 | 6 | measured | MIT |
+| **indra (math)** | 0.556 | 6 | measured | OpenRAIL-M-Mod |
+| **pp_structurev3** | 0.530 | 6 | measured | Apache-2.0 |
+| docling-default (pipeline) | 0.512 | 6 | measured | MIT |
+| PP-StructureV3 (paddleocr) | 0.427 | 6 | measured | Apache-2.0 |

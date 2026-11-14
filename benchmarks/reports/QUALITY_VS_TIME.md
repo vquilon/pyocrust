@@ -117,15 +117,21 @@
 | **slanet_plus (default)** | gpu | 172 | 0.914 | Apache-2.0 |
 | **pp_structurev3 (default)** | gpu | 1479 | 0.753 | Apache-2.0 |
 
-## full_page — OmniDocBench — device `cpu+gpu` · motores medidos
+## full_page — OmniDocBench (EN) — device `cpu+gpu` · motores medidos
 
 | Motor | Device | ms/página ↓ | calidad ↑ | license |
 | :--- | :--- | ---: | ---: | :--- |
-| **indra (math)** | cpu | 200 | 0.029 | OpenRAIL-M-Mod |
-| **pp_structurev3 (default)** | cpu | 2181 | 0.083 | Apache-2.0 |
-| docling-default (pipeline) | cpu | 27542 | 0.204 | MIT |
-| PP-StructureV3 (paddleocr) | cpu | 124261 | 0.086 | Apache-2.0 |
-| **indra (math)** | gpu | 1184 | 0.029 | OpenRAIL-M-Mod |
-| **pp_structurev3 (default)** | gpu | 2617 | 0.085 | Apache-2.0 |
-| docling-default (pipeline) | gpu | 24530 | 0.204 | MIT |
-| PP-StructureV3 (paddleocr) | gpu | 70769 | 0.086 | Apache-2.0 |
+| **indra (math)** | cpu | 1253 | 0.556 | OpenRAIL-M-Mod |
+| **pp_structurev3 (default)** | cpu | 3527 | 0.530 | Apache-2.0 |
+| docling-default (pipeline) | cpu | 26023 | 0.512 | MIT |
+| LightOnOCR-2-1B (1B) | cpu | 151454 | 0.590 | Apache-2.0 |
+| GLM-OCR (0.9B) | cpu | 151850 | 0.559 | MIT |
+| PP-StructureV3 (paddleocr) | cpu | 176264 | 0.427 | Apache-2.0 |
+| PaddleOCR-VL (0.9B) | cpu | 430548 | 0.669 | Apache-2.0 |
+| **indra (math)** | gpu | 1793 | 0.556 | OpenRAIL-M-Mod |
+| **pp_structurev3 (default)** | gpu | 4350 | 0.528 | Apache-2.0 |
+| docling-default (pipeline) | gpu | 22740 | 0.512 | MIT |
+| GLM-OCR (0.9B) | gpu | 30716 | 0.559 | MIT |
+| LightOnOCR-2-1B (1B) | gpu | 44737 | 0.588 | Apache-2.0 |
+| PaddleOCR-VL (0.9B) | gpu | 60907 | 0.597 | Apache-2.0 |
+| PP-StructureV3 (paddleocr) | gpu | 68269 | 0.496 | Apache-2.0 |

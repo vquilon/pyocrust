@@ -56,6 +56,7 @@ import csv
 import importlib.util
 import io
 import json
+import os
 import platform
 import statistics
 import subprocess
@@ -189,6 +190,11 @@ STRUCTURE_CHANNELS: dict[str, frozenset[str]] = {
     "docling": frozenset(),
     "pp_structurev3_api": frozenset({"tables"}),
     "pyocrust_indra": frozenset({"boxes", "tables"}),
+    # VLMs documentales SOTA (`full_page`): una pasada página→Markdown, sin
+    # cajas/tabla/fórmula aparte -> 0 canales (como `docling`), nunca `0.0`.
+    "lightonocr": frozenset(),
+    "glm_ocr": frozenset(),
+    "paddleocr_vl": frozenset(),
 }
 
 
@@ -275,6 +281,9 @@ GPU_CAPABLE_BACKENDS = frozenset({
     # paddle compilado con CUDA). El adaptador **verifica** que el runtime ve la
     # GPU antes de etiquetar `cuda`: sin esa sonda el motor sale `skipped`.
     "docling", "pp_structurev3_api",
+    # VLMs documentales SOTA (`full_page`): corren en CUDA cuando el torch del venv
+    # aislado ve la GPU; el adaptador lo sondea antes de etiquetar `cuda`.
+    "lightonocr", "glm_ocr", "paddleocr_vl",
 })
 
 # Sondas baratas (un subproceso, `sys.exit(3)` si el runtime no ve la GPU) con las
@@ -871,6 +880,10 @@ LICENSES = {
     # Pipelines documentales completos del banco `full_page`.
     "pp_structurev3_api": "Apache-2.0",
     "docling": "MIT",
+    # VLMs documentales SOTA del banco `full_page` (licencia en la ficha HF).
+    "lightonocr": "Apache-2.0",
+    "glm_ocr": "MIT",
+    "paddleocr_vl": "Apache-2.0",
     # Alternativas externas del banco `table` (además de TATR, MIT).
     "paddleocr_slanet": "Apache-2.0",
     "docling_tableformer": "MIT",
@@ -906,6 +919,9 @@ ALTERNATIVE_PROVENANCE: dict[str, str] = {
     "deformable_detr": "independiente",
     "pp_structurev3_api": "independiente",
     "docling": "independiente",
+    "lightonocr": "independiente",
+    "glm_ocr": "independiente",
+    "paddleocr_vl": "independiente",
     "rapidocr": "independiente",
     "easyocr": "independiente",
     "tesseract": "independiente",
@@ -1020,6 +1036,126 @@ def _docling_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
     # son `pipe tables`, no el HTML que mide `TEDS`): declara 0 canales de
     # estructura -> esas columnas salen `N/A`, nunca `0.0`.
     run.emits = emitted_channels("docling")
+    return run
+
+
+# --- VLMs documentales SOTA (`full_page`) ------------------------------------
+# Los SOTA de conversión página→Markdown de 2025-2026 son VLMs end-to-end (una
+# pasada imagen→Markdown), no pipelines. Se miden aquí por su ruta
+# **`transformers`** (no por el preset Candle del envoltorio, que es otra cosa):
+# el venv aislado de docling ya trae `transformers>=5` + torch CUDA, así que
+# comparten intérprete, **un modelo a la vez**, por **subproceso con timeout**
+# (patrón `docling`). Emiten SOLO Markdown -> `emits=frozenset()` (como `docling`):
+# sus columnas de estructura salen `N/A`, nunca `0.0`.
+#
+# Los pesos NO se auto-descargan en un banco: el adaptador exige el snapshot ya
+# cacheado (si falta -> `skipped` con el comando exacto). Así una run que no los
+# pida no dispara una descarga de ~2 GiB a mitad de campaña.
+#
+# `MinerU2.5` (1.2B, **AGPL-3.0**) queda **documentado, no medido**: su licencia lo
+# limita al contexto de benchmark no comercial y nunca es preset de producto (ver
+# `features/full_page/REFERENCES.md`).
+HF_VLM_MODELS: dict[str, tuple[str, str | None, str, float]] = {
+    # backend: (repo HF, prompt de tarea, clase del modelo, GiB del peso)
+    "lightonocr":   ("lightonai/LightOnOCR-2-1B",  None,                "LightOnOcrForConditionalGeneration",  1.87),
+    "glm_ocr":      ("zai-org/GLM-OCR",            "Text Recognition:", "GlmOcrForConditionalGeneration",      1.80),
+    "paddleocr_vl": ("PaddlePaddle/PaddleOCR-VL",  "OCR:",              "PaddleOCRVLForConditionalGeneration", 1.80),
+}
+
+
+def _hf_repo_cached(repo: str, min_bytes: int) -> bool:
+    """¿El snapshot de `repo` está en la caché HF con sus pesos (>= `min_bytes`)?
+
+    Un dir `models--<org>--<name>/` puede existir con solo `refs/` y **0 bytes** de
+    payload (visto en este host), así que se mide el tamaño real de los
+    `.safetensors` del snapshot en vez de fiarse del nombre del directorio.
+    """
+    root = os.environ.get("HUGGINGFACE_HUB_CACHE") or str(
+        Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")) / "hub")
+    repo_dir = Path(root) / ("models--" + repo.replace("/", "--"))
+    if not repo_dir.is_dir():
+        return False
+    return sum(p.stat().st_size for p in repo_dir.glob("snapshots/*/*.safetensors")) >= min_bytes
+
+
+_HF_VLM_RUNNER = r'''
+import sys, warnings
+warnings.filterwarnings("ignore")
+sys.stdout.reconfigure(encoding="utf-8")
+import torch
+from PIL import Image
+import transformers
+
+model_id, prompt, class_name, image_path, device = sys.argv[1:6]
+if device != "cpu" and not torch.cuda.is_available():
+    sys.stderr.write("vlm: torch.cuda.is_available() = False\n")
+    sys.exit(3)
+target = "cpu" if device == "cpu" else "cuda"
+dtype = torch.float32 if target == "cpu" else torch.bfloat16
+model = getattr(transformers, class_name).from_pretrained(model_id, dtype=dtype).to(target).eval()
+processor = transformers.AutoProcessor.from_pretrained(model_id)
+content = [{"type": "image", "image": Image.open(image_path).convert("RGB")}]
+if prompt:
+    content.append({"type": "text", "text": prompt})
+inputs = processor.apply_chat_template(
+    [{"role": "user", "content": content}],
+    tokenize=True, add_generation_prompt=True, return_dict=True, return_tensors="pt",
+)
+inputs = {k: (v.to(target, dtype=dtype) if getattr(v, "is_floating_point", None) and v.is_floating_point()
+               else v.to(target))
+          for k, v in inputs.items()}
+out = model.generate(**inputs, max_new_tokens=2048)
+sys.stdout.write(processor.decode(out[0, inputs["input_ids"].shape[-1]:], skip_special_tokens=True))
+'''
+
+
+def _hf_vlm_backend(backend: str, device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
+    """VLM documental SOTA (`full_page`) por su ruta **`transformers`** -> Markdown.
+
+    Corre en el venv aislado de docling (transformers 5.x + torch CUDA) por
+    **subproceso con timeout**, un modelo a la vez. La fila GPU solo se etiqueta
+    `cuda` si ese venv **ve la GPU** (sonda); si no, `skipped` con motivo, nunca una
+    fila CPU disfrazada de CUDA. Sin los pesos en caché -> `skipped` con el comando
+    de descarga, para que un banco que no los pida no baje ~2 GiB a mitad de run.
+    """
+    repo, prompt, class_name, gib = HF_VLM_MODELS[backend]
+    if not DOCLING_VENV_PYTHON.is_file():  # pragma: no cover - entorno sin el venv
+        raise ProviderUnavailable(
+            f"falta el venv de docling; crear con: uv venv {DOCLING_VENV_PYTHON.parents[1]} "
+            f"&& uv pip install --python {DOCLING_VENV_PYTHON} docling")
+    if not _hf_repo_cached(repo, int(gib * 0.85 * 2**30)):
+        raise ProviderUnavailable(
+            f"{backend}: pesos de {repo} no estan en la cache HF; descargar con: "
+            f"'{DOCLING_VENV_PYTHON}' -c \"import huggingface_hub as h; h.snapshot_download('{repo}')\"")
+    if device != "cpu" and not _runtime_sees_cuda(DOCLING_VENV_PYTHON, _TORCH_CUDA_CHECK):
+        raise ProviderUnavailable(
+            f"{backend}: {DOCLING_VENV_PYTHON} no ve la GPU (torch sin CUDA); instalar torch CUDA "
+            "con: uv pip install --python <venv> torch torchvision "
+            "--index-url https://download.pytorch.org/whl/cu132")
+
+    def run(image: Image.Image) -> OcrOutput:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "page.png"
+            image.convert("RGB").save(path, format="PNG")
+            start = time.perf_counter()
+            proc = subprocess.run(
+                [str(DOCLING_VENV_PYTHON), "-c", _HF_VLM_RUNNER, repo, prompt or "", class_name,
+                 str(path), "cpu" if device == "cpu" else "cuda"],
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=1200,
+            )
+            elapsed_ms = (time.perf_counter() - start) * 1000.0
+        if proc.returncode != 0:
+            tail = (proc.stderr or "").strip().splitlines()[-1:]
+            raise RuntimeError(f"{backend}: exit {proc.returncode}" + (
+                f": {tail[-1]}" if tail else " (sin stderr: probable fallo del VLM)"))
+        return OcrOutput(text=proc.stdout, elapsed_ms=elapsed_ms,
+                         extra={"engine": "transformers", "model": repo.split("/")[-1]})
+
+    # Honestidad de proveedor: el runner confirma el EP leyendo este atributo.
+    run.provider_effective = "cpu" if device == "cpu" else "cuda"
+    # El VLM emite solo Markdown (sin cajas/tabla/fórmula aparte): 0 canales de
+    # estructura -> esas columnas quedan `N/A`, nunca `0.0`.
+    run.emits = emitted_channels(backend)
     return run
 
 
@@ -1905,6 +2041,11 @@ PROVIDERS: dict[str, Callable[..., Callable[[Image.Image], OcrOutput]]] = {
     # `docling`: docling (MIT) en su venv aislado, por subproceso (solo CPU).
     "pp_structurev3_api": lambda device="cpu": _pp_structurev3_api_backend(device=device),
     "docling": lambda device="cpu": _docling_backend(device=device),
+    # VLMs documentales SOTA de `full_page` (transformers, venv de docling):
+    # `lightonocr`, `glm_ocr` y `paddleocr_vl` (ver `HF_VLM_MODELS`).
+    "lightonocr": lambda device="cpu": _hf_vlm_backend("lightonocr", device=device),
+    "glm_ocr": lambda device="cpu": _hf_vlm_backend("glm_ocr", device=device),
+    "paddleocr_vl": lambda device="cpu": _hf_vlm_backend("paddleocr_vl", device=device),
     # Alternativas externas al `table_structure_recognition` de `pyocrust` (además
     # de TATR): SLANet oficial de PaddleOCR y TableFormer de docling. Solo CPU.
     "paddleocr_slanet": lambda device="cpu": _paddleocr_slanet_backend(device=device),
@@ -1961,7 +2102,9 @@ TASK_TYPES = {"pyocrust_structure": "structure", "pyocrust_formula": "formula", 
               # TableFormer (docling), misma GT que el especialista.
               "paddleocr_slanet": "table", "docling_tableformer": "table",
               # Pipelines documentales completos: mismo task_type que el banco.
-              "pp_structurev3_api": "full_page", "docling": "full_page"}
+              "pp_structurev3_api": "full_page", "docling": "full_page",
+              # VLMs documentales SOTA: su tarea nativa es la página completa.
+              "lightonocr": "full_page", "glm_ocr": "full_page", "paddleocr_vl": "full_page"}
 MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"), "pyocrust_structure": ("pp_structurev3", "default"),
                "pyocrust_formula": ("pp_structurev3", "pp-formulanet-s"), "pyocrust_formulanet": ("pp-formulanet-s", "direct"),
                "pyocrust_formulanet_l": ("pp-formulanet-l", "direct"),
@@ -1996,7 +2139,12 @@ MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"), "pyocrust_structure": ("pp_stru
                "paddleocr_slanet": ("SLANet_plus", "paddleocr"),
                "docling_tableformer": ("tableformer", "docling"),
                "pp_structurev3_api": ("PP-StructureV3", "paddleocr"),
-               "docling": ("docling-default", "pipeline")}
+               "docling": ("docling-default", "pipeline"),
+               # VLMs documentales SOTA (transformers, venv de docling). El tamaño
+               # va en la variante: la etiqueta del informe es "<nombre> (<tamaño>)".
+               "lightonocr": ("LightOnOCR-2-1B", "1B"),
+               "glm_ocr": ("GLM-OCR", "0.9B"),
+               "paddleocr_vl": ("PaddleOCR-VL", "0.9B")}
 
 # `params_m` conocido por mediciones previas, el smoke limitado y los ejemplos
 # explícitos del criterio; para los demás se deja desconocido hasta medir el
@@ -2041,7 +2189,9 @@ FEATURE_TYPES = {"pyocrust_structure": "full_page", "pyocrust_indra": "full_page
                  # Otras alternativas reales de `table` (SLANet / TableFormer).
                  "paddleocr_slanet": "table", "docling_tableformer": "table",
                  # Pipelines documentales completos: mismo banco.
-                 "pp_structurev3_api": "full_page", "docling": "full_page"}
+                 "pp_structurev3_api": "full_page", "docling": "full_page",
+                 # VLMs documentales SOTA: banco `full_page`.
+                 "lightonocr": "full_page", "glm_ocr": "full_page", "paddleocr_vl": "full_page"}
 FEATURE_TYPES.update({backend: "layout" for backend in YOLO_LAYOUT_MODELS})
 
 # `formula` compara motores que **emiten LaTeX**. Los OCR de texto no tienen

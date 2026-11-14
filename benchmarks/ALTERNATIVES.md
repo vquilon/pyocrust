@@ -30,7 +30,7 @@
 | `orientation` | PP-LCNet + **easyocr_rotation** (independiente) | ya | `medible ya` |
 | `text_line` | PP-LCNet + **rapidocr_mobile_cls** (PP-OCRv2, RapidAI) | ya | `medible ya` |
 | `rectification` | UVDoc + **opencv_perspective** (baseline clásico) | ya | `medible ya` |
-| `full_page` | **MinerU 2.5** / docling / marker-pdf | **falta (0 reales)** | `medible con adaptador` |
+| `full_page` | **MinerU 2.5** / docling / PP-StructureV3 | **docling y PP-StructureV3 ya** | `medible ya` (VLMs SOTA: LightOnOCR/GLM-OCR/PaddleOCR-VL añadidos; **MinerU AGPL documentado**) |
 | `seal` | **PaddleOCR PP-OCRv4_mobile_seal_det** | **falta (0 reales)** | `medible ya` vía `paddleocr` |
 
 Leyenda de veredicto:

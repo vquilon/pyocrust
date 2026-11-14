@@ -47,6 +47,10 @@ taxonomía en ambos lados. No se inventa contenido: solo se serializa lo anotado
 | unstructured | `unstructured` |
 | paddleocr PP-StructureV3 | `paddleocr paddlepaddle` |
 | marker-pdf | `marker-pdf` |
+| LightOnOCR-2-1B (Apache-2.0) | `transformers>=5` (en `.venv_docling`) |
+| GLM-OCR (MIT) | `transformers>=5` (en `.venv_docling`) |
+| PaddleOCR-VL (Apache-2.0) | `transformers>=5` (en `.venv_docling`) |
+| MinerU2.5 (AGPL-3.0) | **documentado, no medido** — licencia no comercial |
 
 **Medidas hoy**: `docling` (MIT). PaddleOCR `pp_structurev3_api` (Apache-2.0)
 **ya corre en subproceso con timeout** (mismo patrón que `docling`/`unimernet`):
@@ -94,24 +98,74 @@ uv pip install --python benchmarks/.venv_docling/Scripts/python.exe \
 sobre las páginas anotadas y publica `markdown_f1`/`block_f1`. Si Indra no tiene
 sus 9 artefactos en disco, queda **`skipped` con su motivo** (no se mide a medias).
 
-**Alternativas externas medidas** (n=6 CPU, run `results/full_page/2026-11-09_17-15-04`,
-24/24 filas `ok`, mismo `--limit` y misma muestra que la pata GPU):
+### VLMs documentales SOTA (`lightonocr`, `glm_ocr`, `paddleocr_vl`)
+
+Los SOTA de conversión página→Markdown de 2025-2026 son **VLMs end-to-end** (una
+pasada imagen→Markdown), no pipelines. Se miden como **una fila más** del banco
+(mismo GT y misma métrica), por su ruta **`transformers`** en el **mismo venv
+aislado de docling** (`transformers` 5.x + `torch` CUDA), por **subproceso con
+timeout**, **un modelo a la vez** (ver `common/runner.py::_hf_vlm_backend`).
+
+| Backend | Modelo (HF) | Licencia | Tamaño | `emits` |
+| :--- | :--- | :--- | :--- | :--- |
+| `lightonocr` | [`lightonai/LightOnOCR-2-1B`](https://huggingface.co/lightonai/LightOnOCR-2-1B) | Apache-2.0 | 1B | `frozenset()` |
+| `glm_ocr` | [`zai-org/GLM-OCR`](https://huggingface.co/zai-org/GLM-OCR) | MIT | 0.9B | `frozenset()` |
+| `paddleocr_vl` | [`PaddlePaddle/PaddleOCR-VL`](https://huggingface.co/PaddlePaddle/PaddleOCR-VL) | Apache-2.0 | 0.9B | `frozenset()` |
+
+- **Solo Markdown ⇒ sin filas `0.0` falsas.** Los tres declaran `emits=frozenset()`
+  (como `docling`): sus columnas de estructura (`block_f1`, `layout mAP`, `TEDS`,
+  `LaTeX sim`, títulos, orden de lectura, figuras) salen **`N/A`**, nunca `0.000`.
+  Sólo compiten en `markdown_f1`/`CER`/`WER`.
+- **No entran en `DEFAULT_BACKENDS`** (peso ~2 GiB y segundos/página): se piden
+  explícitamente con `--backends lightonocr,glm_ocr,paddleocr_vl`. Sin los pesos en
+  caché queda **`skipped` con el comando exacto de descarga** (no bajan solos).
+- **GPU**: la fila sólo se etiqueta `cuda` si el venv de docling **ve la GPU**
+  (sonda `torch.cuda.is_available`); si no, `skipped` con motivo. Nunca una fila
+  CPU disfrazada de CUDA.
+- **Métrica honesta**: `markdown_f1` es LCS de tokens sobre un GT **reconstruido**
+  por nosotros; los SOTA reportan en **olmOCR-bench** (unit tests) u
+  **OmniDocBench** (edit-distance/CDM/TEDS). Nuestro número vale como
+  **motor-vs-motor medido por nosotros**, nunca como un ranking del leaderboard.
+- **PaddleOCR-VL por `transformers` es reconocimiento por elemento**: su parsing
+  de página completa es la pipeline oficial (PP-DocLayout + post-proceso), fuera de
+  este venv. Aquí se le pasa la página entera con el prompt nativo `OCR:` como a
+  los demás; es la ruta que documenta su ficha para `transformers`.
+- **MinerU2.5** (1.2B) queda **documentado como AGPL-3.0, no medido**: su licencia lo
+  limita al contexto de benchmark no comercial y **nunca** es preset de producto
+  (ver `REFERENCES.md`).
+
+
+**Alternativas externas medidas** (muestra **no china** `--dataset omnidocbench_full_page_en`,
+n=6 CPU, run `results/full_page/2026-11-14_18-38-10`; misma muestra que la pata GPU
+`results/_gpu/full_page/2026-11-14_18-09-59`):
 
 | Motor | `markdown_f1` | CER | ms/página |
 | :--- | ---: | ---: | ---: |
-| `pp_structurev3` (pyocrust) | 0.083 | 5.737 | 2 181 |
-| `indra` (pyocrust) | 0.029 | 3.102 | 200 |
-| `docling` (MIT) | **0.204** | **1.119** | 27 542 |
-| `PP-StructureV3` (paddleocr, Apache-2.0) | 0.086 | 2.494 | 124 261 |
+| `pp_structurev3` (pyocrust) | 0.530 | 1.344 | 3 527 |
+| `indra` (pyocrust) | 0.556 | 0.784 | 1 253 |
+| `docling` (MIT) | 0.512 | **0.509** | 26 023 |
+| `PP-StructureV3` (paddleocr, Apache-2.0) | 0.427 | 1.443 | 176 264 |
+| `LightOnOCR-2-1B` (Apache-2.0) | 0.590 | 1.241 | 151 454 |
+| `GLM-OCR` (MIT) | 0.559 | 0.850 | 151 850 |
+| `PaddleOCR-VL` (Apache-2.0) | 0.669 | 0.514 | 430 548 |
 
-> El `markdown_f1` de los motores es **bajo en esta muestra** porque el GT se
-> tokeniza por espacios y estas 6 páginas son **chinas** (un párrafo = un token):
-> la LCS de tokens castiga cualquier diferencia de estructura (`## `, listas
-> `- `, `<div>`/`<img>` de PP-StructureV3). El orden de magnitud es real; el
-> valor absoluto no es comparable con una muestra latina. `PP-StructureV3`
-> **sí** emite tablas HTML: su `TEDS` es **0.957** (el mejor del panel).
-> Es **CPU-only** y su `ms` incluye *spawn* + carga de los 16 submodelos +
-> inferencia (mismo patrón `docling`/`unimernet`), no solo la inferencia.
+> Los tres VLMs entran con `emits=frozenset()`: sus columnas de estructura salen
+> **`N/A`** (no emiten cajas/tabla/fórmula aparte), nunca `0.0`; solo compiten en
+> `markdown_f1`/`CER`. **Caveat honesto**: `PaddleOCR-VL` en **CPU** completó
+> **4/6** páginas (2 `TimeoutExpired` a 1200 s en páginas densas: es el VLM más
+> lento en CPU con NaViT a resolución dinámica) — su fila CPU es `n=4`, y por eso
+> `validez_medicion.py` marca `full_page` como `REHACER: n distinto CPU/GPU`. En
+> **GPU** los tres VLMs van 6/6. Re-medir la pata CPU con timeout ampliado es una
+> tarjeta de seguimiento.
+
+
+> El `markdown_f1` se mide sobre la muestra **no china** (`omnidocbench_full_page_en`):
+> una página china anota un párrafo entero como **un solo token** y la LCS de
+> tokens sale ruidosa, por eso la comparativa de parse usa el subconjunto `english`.
+> `PP-StructureV3` **sí** emite tablas HTML (`TEDS` 1.000 en la muestra `_en`); su
+> `ms` incluye *spawn* + carga de los 16 submodelos + inferencia (patrón
+> `docling`/`unimernet`), no solo la inferencia. Corre en **CPU y GPU**.
+
 
 > **Límite honesto de docling en este banco**: el adaptador devuelve **solo el
 > Markdown** (`export_to_markdown`), sin cajas ni tipos de bloque. Por eso sus

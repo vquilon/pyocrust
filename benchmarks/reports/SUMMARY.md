@@ -80,11 +80,14 @@
 | table-transformer-structure-recognition | 0.790 | 8 | medido | MIT |
 | **pp_structurev3** | 0.753 | 8 | medido | Apache-2.0 |
 
-## full_page — OmniDocBench — `medido` · **dataset medido**: `omnidocbench_full_page`
+## full_page — OmniDocBench (EN) — `medido` · **dataset medido**: `omnidocbench_full_page_en`
 
 | Motor | Valor | n | Origen | license |
 | :--- | ---: | ---: | :--- | :--- |
-| docling-default (pipeline) | 0.204 | 6 | medido | MIT |
-| PP-StructureV3 (paddleocr) | 0.086 | 6 | medido | Apache-2.0 |
-| **pp_structurev3** | 0.083 | 6 | medido | Apache-2.0 |
-| **indra (math)** | 0.029 | 6 | medido | OpenRAIL-M-Mod |
+| PaddleOCR-VL (0.9B) | 0.669 | 4 | medido | Apache-2.0 |
+| LightOnOCR-2-1B (1B) | 0.590 | 6 | medido | Apache-2.0 |
+| GLM-OCR (0.9B) | 0.559 | 6 | medido | MIT |
+| **indra (math)** | 0.556 | 6 | medido | OpenRAIL-M-Mod |
+| **pp_structurev3** | 0.530 | 6 | medido | Apache-2.0 |
+| docling-default (pipeline) | 0.512 | 6 | medido | MIT |
+| PP-StructureV3 (paddleocr) | 0.427 | 6 | medido | Apache-2.0 |
