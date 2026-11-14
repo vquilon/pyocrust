@@ -52,6 +52,22 @@ if vivos != 0:
 
 pyd_sha256()
 
+# El binario desplegado tiene que traer el EP acelerador compilado. Sin él cada
+# banco sale con las `pyocrust*` en `skipped` (regla 8) y la campaña son horas
+# tiradas: medido 2026-11-14 — otra tarjeta recompiló el `.pyd` con las features
+# por defecto y las dos `pyocrust_*` de `full_page` salieron `skipped`.
+_r = subprocess.run(
+    [str(PY), "-c", "import pyocrust; print(','.join(pyocrust.available_providers()))"],
+    cwd=REPO, capture_output=True, text=True)
+PROVIDERS = [p for p in (_r.stdout or "").strip().split(",") if p]
+if not PROVIDERS:
+    raise SystemExit(
+        "ABORTADO: el .pyd desplegado no registra ningún EP acelerador "
+        "(available_providers()=[]). Recompílalo con CUDA antes de la campaña:\n"
+        "  .venv/Scripts/maturin develop --release --features cuda"
+    )
+print(f"[binario] available_providers={PROVIDERS}", flush=True)
+
 for feature in FEATURES:
     n = LIMIT.get(feature, 20)
     cmd = [str(PY), str(BENCH / "features" / feature / "bank.py"),

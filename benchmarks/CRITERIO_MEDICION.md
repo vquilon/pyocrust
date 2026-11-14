@@ -29,7 +29,11 @@
 7. **Un banco nunca comparte máquina** con otro banco ni con otro proceso pesado
    (otro banco, build, pytest con modelos): infla los ms y rompe CPU vs GPU.
 8. **GPU sin proveedor** (`available_providers()` vacío) → fila `skipped` con
-   motivo; **nunca** se etiqueta como CPU.
+   motivo; **nunca** se etiqueta como CPU. El binario que se mide en GPU se compila
+   **siempre** con `--features cuda` (`.venv/Scripts/maturin develop --release
+   --features cuda`): una recompilación con las features por defecto deja la
+   campaña entera sin pata GPU. `campana_gpu.py` **aborta de entrada** en ese caso,
+   en vez de gastar horas en `skipped`.
 9. **Un solo EP acelerador por campaña.** Todas las features de una campaña miden la
    GPU con el **mismo** proveedor (directml **o** cuda, nunca mezcla): los tiempos de
    una tabla CPU vs GPU solo son comparables dentro del mismo EP. Cambiar de EP — o tocar
