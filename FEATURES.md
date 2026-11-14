@@ -22,7 +22,7 @@
 
 Notas:
 - Los providers son **compile-time**: un wheel liga los que se activaron al construir; la **selección es en runtime** (`OrtSessionConfig`). Pedir un provider sin su feature → error de configuración.
-- `oar-ocr-vl` (versión con **Candle**, no ONNX Runtime) queda **fuera de v1** (ADR-001): sus features `cuda`/`metal` **no aplican** a pyocrust.
+- `oar-ocr-vl` (versión con **Candle**, no ONNX Runtime) es **opt-in** (ADR-001): el wrapper la expone tras la feature `vl` (`vl-cuda` añade Candle CUDA), nunca en el build por defecto. Corre sobre Candle, no ONNX Runtime, así que los providers ONNX no aplican a esta vía; su feature `metal` no la declara pyocrust.
 
 ## 2. Módulos del crate base → equivalente en pyocrust
 
@@ -61,6 +61,7 @@ Superficie Python (paquete `pyocrust/`): `__init__.py` (fachada), `hardware.py` 
 | `pp_ocrv6` / `_tiny` / `_small` / `_medium` | texto | 3 (det + rec + dict) | `OcrResult` |
 | `pp_structurev3` | estructura | 11 (layout, tablas, fórmulas, orientación…) | `StructureResult` |
 | `indra` | estructura + math | 9 (Hugging Face `datalab-to/indra-ocr`) | `StructureResult` |
+| `glm_ocr` (feature `vl`) | VLM (Candle) | 2 snapshots (GLM-OCR 0.9B + PP-DocLayoutV3) | `StructureResult` (sólo Markdown) |
 
 Catálogo y tamaños exactos en runtime: `model_catalog()` y `pipeline_profiles()` (`DESIGN.md` §3.1.3).
 
@@ -68,6 +69,6 @@ Catálogo y tamaños exactos en runtime: `model_catalog()` y `pipeline_profiles(
 
 | Fuera de v1 | Motivo |
 | :--- | :--- |
-| **Candle** y `oar-ocr-vl` (VLMs ~0.9B) | ADR-001: v1 solo ONNX Runtime |
+| ~~**Candle** y `oar-ocr-vl` (VLMs ~0.9B)~~ | **Superado**: ya es **opt-in** vía la feature `vl` (preset `glm_ocr`); ver nota de §1 y la fila `glm_ocr` en §4 |
 | PP-OCRv4 / PP-OCRv5 (presets de texto alternativos) | `DESIGN.md` §1.1 |
 | `tensorrt`, `openvino`, `coreml`, `webgpu` en el **wheel por defecto** | Requieren runtimes del sistema / son por plataforma; quedan como features documentadas |
