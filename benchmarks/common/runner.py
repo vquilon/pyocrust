@@ -263,6 +263,29 @@ def pyocrust_device_arg(device: str) -> str:
     return PYOCRUST_DEVICE.get(device, "cpu")
 
 
+REBUILD_CUDA = ".venv/Scripts/maturin develop --release --features cuda"
+
+
+def require_accelerator(device: str) -> list[str]:
+    """Preflight de `--device gpu`: aborta si el `.pyd` no registra EP acelerador.
+
+    Sin EP acelerador cada `pyocrust*` sale `skipped` y la run GPU queda vacía
+    (horas tiradas): se falla **antes** de construir ningún motor y antes de
+    crear el directorio de resultados. Lo llama `run_backends`, así que lo
+    hereda cualquier banco suelto (`features/<f>/bank.py --device gpu`).
+    """
+    if device == "cpu":
+        return []
+    providers = available_providers()
+    if not providers:
+        raise SystemExit(
+            f"ABORTADO: --device {device} pero el .pyd desplegado no registra ningún "
+            f"EP acelerador (available_providers()={providers}). Recompílalo con CUDA:\n"
+            f"  {REBUILD_CUDA}"
+        )
+    return providers
+
+
 # Backends cuya factoría acepta `device` y puede correr en GPU de verdad.
 GPU_CAPABLE_BACKENDS = frozenset({
     "paddle_latex_ocr",
@@ -2477,6 +2500,9 @@ def run_backends(
     """
     all_rows: list[dict] = []
     summary: dict[str, dict] = {}
+    # Preflight antes de tocar resultados ni motores: `--device gpu` con un `.pyd`
+    # sin EP acelerador aborta aquí, no tras horas publicando una run vacía.
+    require_accelerator(device)
     out_dir.mkdir(parents=True, exist_ok=True)
     if device != "cpu":
         # Antes de construir NINGÚN motor: deja cargado el cudnn/cublas de torch
