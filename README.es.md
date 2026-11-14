@@ -37,34 +37,42 @@ de presets y once predictores de tarea—; solo cambia el binario nativo:
 | Distribución | Feature compilada | Proveedores de ejecución de ONNX Runtime | Runtime adicional en destino | Plataformas |
 | :--- | :--- | :--- | :--- | :--- |
 | `pyocrust` | *(por defecto)* `simd` + `auto-download` | CPU | ninguno | Linux `x86_64`/`aarch64`, Windows `x86_64`, macOS `aarch64` |
-| `pyocrust-gpu` | `cuda` | CPU + CUDA | driver NVIDIA + CUDA/cuDNN | Linux `x86_64`/`aarch64`, Windows `x86_64` (**sin macOS**) |
+| `pyocrust-gpu` | `cuda` (Linux/Windows) / `coreml` (macOS) | CPU + CUDA / CPU + CoreML | driver NVIDIA + CUDA/cuDNN (Linux/Windows); ninguno extra en macOS | Linux `x86_64`, Windows `x86_64`, macOS `aarch64` (Apple Silicon) |
 
-`pyocrust-gpu` es la misma API compilada con la feature `cuda`. El build deja el
-proveedor CUDA junto a la extensión (`pyocrust/onnxruntime_providers_cuda.dll`),
-así que ONNX Runtime lo encuentra; la distribución CPU sigue siendo la portable y
-ninguna depende de la otra.
+`pyocrust-gpu` es la misma API compilada con una feature de aceleración según la
+plataforma: `cuda` en Linux/Windows y `coreml` en macOS (Apple Silicon). En
+Windows el build deja el proveedor CUDA junto a la extensión
+(`pyocrust/onnxruntime_providers_cuda.dll`), así que ONNX Runtime lo encuentra;
+en macOS ONNX Runtime carga CoreML, que usa el Neural Engine/GPU de Apple vía
+Metal (no existe CUDA en hardware Apple). La distribución CPU sigue siendo la
+portable y ninguna depende de la otra.
 
-### Ejecutar con CUDA
+### Ejecutar con GPU (CUDA en Linux/Windows, CoreML en macOS)
+
+Un wheel de `pyocrust-gpu` por plataforma, con el acelerador que esa plataforma
+tiene: **CUDA** en Linux/Windows, **CoreML** (Neural Engine / GPU de Apple vía
+Metal) en macOS. No existe CUDA en hardware Apple, así que el wheel de macOS es
+CoreML.
 
 ```bash
 pip install pyocrust-gpu
 python -c "import pyocrust; print(pyocrust.available_providers())"
-# ['cuda']
+# Linux/Windows: ['cuda']    macOS (Apple Silicon): ['coreml']
 ```
 
 ```python
 import pyocrust
 
-ocr = pyocrust.VeloceOCR("pp_ocrv6", device="cuda")   # o device="auto"
-print(ocr.provider_effective)                          # 'cuda' — lo que corrió de verdad
+ocr = pyocrust.VeloceOCR("pp_ocrv6", device="auto")    # elige el acelerador, o CPU
+print(ocr.provider_effective)                          # 'cuda' / 'coreml' / 'cpu' — lo que corrió de verdad
 ```
 
-CUDA necesita además su propio runtime (`cublas64_13.dll`, `cublasLt64_13.dll`,
-`cudnn*_9.dll`) alcanzable por el proceso; un toolkit CUDA instalado
-(`CUDA_PATH`) o `torch` suelen cubrirlo. Si `available_providers()` imprime `[]`
-—o una lista sin `cuda`— no es alcanzable (en Windows se ignora `PATH` desde
-Python 3.8), y una llamada lo arregla añadiendo los directorios CUDA que ya
-existen en el entorno:
+En Linux/Windows, CUDA necesita además su propio runtime (`cublas64_13.dll`,
+`cublasLt64_13.dll`, `cudnn*_9.dll`) alcanzable por el proceso; un toolkit CUDA
+instalado (`CUDA_PATH`) o `torch` suelen cubrirlo. En macOS, CoreML no necesita
+runtime extra. Si `available_providers()` imprime `[]` —o una lista sin `cuda`—
+no es alcanzable (en Windows se ignora `PATH` desde Python 3.8), y una llamada lo
+arregla añadiendo los directorios CUDA que ya existen en el entorno:
 
 ```python
 import pyocrust
@@ -79,9 +87,10 @@ silencio, y `provider_effective` informa del proveedor que **de verdad** corrió
 
 DirectML (`--features directml`) es el otro proveedor: registra sin runtime
 extra, pero fue más lento que CPU en los modelos pequeños medidos aquí
-(`benchmarks/GPU.md`). Un build `cuda` registra solo CUDA; combinar ambas
-features en un binario (`--features cuda,directml`) está sin probar. El wheel
-**publicado** (CI) todavía no se ha verificado en una máquina con CUDA.
+(`benchmarks/GPU.md`). Un build `cuda`/`coreml` registra solo su acelerador;
+combinar aceleradores en un binario (`--features cuda,directml`) está sin probar.
+El wheel GPU **publicado** (CI) todavía no se ha verificado en una máquina
+acelerada.
 
 > [!WARNING]
 > Solo se publican wheels para **Linux `x86_64`/`aarch64` (glibc), Windows
@@ -508,11 +517,13 @@ python -m pytest tests/ -q   # tests de integración (tarjeta V1)
 | Feature | Efecto |
 | :--- | :--- |
 | *(por defecto)* | CPU. `download-binaries` + `simd` de `oar-ocr`; liga el ONNX Runtime que trae el crate. |
-| `cuda` | Proveedor CUDA de ONNX Runtime (NVIDIA). |
+| `cuda` | Proveedor CUDA de ONNX Runtime (NVIDIA; Linux/Windows). |
+| `coreml` | Proveedor CoreML de ONNX Runtime (Neural Engine/GPU de Apple; macOS). |
 | `directml` | Proveedor DirectML de ONNX Runtime (Windows). |
 
 ```bash
-maturin develop --features cuda        # build con aceleración GPU
+maturin develop --features cuda        # GPU NVIDIA (Linux/Windows)
+maturin develop --features coreml      # Neural Engine/GPU de Apple (macOS)
 ```
 
 La descarga de modelos desde ModelScope (`auto-download`) viene activada por
@@ -633,12 +644,14 @@ La publicación la realizan dos workflows de GitHub Actions con `maturin` y
 | `.github/workflows/ci-cd-gpu.yml` | PyPI (`pyocrust-gpu`) | `workflow_dispatch` (manual) |
 | `.github/workflows/ci-cd-gpu-test.yml` | TestPyPI (`pyocrust-gpu`) | `release: published` + `workflow_dispatch` |
 
-Los dos workflows `*-gpu` compilan el **mismo código** con `--features cuda`
-y parchean el nombre del proyecto en `pyproject.toml` a `pyocrust-gpu` antes
-de publicar. Usan su propio trusted publisher y sus propios entornos
-(`pypi-gpu`, `testpypi-gpu`), y su matriz es solo CUDA: Linux
-`x86_64`/`aarch64` y Windows `x86_64`, **macOS excluido** (no hay CUDA en
-hardware Apple).
+Los dos workflows `*-gpu` compilan el **mismo código** con la feature de
+aceleración de cada plataforma (`--features cuda` en Linux/Windows, `--features
+coreml` en macOS) y parchean el nombre del proyecto en `pyproject.toml` a
+`pyocrust-gpu` antes de publicar. Usan su propio trusted publisher y sus propios
+entornos (`pypi-gpu`, `testpypi-gpu`), y su matriz es Linux `x86_64` + Windows
+`x86_64` (CUDA) y macOS `aarch64` (CoreML). Linux `aarch64` se excluye:
+`ort-sys` no publica un binario CUDA para `aarch64-unknown-linux-gnu` (solo
+`none` en su `dist.tsv`), así que ese build no puede existir.
 
 Ambos compilan la matriz de plataformas, validan cada wheel (integridad ZIP y
 EOCD, sin datos sobrantes) y publican. Como `pyo3` se compila con `abi3-py310`,
