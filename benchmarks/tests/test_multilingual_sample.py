@@ -101,6 +101,25 @@ def test_pool_sin_el_idioma_pedido_falla_claro_offline():
     assert "--fetch" in str(exc.value)
 
 
+def test_la_declaracion_exige_la_anotacion_real(tmp_path, monkeypatch):
+    """Sin la anotacion cacheada (fixture), `--composition` no declara nada.
+
+    La fixture tiene 2 paginas `english`: declarar sobre ella escribiria en el
+    manifiesto versionado una muestra que no es la que se mide. Falla claro.
+    """
+    from prepare_datasets import _update_composition
+
+    monkeypatch.setenv("HF_HUB_OFFLINE", "1")
+    monkeypatch.setenv("HF_DATASETS_OFFLINE", "1")
+    monkeypatch.setattr(datasets, "DATA_CACHE", tmp_path)
+    datasets._set_provenance(datasets.PROVENANCE_DATASET, None)
+    manifest_before = load_manifest()
+    with pytest.raises(DatasetOffline) as exc:
+        _update_composition()
+    assert "--fetch" in str(exc.value)
+    assert load_manifest() == manifest_before          # el manifiesto no se toco
+
+
 def test_el_manifiesto_declara_la_composicion_de_la_muestra(fake_omnidocbench):
     """La composicion declarada cruza `image_id` × `page_attribute` y es la real.
 

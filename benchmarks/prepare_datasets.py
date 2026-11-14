@@ -31,7 +31,9 @@ from common.datasets import (  # noqa: E402
     ODB_EN_LANGUAGES,
     ODB_EN_SAMPLE_N,
     OMNIDOCBENCH_REPO,
+    PROVENANCE_DATASET,
     _odb_full_page_pool,
+    fixture_provenance,
     odb_composition,
 )
 
@@ -75,8 +77,17 @@ def _update_composition(n: int = ODB_EN_SAMPLE_N) -> Path:
     descargar ninguna imagen**. Se cruza cada `image_id` con su
     `page_info.page_attribute` (`odb_composition`), asi que la declaracion es
     reproducible sin red a partir de la anotacion cacheada.
+
+    Exige la anotacion **real**: declarar sobre la fixture (10 paginas, 2 `english`)
+    escribiria en el manifiesto versionado una muestra que no es la que se mide.
     """
     pool = _odb_full_page_pool(languages=ODB_EN_LANGUAGES)
+    if fixture_provenance()["source"] != PROVENANCE_DATASET:
+        raise DatasetOffline(
+            "la anotacion real de OmniDocBench no esta cacheada (se leyo la "
+            "fixture): una composicion declarada sobre la fixture no vale.\n"
+            "  -> python benchmarks/prepare_datasets.py --fetch"
+        )
     sample = pool[:n]
     manifest = load_manifest()
     manifest["samples"] = {
