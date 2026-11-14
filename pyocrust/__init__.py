@@ -41,6 +41,7 @@ __version__: Final[str] = _native_version()
 from pyocrust._pyocrust_core import model_catalog, pipeline_profiles
 from pyocrust.gpu import enable_cuda
 from pyocrust.hardware import GpuInfo, HardwareProfile, detect_hardware
+from pyocrust.multifeature import FEATURE_ALIASES, recognize
 from pyocrust.resolver import TaskSpec, PipelineChoice, resolve_pipeline
 from pyocrust._pyocrust_core import available_providers
 
@@ -68,4 +69,6 @@ __all__: Final[list[str]] = [
     "TaskSpec",
     "PipelineChoice",
     "resolve_pipeline",
+    "FEATURE_ALIASES",
+    "recognize",
 ]

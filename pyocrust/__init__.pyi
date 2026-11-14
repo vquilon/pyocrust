@@ -34,6 +34,16 @@ No models/download/preflight; native models_dir resolution can normalize and
 re-export relative OAR_HOME. PYOCRUST_OFFLINE is false for unset/empty/0/false/no
 (case-insensitive, no whitespace trimming). Tasks are recommendations only;
 output_format selects a preset, not a conversion. No GPU/availability guarantee.
+
+Multi-feature: ``recognize(image, features=[...])`` runs one or more feature ids
+from ``pipeline_profiles()`` (or an alias of ``FEATURE_ALIASES``) over the same
+image. One feature returns today's object unwrapped (``OcrResult`` /
+``StructureResult`` / the task dictionary); several return ``{label: output}``
+keyed by the label the caller used, keeping each feature's schema (never
+flattened). Unknown/duplicate/empty features, or a bare ``str`` instead of a
+sequence, raise ``PyOcrValueError`` before any model loads. Sequential by
+default (ADR-008); ``parallel=True`` runs the features in threads, overlapping
+the native GIL-free inferences.
 """
 
 from __future__ import annotations
@@ -41,6 +51,7 @@ from __future__ import annotations
 from os import PathLike
 from typing import Sequence
 from .hardware import GpuInfo as GpuInfo, HardwareProfile as HardwareProfile, detect_hardware as detect_hardware
+from .multifeature import FEATURE_ALIASES as FEATURE_ALIASES, recognize as recognize
 from .resolver import TaskSpec as TaskSpec, PipelineChoice as PipelineChoice, resolve_pipeline as resolve_pipeline
 
 def model_catalog() -> dict[str, dict]:
@@ -262,4 +273,6 @@ __all__: list[str] = [
     "TaskSpec",
     "PipelineChoice",
     "resolve_pipeline",
+    "FEATURE_ALIASES",
+    "recognize",
 ]
