@@ -150,6 +150,43 @@ Todo número en un markdown o gráfico de `benchmarks/` lleva origen explícito:
 Nunca se mezclan sin etiquetar. Los artefactos de ejecución (`results/`, CSV
 crudos, `*.outputs.json`) **no se versionan**; solo el markdown con valores.
 
+### Muestra no china (EN) para la comparativa de parse
+
+La comparativa de `full_page` (Markdown) la sirve el subconjunto que OmniDocBench
+v1.6 anota como `english` (`--dataset omnidocbench_full_page_en`, `n=30`):
+
+* **Versionada.** Mismo dataset, misma **revisión HF pinnada** y mismo **checksum**
+  que el resto (`datasets_manifest.json`); la única descarga es la de las 30
+  imágenes elegidas, bajo demanda (igual que las otras muestras de OmniDocBench).
+* **Composición declarada** (cruce `image_id` × `page_info.page_attribute`) en
+  `datasets_manifest.json.samples`: pool (754 páginas `english`) y muestra (30
+  páginas, con sus `image_ids`), más `language`/`data_source`/`layout`/`subset` de
+  cada una. Regenerar: `.venv/Scripts/python.exe benchmarks/prepare_datasets.py
+  --composition` (sin red). La verifican
+  `tests/test_multilingual_sample.py` y `features/sample_banks.py`.
+* **`n` suficiente.** `n=30` cubre **17 estratos** (`data_source × layout`), el mayor
+  pesa **13%** (4/30), y el Markdown reconstruido de la anotación va de 75 a 7 398
+  caracteres (mediana 2 607): hay contenido que comparar, no un token por párrafo.
+* **Reproducible offline.** Con el cache poblado no hay red; sin él cae a la fixture
+  versionada (`fixtures/omnidocbench_mini`, 2 páginas `english`) y lo declara en el
+  provenance.
+* **Por qué no china.** Una página china anota un párrafo entero como **un solo
+  token**, así que `markdown_f1` sale ruidoso — las 6 páginas anteriores eran
+  **6/6 `PPT2PDF` china**. `en_ch_mixed` (116 páginas) queda **fuera**: lleva chino
+  mezclado.
+
+Los benchmarks **externos** de parse se declaran en
+`datasets_manifest.json.external_references` como **`referencia`**, nunca `medido`
+(otro dataset, otro GT y otra métrica): ParseBench (`llamaindex/ParseBench`, el
+mismo que publican LightOnOCR y GLM-OCR) y fr-bench-pdf2md
+(`pulsia/fr-bench-pdf2md`, francés).
+
+```bash
+# Muestra no china (EN) — un backend a la vez
+.venv/Scripts/python.exe benchmarks/features/full_page/bank.py \
+  --dataset omnidocbench_full_page_en --limit 30
+```
+
 ## Gráfica calidad vs tiempo
 
 `benchmarks/features/quality_vs_time.py` genera una **gráfica multigráfica** con un

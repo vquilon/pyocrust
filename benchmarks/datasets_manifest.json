@@ -1,5 +1,5 @@
 {
-  "comment": "Manifiesto de checksums del dataset OmniDocBench usado por los bancos. La revision es INMUTABLE (commit HF pinnado): los ficheros que descargue cualquier maquina con esta revision son identicos byte a byte. `files` pinnea el sha256 de los ficheros que SIEMPRE se usan y que definen el GT (la anotacion). Las imagenes se garantizan por la revision (no se listean las 1024 para no inflar el manifiesto); si se anade un fichero al GT, se a~nade aqui. Regenerar con: python benchmarks/prepare_datasets.py --update-manifest",
+  "comment": "Manifiesto de checksums del dataset OmniDocBench usado por los bancos. La revision es INMUTABLE (commit HF pinnado): los ficheros que descargue cualquier maquina con esta revision son identicos byte a byte. `files` pinnea el sha256 de los ficheros que SIEMPRE se usan y que definen el GT (la anotacion). Las imagenes se garantizan por la revision (no se listean las 1024 para no inflar el manifiesto); si se anade un fichero al GT, se a~nade aqui. `samples` declara (sin red) la composicion de la muestra no china: cruza cada `image_id` con su `page_info.page_attribute`. `external_references` son benchmarks externos con valores `referencia` (nunca medidos por nosotros). Regenerar con: python benchmarks/prepare_datasets.py --update-manifest (checksums) y --composition (muestra no china).",
   "repository": "opendatalab/OmniDocBench",
   "repo_type": "dataset",
   "revision": "aa1ee96d106dbe53d0ae59474d75c6e6d9b53fec",
@@ -7,6 +7,114 @@
     "OmniDocBench.json": {
       "sha256": "a45cd84b04ad8b793e775089640e6b681209abea33ead54c1828ddca35fae496",
       "size": 42208096
+    }
+  },
+  "samples": {
+    "omnidocbench_full_page_en": {
+      "declared_n": 30,
+      "provenance": "medido",
+      "source": "opendatalab/OmniDocBench (HF), `page_info.page_attribute.language` en ['english']; misma revision pinnada y mismo checksum que el resto de OmniDocBench",
+      "pool": {
+        "pages": 754,
+        "language": {
+          "english": 754
+        },
+        "data_source": {
+          "PPT2PDF": 120,
+          "academic_literature": 206,
+          "book": 131,
+          "colorful_textbook": 52,
+          "exam_paper": 82,
+          "magazine": 84,
+          "newspaper": 77,
+          "note": 1,
+          "research_report": 1
+        },
+        "layout": {
+          "1andmore_column": 101,
+          "double_column": 106,
+          "other_layout": 157,
+          "single_column": 342,
+          "three_column": 48
+        },
+        "subset": {
+          "equation_hard": 76,
+          "layout_hard": 19,
+          "table_hard": 32,
+          "v1.5": 627
+        }
+      },
+      "sample": {
+        "pages": 30,
+        "language": {
+          "english": 30
+        },
+        "data_source": {
+          "PPT2PDF": 4,
+          "academic_literature": 13,
+          "book": 9,
+          "colorful_textbook": 4
+        },
+        "layout": {
+          "1andmore_column": 5,
+          "double_column": 7,
+          "other_layout": 6,
+          "single_column": 10,
+          "three_column": 2
+        },
+        "subset": {
+          "equation_hard": 5,
+          "layout_hard": 4,
+          "table_hard": 4,
+          "v1.5": 17
+        },
+        "image_ids": [
+          "PPT_CalculusReview_page_002.png",
+          "page-48687e49-b9db-4251-96cf-124144aa4d08.png",
+          "PPT_english-studies-s6-on-the-road-resource-3_page_002.png",
+          "yanbaopptmerge_PattPatelCh12.pdf_27.jpg",
+          "page-404e0471-bd71-426a-8e5a-81b8327f88e5.png",
+          "docstructbench_llm-raw-scihub-o.O-j.ab.2007.11.016.pdf_5.jpg",
+          "page-f108020f-edc5-4a27-85d9-d9d9c5d67309.png",
+          "page-bd9166d9-2c1a-4e3c-87f3-717e2474c77e.png",
+          "page-83587fc3-fe55-4e51-a3c5-f0664edba743.png",
+          "docstructbench_llm-raw-scihub-o.O-ajhb.10190.pdf_5.jpg",
+          "page-2deb83b3-abe2-442c-a544-0b6a8db464f1.png",
+          "docstructbench_llm-raw-scihub-o.O-chem.200700133.pdf_6.jpg",
+          "page-bd6eb36e-0856-4d9d-b587-21b4a0209c8b.png",
+          "page-2861127b-41a4-44d5-b026-2de9cb408347.png",
+          "page-28c45f5f-7e0d-464a-89ec-8de3a4abb927.png",
+          "docstructbench_llm-raw-scihub-o.O-bf00151572.pdf_3.jpg",
+          "docstructbench_llm-raw-the-eye-o.O-1995_2418.pdf_1.jpg",
+          "yanbaopptmerge_293df2702e017fa1e78f6fe9b42d64ce.pdf_928.jpg",
+          "page-4431f432-9e71-46d3-a5ea-4d705ad163a8.png",
+          "docstructbench_enbook-zlib-o.O-17342542.pdf_25.jpg",
+          "jiaocaineedrop_math-134115.pdf_670.jpg",
+          "page-d1561665-5359-42fe-920c-d6e3bff81953.png",
+          "page-1f9a7efa-1d99-46c5-a2aa-48402d699f06.png",
+          "page-ddb9d794-5230-4b43-b1ec-273b9e7ebc11.png",
+          "docstructbench_dianzishu_zhongwenzaixian-o.O-63710191.pdf_336.jpg",
+          "docstructbench_enbook-zlib-o.O-17208435.pdf_105.jpg",
+          "docstructbench_enbook-zlib-o.O-17761417.pdf_894.jpg",
+          "jiaocaineedrop_eng_gls.pdf_6.jpg",
+          "jiaocaineedrop_c04_874768_mt.pdf_6.jpg",
+          "jiaocai_P0-9.pdf_9.jpg"
+        ]
+      }
+    }
+  },
+  "external_references": {
+    "comment": "Benchmarks externos de parse documental. Sus cifras son `referencia` (paper/leaderboard), nunca `medido` por nosotros: otro dataset, otro GT y otra metrica. No se descargan ni se publican en las tablas.",
+    "parsebench": {
+      "name": "ParseBench (LlamaIndex)",
+      "repo": "run-llama/ParseBench",
+      "dataset": "llamaindex/ParseBench",
+      "note": "el mismo banco que publican LightOnOCR y GLM-OCR: ~2.078 paginas verificadas de documentos de empresa, cinco dimensiones con su propia metrica (GTRM/ChartDataPointMatch/...), no comparable 1:1 con nuestro `markdown_f1`."
+    },
+    "fr-bench-pdf2md": {
+      "name": "fr-bench-pdf2md (Probayes/OpenValue)",
+      "dataset": "pulsia/fr-bench-pdf2md",
+      "note": "PDF->Markdown en frances con evaluacion estilo unit-test; cubre el idioma frances, que OmniDocBench no anota (solo `english` es latino)."
     }
   }
 }

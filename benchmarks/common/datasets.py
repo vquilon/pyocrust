@@ -42,6 +42,18 @@ OMNIDOCBENCH_REVISION = "aa1ee96d106dbe53d0ae59474d75c6e6d9b53fec"
 # maquinas con la misma revision verifiquen los MISMOS bytes. Ver `datasets_manifest.json`.
 DATASETS_MANIFEST = BENCHMARKS_ROOT / "datasets_manifest.json"
 
+# Idiomas de la muestra **no china** (latina/inglesa) para la comparativa de parse.
+# OmniDocBench v1.6 rotula `page_info.page_attribute.language` por pagina:
+# `simplified_chinese` (765), `english` (755), `en_ch_mixed` (116),
+# `traditional_chinese` (13), `other` (2). El unico idioma latino anotado es
+# `english`; `en_ch_mixed` queda **fuera** porque lleva chino mezclado (una pagina
+# china anota un parrafo entero como un **solo token** y `markdown_f1` sale
+# ruidoso: las 6 paginas de la campana anterior eran 6/6 `PPT2PDF` china).
+ODB_EN_LANGUAGES: tuple[str, ...] = ("english",)
+# `n` **declarado** de la muestra no china: el mismo para el manifiesto, el banco
+# y la campana (un `n` distinto por sitio deja tablas no comparables).
+ODB_EN_SAMPLE_N = 30
+
 
 class DatasetUnavailable(RuntimeError):
     """El dataset no se puede cargar en este entorno (falta una dependencia/cache)."""
@@ -339,6 +351,34 @@ def _odb_page_type(page: dict) -> str:
     return "digital"
 
 
+def _odb_language(page: dict) -> str:
+    """`page_info.page_attribute.language` anotado (idioma de la pagina)."""
+    return str(_odb_page_attribute(page).get("language") or "")
+
+
+def _odb_only_languages(pages: list, languages: Sequence[str] | None) -> list:
+    """Pool filtrado por el `language` anotado; `None` = todas (lo de siempre).
+
+    Falla **claro** si el filtro deja el pool vacio: la muestra no china necesita
+    la anotacion completa (755 de las 1651 paginas son `english`), asi que un pool
+    vacio significa que la anotacion disponible no trae esas paginas (cache sin
+    poblar, o la fixture de 10 paginas) y el remedio es el de `prepare_datasets`:
+    poblarla con `--fetch`.
+    """
+    if languages is None:
+        return pages
+    wanted = {str(language).strip().lower() for language in languages}
+    picked = [page for page in pages if _odb_language(page).lower() in wanted]
+    if not picked:
+        raise DatasetOffline(
+            f"la anotacion disponible no trae ninguna pagina de {sorted(wanted)} "
+            f"(poblacion disponible: {len(pages)} paginas).\n"
+            f"  -> La muestra no china necesita la anotacion completa:\n"
+            f"     python benchmarks/prepare_datasets.py --fetch"
+        )
+    return picked
+
+
 def _odb_stratified(pages: list, limit: int | None = None,
                     keys: Sequence[str] = ("data_source", "layout"),
                     balance_keys: Sequence[str] | None = None) -> list:
@@ -377,6 +417,34 @@ def _odb_stratified(pages: list, limit: int | None = None,
         if not added:
             return picked
         round_index += 1
+
+
+def odb_composition(pages: Sequence[dict], image_ids: Sequence[str] | None = None) -> dict:
+    """Composicion **declarada** de un pool o de una muestra: `image_id` × `page_attribute`.
+
+    Cruza cada pagina elegida (su `page_info.image_path`, que es el `image_id` del
+    banco) con lo que el dataset anota en `page_info.page_attribute` y cuenta
+    `language`/`data_source`/`layout`/`subset`. No estima nada: lo que el dataset
+    no anota sale `"?"`. Con `image_ids` (los de una muestra concreta) la
+    declaracion deja ademas **que** paginas se midieron, para poder auditarla.
+    """
+    def counts(key: str) -> dict[str, int]:
+        out: dict[str, int] = {}
+        for page in pages:
+            value = str(_odb_page_attribute(page).get(key) or "?")
+            out[value] = out.get(value, 0) + 1
+        return dict(sorted(out.items()))
+
+    declared = {
+        "pages": len(pages),
+        "language": counts("language"),
+        "data_source": counts("data_source"),
+        "layout": counts("layout"),
+        "subset": counts("subset"),
+    }
+    if image_ids is not None:
+        declared["image_ids"] = list(image_ids)
+    return declared
 
 
 def _odb_det_groups(pages: list, category: str, need: str, cap: int | None,
@@ -891,18 +959,36 @@ def load_omnidocbench_tables(limit: int | None = None, cache_dir: Path | None = 
     return samples
 
 
-def load_omnidocbench_full_page(limit: int | None = None, cache_dir: Path | None = None) -> list[Sample]:
+def _odb_full_page_pool(cache_dir: Path | None = None,
+                        languages: Sequence[str] | None = None) -> list:
+    """Pool de `full_page` (paginas con Markdown GT), filtrado por idioma y estratificado.
+
+    Separado del loader a proposito: asi el manifiesto y su test pueden **declarar
+    la composicion de la muestra sin descargar ninguna imagen** (misma seleccion:
+    `_odb_stratified` con `subset` en `balance_keys`, ver el loader).
+    """
+    pool = [page for page in _load_omnidocbench_pages(cache_dir) if _odb_page_markdown(page)]
+    # Igual que `layout`: pool re-estratificado por `subset` para no rozar el 50%
+    # del criterio a n<=20.
+    return _odb_stratified(
+        _odb_only_languages(pool, languages),
+        keys=("data_source", "layout"), balance_keys=("data_source", "layout", "subset"))
+
+
+def load_omnidocbench_full_page(limit: int | None = None, cache_dir: Path | None = None,
+                                language: Sequence[str] | None = None) -> list[Sample]:
     """Paginas con GT de **documento** completo (Markdown + bloques en orden).
 
     Orden **estratificado** (`_odb_stratified`), igual que `layout`: la muestra
     cubre la composicion del dataset en vez de sesgarse a `equation_hard`.
+
+    `language` filtra el pool por el `language` anotado (ver `ODB_EN_LANGUAGES`):
+    la muestra **no china** —`language=ODB_EN_LANGUAGES`— es la que hace
+    interpretable `markdown_f1`, porque una pagina china anota un parrafo entero
+    como un solo token. `None` = todas las paginas (comportamiento previo).
     """
     cache = cache_dir or DATA_CACHE
-    # Igual que `layout`: pool de paginas con markdown re-estratificado por
-    # `subset` para no rozar el 50% del criterio a n<=20.
-    pages = _odb_stratified(
-        [p for p in _load_omnidocbench_pages(cache_dir) if _odb_page_markdown(p)],
-        keys=("data_source", "layout"), balance_keys=("data_source", "layout", "subset"))
+    pages = _odb_full_page_pool(cache_dir, language)
     samples: list[Sample] = []
     for page in pages:
         markdown = _odb_page_markdown(page)
@@ -1278,6 +1364,12 @@ DATASETS = {
     "omnidocbench_layout": lambda limit, split, cache: load_omnidocbench_layout(limit=limit, cache_dir=cache),
     "omnidocbench_table": lambda limit, split, cache: load_omnidocbench_tables(limit=limit, cache_dir=cache),
     "omnidocbench_full_page": lambda limit, split, cache: load_omnidocbench_full_page(limit=limit, cache_dir=cache),
+    # Muestra **no china** (inglesa/latina) para la comparativa de parse: mismo
+    # dataset, misma revision pinnada y mismo checksum (`datasets_manifest.json`);
+    # solo cambia el filtro por `language` anotado. Su composicion declarada vive
+    # en `datasets_manifest.json.samples` (`prepare_datasets.py --composition`).
+    "omnidocbench_full_page_en": lambda limit, split, cache: load_omnidocbench_full_page(
+        limit=limit, cache_dir=cache, language=ODB_EN_LANGUAGES),
     # GT sintetico determinista, calculado desde las paginas ya cacheadas.
     "synthetic_orientation": lambda limit, split, cache: load_synthetic_orientation(limit=limit, cache_dir=cache),
     "synthetic_text_line": lambda limit, split, cache: load_synthetic_text_line(limit=limit, cache_dir=cache),
@@ -1374,7 +1466,8 @@ def _self_check() -> None:
     assert doclaynet < layout_gt_classes(None)
     expected_datasets = {
         "funsd", "omnidocbench", "omnidocbench_formula", "omnidocbench_layout",
-        "omnidocbench_table", "omnidocbench_full_page", "synthetic_orientation",
+        "omnidocbench_table", "omnidocbench_full_page", "omnidocbench_full_page_en",
+        "synthetic_orientation",
         "synthetic_text_line", "synthetic_rectification", "synthetic_seal",
     }
     assert expected_datasets <= set(DATASETS), sorted(expected_datasets - set(DATASETS))
@@ -1428,6 +1521,30 @@ def _self_check() -> None:
     assert _odb_page_type(_typed_page("book", ["fuzzy_scan"])) == "escaneada"
     # `handwriting` manda sobre `fuzzy_scan` si coinciden (una sola etiqueta).
     assert _odb_page_type(_typed_page("note", ["fuzzy_scan"])) == "manuscrita"
+    # Muestra no china: filtro por `language`, fallo claro si el pool queda vacio
+    # y composicion declarada cruzando la pagina con su `page_attribute`.
+    def _lang_page(language, path):
+        page = _attr_page("book", "single_column", path=path)
+        page["page_info"]["page_attribute"]["language"] = language
+        return page
+
+    multi = [_lang_page("english", "en.png"), _lang_page("simplified_chinese", "cn.png"),
+             _lang_page("en_ch_mixed", "mix.png"), _lang_page("english", "en2.png")]
+    assert _odb_language(multi[0]) == "english"
+    assert _odb_language(_typed_page("book")) == ""                 # sin anotar -> ""
+    only_en = _odb_only_languages(multi, ODB_EN_LANGUAGES)
+    # `en_ch_mixed` lleva chino: fuera de la muestra no china.
+    assert [p["page_info"]["image_path"] for p in only_en] == ["en.png", "en2.png"]
+    assert _odb_only_languages(multi, None) == multi                # sin filtro, todas
+    try:
+        _odb_only_languages([multi[1]], ODB_EN_LANGUAGES)
+        raise AssertionError("un pool sin el idioma pedido debe fallar claro")
+    except DatasetOffline as exc:
+        assert "--fetch" in str(exc)                                # remedio, no un skip
+    declared = odb_composition(only_en, ["en.png", "en2.png"])
+    assert declared["language"] == {"english": 2}, declared
+    assert declared["image_ids"] == ["en.png", "en2.png"]           # auditable por id
+    assert odb_composition([{"layout_dets": [], "page_info": {"image_path": "x"}}])["subset"] == {"?": 1}
     print("common.datasets self-check OK")
 
 

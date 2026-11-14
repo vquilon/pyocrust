@@ -12,11 +12,21 @@ Dataset por defecto: `omnidocbench_full_page` — el Markdown de referencia se
 vocabulario que emite el pipeline (`kind`). No se inventa contenido: solo se
 serializa lo que el dataset ya anota.
 
+Muestra **no china** (`--dataset omnidocbench_full_page_en`): la comparativa de
+parse la sirve el subconjunto que OmniDocBench anota como `english` (754 paginas),
+estratificado igual. Una pagina china anota un parrafo entero como un **solo
+token** y `markdown_f1` sale ruidoso (la muestra anterior eran 6/6 `PPT2PDF`
+china); `n` **declarado** = `ODB_EN_SAMPLE_N`. Composicion declarada (cruce
+`image_id` × `page_info.page_attribute`) en `datasets_manifest.json.samples` y en
+`features/sample_banks.py`.
+
 Provenance: todo número que salga de aquí es **`medido`**; el `summary.json` de la
 run guarda comando, dataset, `n`, `warmup`, `repeats`, dispositivo y fecha.
 
 Uso:
     .venv/Scripts/python.exe benchmarks/features/full_page/bank.py --limit 6
+    .venv/Scripts/python.exe benchmarks/features/full_page/bank.py \
+      --dataset omnidocbench_full_page_en --limit 30
 """
 
 from __future__ import annotations
@@ -67,10 +77,14 @@ SPEC = FeatureSpec(
 # Pipelines **externos reales** que emiten el Markdown del documento que consume
 # `markdown_f1`/`block_f1`:
 #   * `docling`            — docling (MIT), en su venv aislado por subproceso.
+#     Corre en CPU y en GPU: en GPU exige `torch` con CUDA en `benchmarks/.venv_docling`
+#     (sonda al construir el adaptador; si el venv no ve la GPU sale `skipped`).
 #   * `pp_structurev3_api` — PaddleOCR PP-StructureV3 (Apache-2.0), por **subproceso
 #     con timeout** (antes corría en proceso y segfault/cuelgue abortaba el banco).
 #     Smoke real 2026-11-09 (3 páginas, rc=0, 3/3 `ok`, Markdown de 600+ chars) ->
-#     entra en el `DEFAULT_BACKENDS`. Es CPU-only (`device_outcome` lo salta en GPU).
+#     entra en el `DEFAULT_BACKENDS`. Corre en CPU y en GPU: en GPU exige que el
+#     paddle del intérprete del banco esté compilado con CUDA (si no, sale
+#     `skipped` con motivo, nunca una fila CPU etiquetada como CUDA).
 # `pdf_extract_kit` sigue **fuera del default** y `skipped` con motivo honesto: sus
 # pesos son un **detector de layout**, no un pipeline de documento (ALTERNATIVES.md §7).
 EXTRA_FACTORIES = {

@@ -63,6 +63,7 @@ DATASET_TITLES = {
     "omnidocbench_layout": "OmniDocBench",
     "omnidocbench_table": "OmniDocBench",
     "omnidocbench_full_page": "OmniDocBench",
+    "omnidocbench_full_page_en": "OmniDocBench (EN)",
     "synthetic_orientation": "sintético",
     "synthetic_rectification": "sintético",
     "synthetic_text_line": "sintético",

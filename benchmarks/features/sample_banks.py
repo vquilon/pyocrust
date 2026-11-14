@@ -30,13 +30,20 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from common import BENCHMARKS_ROOT, load_dataset
-from common.datasets import _cached_page_annotation, _odb_page_attribute, _odb_stratum
+from common.datasets import (
+    ODB_EN_SAMPLE_N,
+    _cached_page_annotation,
+    _odb_page_attribute,
+    _odb_stratum,
+)
 
-# (feature, dataset del banco, límite) — límites de la tarjeta t_4d2155d3.
+# (feature, dataset del banco, límite) — límites de la tarjeta t_4d2155d3; el de
+# la muestra **no china** es el `n` declarado (`ODB_EN_SAMPLE_N`).
 BANKS = (
     ("formula", "omnidocbench_formula", 10),
     ("table", "omnidocbench_table", 8),
     ("full_page", "omnidocbench_full_page", 6),
+    ("full_page_en", "omnidocbench_full_page_en", ODB_EN_SAMPLE_N),
     ("layout", "omnidocbench_layout", 40),
 )
 MIN_STRATA = 3
