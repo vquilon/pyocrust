@@ -31,9 +31,11 @@ reqwest = { version = "0.12", default-features = false, features = ["blocking", 
 sha2 = "0.10"
 
 [features]
-# GPU: se activa compilando con --features cuda o --features directml (ADR-010).
+# GPU: se activa compilando con --features cuda (NVIDIA), --features directml
+# (Windows) o --features coreml (macOS / Apple Silicon) (ADR-010).
 cuda = ["oar-ocr/cuda"]
 directml = ["oar-ocr/directml"]
+coreml = ["oar-ocr/coreml"]
 
 # Parche local de `ort-sys` 2.0.0-rc.13 (misma version, ver `vendor/ort-sys/`):
 # oar-ocr 0.10.x fija `ort = "=2.0.0-rc.13"` (ORT 1.28), cuyo provider CUDA no
