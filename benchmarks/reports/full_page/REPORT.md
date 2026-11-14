@@ -45,10 +45,10 @@
 
 | Motor (variante) | Markdown F1 ↑ (CPU) | Markdown F1 ↑ (GPU) | ms CPU | ms GPU | provider GPU |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| PP-StructureV3 (paddleocr) | 0.086 | N/A | 124261 | N/A | n/a (no corre en GPU) |
-| docling-default (pipeline) | 0.204 | N/A | 27542 | N/A | n/a (no corre en GPU) |
-| indra (math) | 0.029 | 0.029 | 200 | 1118 | cuda |
-| pp_structurev3 (default) | 0.083 | 0.085 | 2181 | 1805 | cuda |
+| PP-StructureV3 (paddleocr) | 0.086 | 0.086 | 124261 | 70769 | cuda |
+| docling-default (pipeline) | 0.204 | 0.204 | 27542 | 24530 | cuda |
+| indra (math) | 0.029 | 0.029 | 200 | 1184 | cuda |
+| pp_structurev3 (default) | 0.083 | 0.085 | 2181 | 2617 | cuda |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.
 

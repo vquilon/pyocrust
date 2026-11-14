@@ -125,5 +125,7 @@
 | **pp_structurev3 (default)** | cpu | 2181 | 0.083 | Apache-2.0 |
 | docling-default (pipeline) | cpu | 27542 | 0.204 | MIT |
 | PP-StructureV3 (paddleocr) | cpu | 124261 | 0.086 | Apache-2.0 |
-| **indra (math)** | gpu | 1118 | 0.029 | OpenRAIL-M-Mod |
-| **pp_structurev3 (default)** | gpu | 1805 | 0.085 | Apache-2.0 |
+| **indra (math)** | gpu | 1184 | 0.029 | OpenRAIL-M-Mod |
+| **pp_structurev3 (default)** | gpu | 2617 | 0.085 | Apache-2.0 |
+| docling-default (pipeline) | gpu | 24530 | 0.204 | MIT |
+| PP-StructureV3 (paddleocr) | gpu | 70769 | 0.086 | Apache-2.0 |

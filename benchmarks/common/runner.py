@@ -270,7 +270,27 @@ GPU_CAPABLE_BACKENDS = frozenset({
     "armaggheddon_y11n", "armaggheddon_y11s", "armaggheddon_y11m",
     "armaggheddon_y26n", "armaggheddon_y26s", "armaggheddon_y26m",
     "rapidocr", "easyocr",
+    # Pipelines documentales de `full_page`: docling y PP-StructureV3 corren en
+    # GPU cuando su runtime la trae (torch CUDA en el venv aislado de docling /
+    # paddle compilado con CUDA). El adaptador **verifica** que el runtime ve la
+    # GPU antes de etiquetar `cuda`: sin esa sonda el motor sale `skipped`.
+    "docling", "pp_structurev3_api",
 })
+
+# Sondas baratas (un subproceso, `sys.exit(3)` si el runtime no ve la GPU) con las
+# que el adaptador confirma el EP antes de declarar `provider_effective="cuda"`.
+_TORCH_CUDA_CHECK = "import sys, torch; sys.exit(0 if torch.cuda.is_available() else 3)"
+_PADDLE_CUDA_CHECK = ("import sys, paddle; sys.exit(0 if (paddle.device.is_compiled_with_cuda() "
+                      "and paddle.device.cuda.device_count() > 0) else 3)")
+
+
+def _runtime_sees_cuda(python: Path | str, check: str, timeout: int = 600) -> bool:
+    """¿`python` ve la GPU de verdad? Sonda en subproceso (no importa nada pesado aquí)."""
+    try:
+        probe = subprocess.run([str(python), "-c", check], capture_output=True, text=True, timeout=timeout)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return probe.returncode == 0
 
 
 def device_outcome(backend: str, device: str) -> tuple[str | None, str | None]:
@@ -283,8 +303,11 @@ def device_outcome(backend: str, device: str) -> tuple[str | None, str | None]:
     - `gpu` + backend `pyocrust` -> `(None, None)`: el provider real **no se puede
       adivinar** aquí; se CONFIRMA al construir el motor, leyendo
       `engine.provider_effective` (`pyocrust` resuelve y prueba el EP).
-    - `gpu` + backend no-`pyocrust` -> `("n/a", motivo)`: esos adaptadores son
-      CPU-only en este banco.
+    - `gpu` + backend en `GPU_CAPABLE_BACKENDS` (o `pyocrust*`) -> `(None, None)`:
+      el provider real **no se puede adivinar** aquí; lo CONFIRMA el adaptador
+      (sonda del runtime + `provider_effective`) al construir el motor.
+    - `gpu` + backend fuera de esa lista -> `("n/a", motivo)`: ese adaptador es
+      CPU-only en este banco y su fila GPU no se inventa.
     """
     if device == "cpu":
         return "cpu", None
@@ -906,13 +929,28 @@ def alternative_provenance(backend: str) -> str:
 # `layout`/`table`. Se invoca por **subproceso**, un modelo a la vez.
 DOCLING_VENV_PYTHON = BENCHMARKS_ROOT / ".venv_docling" / "Scripts" / "python.exe"
 _DOCLING_RUNNER = r'''
-import sys, warnings
+import os, pathlib, sys, warnings
 warnings.filterwarnings("ignore")
+device = sys.argv[2] if len(sys.argv) > 2 else "cpu"
+if device != "cpu":
+    import torch
+    if not torch.cuda.is_available():
+        sys.stderr.write("docling: torch.cuda.is_available() = False\n")
+        sys.exit(3)
+    # El OCR por defecto del pipeline es rapidocr/onnxruntime y su EP de CUDA
+    # importa cublas/cudnn/cudart: esas DLLs viajan en el wheel de torch pero no
+    # estan en el search path del hijo, asi que se anaden antes de construir el
+    # pipeline (si no, el EP no carga y el OCR se queda en CPU).
+    torch_lib = pathlib.Path(torch.__file__).parent / "lib"
+    if torch_lib.is_dir():
+        os.add_dll_directory(str(torch_lib))
 from docling.document_converter import DocumentConverter, ImageFormatOption
 from docling.datamodel.base_models import InputFormat
+from docling.datamodel.accelerator_options import AcceleratorOptions
 from docling.datamodel.pipeline_options import PdfPipelineOptions
 
-pipe = PdfPipelineOptions()
+# `device` gobierna layout/TableFormer (torch) y el OCR (onnxruntime) del pipeline.
+pipe = PdfPipelineOptions(accelerator_options=AcceleratorOptions(device=device))
 # La entrada del banco es una imagen raster: sin OCR no hay texto que emitir.
 pipe.do_ocr = True
 pipe.do_table_structure = True
@@ -948,12 +986,19 @@ def _docling_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
     Corre en el venv aislado `benchmarks/.venv_docling` por subproceso: sus
     dependencias (torch/torchvision/transformers) no coexisten con el venv del
     banco. Si ese venv no existe, el backend queda `skipped` con el `pip install`
-    exacto en vez de fallar a medias.
+    exacto en vez de fallar a medias. Con `device != "cpu"` se exige que ese venv
+    **vea la GPU** (torch CUDA): si no, `skipped` con motivo en vez de una fila
+    CPU disfrazada de CUDA.
     """
     if not DOCLING_VENV_PYTHON.is_file():
         raise ProviderUnavailable(
             f"falta el venv de docling; crear con: uv venv {DOCLING_VENV_PYTHON.parents[1]} "
             f"&& uv pip install --python {DOCLING_VENV_PYTHON} docling")
+    if device != "cpu" and not _runtime_sees_cuda(DOCLING_VENV_PYTHON, _TORCH_CUDA_CHECK):
+        raise ProviderUnavailable(
+            f"docling: {DOCLING_VENV_PYTHON} no ve la GPU (torch sin CUDA); instalar con: "
+            f"uv pip install --python {DOCLING_VENV_PYTHON} torch torchvision "
+            "--index-url https://download.pytorch.org/whl/cu132")
 
     def run(image: Image.Image) -> OcrOutput:
         with tempfile.TemporaryDirectory() as tmp:
@@ -961,7 +1006,7 @@ def _docling_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
             image.convert("RGB").save(path, format="PNG")
             start = time.perf_counter()
             proc = subprocess.run(
-                [str(DOCLING_VENV_PYTHON), "-c", _DOCLING_RUNNER, str(path)],
+                [str(DOCLING_VENV_PYTHON), "-c", _DOCLING_RUNNER, str(path), "cpu" if device == "cpu" else "cuda"],
                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900,
             )
             elapsed_ms = (time.perf_counter() - start) * 1000.0
@@ -995,6 +1040,11 @@ from PIL import Image
 from paddleocr import PPStructureV3
 
 image_path, device = sys.argv[1], sys.argv[2]
+if device != "cpu":
+    import paddle
+    if not (paddle.device.is_compiled_with_cuda() and paddle.device.cuda.device_count() > 0):
+        sys.stderr.write("PPStructureV3: este paddle no esta compilado con CUDA (o no ve la GPU)\n")
+        sys.exit(3)
 # `enable_mkldnn=False`: este paddle (3.3.1) revienta al ejecutar un modelo por el
 # motor oneDNN/PIR ("ConvertPirAttribute2RuntimeAttribute not support
 # [pir::ArrayAttribute<pir::DoubleAttribute>]"); el EP de CPU nativo si corre.
@@ -1018,12 +1068,19 @@ def _pp_structurev3_api_backend(device: str = "cpu") -> Callable[[Image.Image], 
     **subproceso con timeout** (mismo patrón que `docling`/`unimernet`, ver arriba):
     el pipeline en proceso segfaultea o cuelga en páginas reales, así que aislarlo
     evita que aborte el banco. El intérprete es el del propio banco
-    (`sys.executable`), donde ya viven `paddleocr`/`paddlepaddle`.
+    (`sys.executable`), donde ya viven `paddleocr`/`paddlepaddle`. Con
+    `device != "cpu"` se exige que **ese** paddle esté compilado con CUDA y vea la
+    GPU (sonda en subproceso): si no, `skipped` con motivo en vez de una fila CPU
+    disfrazada de CUDA.
     """
     # Chequeo barato en el PADRE: no se importa `paddle` aquí (importar el motor en
     # proceso es justo lo que colgaba/segfaulteaba). Si falta el paquete -> `skipped`.
     if importlib.util.find_spec("paddleocr") is None:  # pragma: no cover - entorno sin paddleocr
         raise ProviderUnavailable("pip install paddleocr paddlex[ocr]")
+    if device != "cpu" and not _runtime_sees_cuda(sys.executable, _PADDLE_CUDA_CHECK):
+        raise ProviderUnavailable(
+            "pp_structurev3_api: el paddle de este interprete no esta compilado con CUDA "
+            "(o no ve la GPU); instalar paddlepaddle-gpu desde su indice")
     paddle_device = "gpu" if device != "cpu" else "cpu"
 
     def run(image: Image.Image) -> OcrOutput:
