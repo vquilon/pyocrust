@@ -8,6 +8,12 @@
 pipeline completo resuelve texto + tablas + fórmulas), pero cada banco mide **una**
 capacidad y se compara contra alternativas comparables.
 
+> **¿Por qué gana o pierde `pyocrust` en cada feature?** El análisis que separa
+> **modelo** (calidad), **motor** (tiempo) y **medida** (alcance del cronómetro,
+> granularidad del GT, pata vieja), con la run y la fecha de cada cifra, está en
+> [`ANALISIS_MOTOR_VS_MODELO.md`](ANALISIS_MOTOR_VS_MODELO.md)
+> ([English](ANALISIS_MOTOR_VS_MODELO.en.md)).
+
 | Feature | Estado | Tarea `pyocrust` | Métrica | Alternativas reales | Banquillo |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **text** | implementado | `text_detection` + `text_recognition` | CER/WER/`word_f1` + `box_recall`/`box_iou_mean` | rapidocr, easyocr, tesseract, surya, paddleocr, doctrl | `features/text/` |
