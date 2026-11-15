@@ -77,6 +77,7 @@ from common.runner import (  # noqa: F401
     GPU_PROVIDERS,
     LICENSES,
     MODEL_NAMES,
+    VLM_VARIANT,
     OcrOutput,
     BACKENDS,
     PROVIDERS,
@@ -117,7 +118,7 @@ __all__ = [
     # runner
     "BENCHMARKS_ROOT", "CSV_FIELDS", "DEFAULT_RESULTS_DIR", "FEATURE_TYPES",
     "FULL_PAGE_METRIC_CHANNEL", "ALL_STRUCTURE_CHANNELS", "STRUCTURE_CHANNELS",
-    "GPU_PROVIDERS", "LICENSES", "MODEL_NAMES", "OcrOutput", "BACKENDS", "PROVIDERS", "ProviderUnavailable",
+    "GPU_PROVIDERS", "LICENSES", "MODEL_NAMES", "VLM_VARIANT", "OcrOutput", "BACKENDS", "PROVIDERS", "ProviderUnavailable",
     "TASK_TYPES", "ALTERNATIVE_PROVENANCE", "alternative_provenance",
     "available_providers", "device_outcome", "emitted_channels", "main",
     "module_available", "not_evaluable_metrics",

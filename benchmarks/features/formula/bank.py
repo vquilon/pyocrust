@@ -26,6 +26,7 @@ Uso:
 from __future__ import annotations
 
 import io
+import re
 import sys
 import time
 from pathlib import Path
@@ -68,16 +69,27 @@ SPEC = FeatureSpec(
 def _pix2tex_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
     """`pix2tex` (`LaTeX-OCR`): API pública `from pix2tex.cli import LatexOCR`.
 
-    Proveedor **efectivo CPU**: `LatexOCR()` trae `no_cuda=True` por defecto, así
-    que resuelve `self.args.device='cpu'` aunque hubiera GPU. La fila se mide en
-    CPU (device_requested=cpu == provider real); nunca se etiqueta como GPU.
+    `LatexOCR()` trae `no_cuda=True` por defecto y resuelve `self.args.device='cpu'`
+    aunque hubiera GPU. Para la pata GPU se le pasa un `arguments` explícito con
+    `no_cuda=False`: entonces `LatexOCR` resuelve `device='cuda'` **si torch ve
+    CUDA**, y lo declaramos con el device REAL (`model.args.device`), nunca por lo
+    pedido. Si torch no ve CUDA con `device=gpu` pedido, `skipped` honesto.
     """
     try:
         from pix2tex.cli import LatexOCR
+        from munch import Munch
     except ImportError as exc:
         raise ProviderUnavailable("pip install pix2tex") from exc
 
-    model = LatexOCR()
+    if device != "cpu":
+        import torch  # noqa: PLC0415
+        if not torch.cuda.is_available():
+            raise ProviderUnavailable("pix2tex: device=gpu pedido pero torch no ve CUDA")
+    model = LatexOCR(arguments=Munch({
+        "config": "settings/config.yaml", "checkpoint": "checkpoints/weights.pth",
+        "no_cuda": device == "cpu", "no_resize": False,
+    }))
+    effective = "cuda" if str(getattr(model.args, "device", "cpu")) == "cuda" else "cpu"
 
     def run(image: Image.Image) -> OcrOutput:
         data = Image.open(io.BytesIO(_image_bytes(image)))
@@ -85,8 +97,9 @@ def _pix2tex_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
         text = model(data)
         elapsed_ms = (time.perf_counter() - start) * 1000.0
         return OcrOutput(text=str(text or ""), elapsed_ms=elapsed_ms,
-                         extra={"engine": "pix2tex", "provider_effective": "cpu"})
+                         extra={"engine": "pix2tex", "provider_effective": effective})
 
+    run.provider_effective = effective
     return run
 
 
@@ -118,6 +131,10 @@ EXTRA_MODELS = {name: (name, "default") for name in EXTRA_FACTORIES}
 
 # --- puntuación: LaTeX **aislado** del motor, contra el GT anotado -----------
 
+# Bloque de código cercado (```latex … ```) con el que los VLM envuelven la
+# fórmula: su CUERPO es el LaTeX (el delimitador no es estructura matemática).
+_MATH_FENCE = re.compile(r"```[ \t]*(?:latex|tex|math)?[ \t]*\n?(.*?)```", re.S)
+
 def _formula_latex(output: OcrOutput) -> str:
     """LaTeX **aislado** que emite un motor de fórmulas (no el Markdown de página).
 
@@ -136,6 +153,12 @@ def _formula_latex(output: OcrOutput) -> str:
     # Markdown de página (con tabla o cabeceras) sin fórmulas aisladas: no es LaTeX.
     if "<table" in text or "##" in text or "<div" in text:
         return ""
+    # Los VLM (LightOnOCR-3) envuelven la formula en un bloque de codigo cercado
+    # (```latex ... ```): se extrae su cuerpo, que es el LaTeX puro. Sin esto el
+    # delimitador ``` entraria como token y hundiria la similitud.
+    fenced = [body.strip() for body in _MATH_FENCE.findall(text) if body.strip()]
+    if fenced:
+        return "\n".join(fenced)
     return text
 
 
@@ -217,6 +240,11 @@ def _self_check() -> None:
     # Sin GT LaTeX la métrica queda no evaluada, nunca un 0.0.
     bare = Sample("g", image, "")
     assert score_formula(bare, pure)["latex_sim"] == ""
+    # VLM (LightOnOCR-3): LaTeX dentro de un bloque de codigo cercado -> se extrae
+    # el cuerpo, no el delimitador ``` (que hundiria la similitud).
+    fenced = OcrOutput("```latex\nx^2\n```")
+    assert score_formula(sample, fenced)["latex_exact"] == 1.0
+    assert score_formula(sample, fenced)["latex_sim"] == 1.0
     print("features.formula self-check OK")
 
 

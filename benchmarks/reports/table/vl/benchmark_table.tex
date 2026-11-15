@@ -1,0 +1,16 @@
+\documentclass[border=2pt]{standalone}
+\usepackage{booktabs}
+\begin{document}
+\begin{tabular}{lrrrr}
+\toprule
+Engine (variant/size) & n & TEDS estrut. $\uparrow$ & ms/tabla $\downarrow$ & license \\
+\midrule
+GLM-OCR (0.9B) & 8 & 0.919 & \textbf{34191} & MIT \\
+LightOnOCR-2-1B (1B) & 8 & 0.858 & 58834 & Apache-2.0 \\
+LightOnOCR-3 (0.8B) & 8 & \underline{0.926} & 162056 & Apache-2.0 \\
+LightOnOCR-3 (4B) & 8 & 0.847 & 76940 & Apache-2.0 \\
+PaddleOCR-VL (0.9B) & 8 & \textbf{0.933} & \underline{35839} & Apache-2.0 \\
+\bottomrule
+\end{tabular}
+\par\smallskip{\footnotesize Note: N/A = not evaluated (no ground truth for that column, or the engine does not emit that structure, e.g. docling emits Markdown only); 0.000 = evaluated and the engine got it wrong, never an unmeasured 0.0. Values and n match REPORT.md (run 2026-11-15\_18-13-46, device gpu, n <= 8).}
+\end{document}

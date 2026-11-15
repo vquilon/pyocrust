@@ -46,18 +46,19 @@ ni como fallo, porque el dataset no las anota de forma separable.
 
 | Alternativa | Módulo / `pip install` | Medida |
 | :--- | :--- | :--- |
-| docling-layout-heron-101 (RT-DETR) | `transformers` | sí (`docling_heron_101`) |
+| docling-layout-heron-101 (RT-DETR) | `transformers` | sí (`docling_heron_101`), CPU + GPU |
+| docling-layout-egret-xlarge (RT-DETR, MIT) | `transformers` | sí (`docling_layout_egret_xlarge`), CPU + GPU |
 | yolo26m (doc-layout) | `ultralytics` | sí (`yolo26m`, 21.8M) |
 | yolov10b (DocLayNet) | `ultralytics` | sí (`yolov10b`, 20.5M) |
 | yolov10x (DocLayNet) | `ultralytics` | sí (`yolov10x`, 31.7M) |
-| deformable-detr-DocLayNet | `transformers` | `skipped` (sin `preprocessor_config.json` en caché) |
+| deformable-detr-DocLayNet | `transformers` | `skipped` (pesos NO en caché HF local; solo `refs/`, 0 B de payload) |
 | **pipeline completo** (`pp_structurev3`) | propio (`pyocrust_structure`) | sí (`pyocrust_structure`, Apache-2.0) — compara cruzada: layout **mAP 0.677** vs 0.689 de `pyocrust_layout` (n=20, CPU) |
 | layoutparser | `layoutparser` | no integrada |
 | docling | `docling` | no integrada |
 | unstructured | `unstructured` | no integrada |
 | paddleocr | `paddleocr paddlepaddle` | no integrada |
 
-Los tres YOLO documentales comparten el vocabulario DocLayNet (11 clases) — verificado cargando los pesos .pt con ultralytics.YOLO y leyendo model.names; todos son fine-tuneados sobre DocLayNet, no modelos base. Criterio del banco: solo modelos documentales (DocLayNet-fine-tuned); los YOLO base quedan excluidos. pyocrust_layout usa pp-doclayoutv3. Pesos .pt en D:/Environments/cache/models/layout/, todo en CPU.
+Los tres YOLO documentales comparten el vocabulario DocLayNet (11 clases) — verificado cargando los pesos .pt con ultralytics.YOLO y leyendo model.names; todos son fine-tuneados sobre DocLayNet, no modelos base. Criterio del banco: solo modelos documentales (DocLayNet-fine-tuned); los YOLO base quedan excluidos. pyocrust_layout usa pp-doclayoutv3. Pesos .pt en D:/Environments/cache/models/layout/. Los detectores de `transformers` (heron-101, egret-xlarge) aceptan `--device gpu` (torch CUDA).
 
 **Compatibilidad de pesos**: el primer intento de abrir los checkpoints DocLayNet de hantian en Python 3.12 falló en `yolo26n-doclaynet.pt` por la referencia pickle a `pathlib._local`, disponible en Python 3.14. La apertura completa de los 39 pesos con `ultralytics.YOLO(...)` se verificó en el entorno Python 3.14.9 (`.venv314`); los 39 exponen las mismas 11 clases DocLayNet.
 
@@ -79,6 +80,16 @@ Los tres YOLO documentales comparten el vocabulario DocLayNet (11 clases) — ve
 **Implementado**: ejecuta `pyocrust` (`pyocrust_layout`) con warmup/repeats sobre
 el GT de layout de OmniDocBench y publica mAP/recall por clase, más las
 alternativas reales ya integradas (RT-DETR heron-101 y tres YOLO documentales).
+
+## VLMs fundacionales: no aplican (canal `layout` ausente)
+
+Los VLM documentales (PaddleOCR-VL, GLM-OCR, LightOnOCR) emiten **solo Markdown**
+(una pasada imagen→texto), **sin cajas ni orden de lectura**: su
+`STRUCTURE_CHANNELS` es `frozenset()` (no declaran el canal `layout`), así que
+`score_layout` deja su mAP/recall en **`N/A`** — nunca un `0.0` por las cajas que
+no emiten. Verificado con un smoke de 1 página por modelo (`table`/`formula` sí
+puntúan, `layout` no): los tres devuelven texto y **0 cajas**. No es una feature
+que un VLM de este tipo haga, como `orientation`/`rectification`/`seal`.
 
 ## Quién sale en el resumen y quién en el informe por feature
 

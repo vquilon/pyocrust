@@ -42,10 +42,10 @@ bloque `equation_isolated`.
 
 | Alternativa | `pip install` | URL (software, no cifras) | Estado aquí |
 | :--- | :--- | :--- | :--- |
-| pix2tex (LaTeX-OCR) | `pix2tex` | https://github.com/lukas-blecher/LaTeX-OCR | **`medido`** (CPU: `LatexOCR` con `no_cuda=True`) |
+| pix2tex (LaTeX-OCR) | `pix2tex` | https://github.com/lukas-blecher/LaTeX-OCR | **`medido`** (CPU y GPU: `LatexOCR(no_cuda=False)` resuelve `cuda` si torch la ve) |
 | texify (surya_latex_ocr) | `texify` | https://github.com/VikParuchuri/texify | `skipped` (adaptador pendiente) |
 | nougat | `nougat-ocr` | https://github.com/facebookresearch/nougat | `skipped` (adaptador pendiente) |
-| UniMERNet | repo | https://github.com/opendatalab/UniMERNet | `skipped` (adaptador pendiente) |
+| UniMERNet | repo | https://github.com/opendatalab/UniMERNet | **`medido`** (`unimernet`, venv aislado + subproceso; CPU y GPU `model.to('cuda')`) |
 | Pix2Text | `pix2text` | https://github.com/breezedeus/Pix2Text | `skipped` (instalación **no forzada**: degrada `transformers`/`huggingface_hub` y cambia `opencv-python-headless`→`opencv-python`) |
 | TexTeller | `texteller` | https://github.com/OleehyO/TexTeller | `skipped` (adaptador pendiente) |
 | img2latex | `img2latex` | PyPI `img2latex` | `skipped` (adaptador pendiente) |
@@ -65,6 +65,14 @@ y sirven para demostrarlo, no para comparar calidad de fórmula.
 Salida: `benchmarks/results/formula/<timestamp>/` (CSV de 28 columnas con
 `latex_*` + `summary.json` + `<backend>.outputs.json` con la salida cruda para
 medir la cobertura LaTeX). Los artefactos crudos **no se versionan**.
+
+## VLMs fundacionales (variante `vl`)
+
+Los VLM documentales (PaddleOCR-VL, GLM-OCR, LightOnOCR-2/3) se miden también
+aquí, en GPU (`--variant vl`), sobre el mismo recorte (n=10). Su LaTeX llega
+**inline** en el Markdown (`$…$`, `\[…\]` o un bloque ```` ```latex … ``` ````):
+`_formula_latex` extrae el cuerpo del bloque cercado y `normalize_latex` quita los
+delimitadores, así que se puntúa el LaTeX, no el envoltorio.
 
 ## Provenance
 

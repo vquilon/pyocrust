@@ -21,6 +21,7 @@ Uso:
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 from typing import Sequence
@@ -61,21 +62,54 @@ DEFAULT_BACKENDS = ("pyocrust_table,pyocrust_table_slanet,paddleocr_slanext_wire
                     "paddleocr_slanet,tatr,docling_tableformer,pyocrust_structure")
 
 
+_PIPE_SEP_CELL = re.compile(r"^:?-{2,}:?$")
+
+
+def _pipe_cells(line: str) -> list[str] | None:
+    """Celdas de una fila de tabla-pipe de Markdown (`a | b` o `| a | b |`).
+
+    `None` si la línea no es una fila de tabla (sin `|`, una sola celda vacía) ni
+    una fila separadora (`|---|---|`), que no aporta estructura.
+    """
+    if "|" not in line:
+        return None
+    cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+    if len(cells) < 2 or not any(cells):
+        return None
+    if all(_PIPE_SEP_CELL.match(cell) for cell in cells):
+        return None
+    return cells
+
+
+def _pipe_rows_to_html(lines: Sequence[str]) -> str:
+    """Filas-pipe de Markdown -> gramática `<tr>/<td>` (lo que mide el TEDS-S)."""
+    rows = [cells for line in lines if (cells := _pipe_cells(line))]
+    if not rows:
+        return ""
+    return "<table>" + "".join(
+        "<tr>" + "".join(f"<td>{cell}</td>" for cell in cells) + "</tr>" for cells in rows
+    ) + "</table>"
+
+
 def _table_html(text: str) -> str:
-    """HTML de tabla que emite un motor: el `<table>` embebido o el texto tal cual.
+    """HTML de tabla que emite un motor: HTML embebido o **tabla-pipe de Markdown**.
 
     El reconocedor de tabla especializado (`pyocrust_table`, TATR, SLANet) emite
     **solo** la gramática (`<tr>/<td>`) sin envoltorio `<table>`, así que su `text`
     ya es la tabla. El **pipeline completo** (`pyocrust_structure`) y **docling
     TableFormer** devuelven HTML con la tabla envuelta (`<table …>…</table>`,
-    TableFormer incluso con `<html><body>`); se extrae el bloque `<table>`. Sin
-    tabla alguna (ni `<table>` ni `<tr>`) devuelve vacío: TEDS no evaluable, no un
-    0.0 espurio.
+    TableFormer incluso con `<html><body>`); se extrae el bloque `<table>`.
 
-    Normaliza `<th>` -> `<td>`: TableFormer etiqueta la fila de cabecera como
-    `<th>` mientras el GT de OmniDocBench y los demás motores usan `<td>`. Para el
-    TEDS-S (filas/columnas/fusiones) `th` y `td` son la MISMA celda; sin
-    normalizar se penalizaría a TableFormer por nombrar mejor la cabecera.
+    Los **VLM documentales** solo emiten Markdown, y su tabla llega en dos formas:
+    LightOnOCR la envuelve en `<table>` y PaddleOCR-VL la emite como **tabla-pipe**
+    (`a | b`, sin `<table>`); LightOnOCR-3 0.8B incluso mete filas-pipe *dentro* del
+    `<table>`. Ambas se convierten a la gramática `<tr>/<td>` que mide el TEDS-S
+    (filas/columnas/fusiones), de modo que el VLM se puntúa por su estructura real
+    y no por la ausencia de etiquetas. Glm-OCR emite celdas separadas por espacios
+    (sin `|` ni `<table>`): no hay tabla que reconstruir -> `N/A`, nunca `0.0`.
+
+    Normaliza `<th>` -> `<td>`: TableFormer etiqueta la cabecera como `<th>` y
+    OmniDocBench/el resto usa `<td>`; para el TEDS-S son la MISMA celda.
     """
     text = text.replace("<th", "<td").replace("</th>", "</td>")
     if "<table" in text:
@@ -84,10 +118,18 @@ def _table_html(text: str) -> str:
             end = text.find("</table>", start)
             if end == -1:
                 break
-            parts.append(text[start:end + len("</table>")])
+            block = text[start:end + len("</table>")]
+            # Un `<table>` sin `<tr>` (cuerpo en filas-pipe, LightOnOCR-3 0.8B) se
+            # convierte a gramática; si no tiene pipes se deja tal cual.
+            parts.append(block if "<tr" in block else (_pipe_rows_to_html(block.splitlines()) or block))
             start = text.find("<table", end)
         if parts:
             return "\n".join(parts)
+    # Sin `<table>`: tabla-pipe suelta (PaddleOCR-VL). Se exige >=2 filas para no
+    # tomar una línea con un `|` suelto por una tabla.
+    pipe = _pipe_rows_to_html(text.splitlines())
+    if pipe.count("<tr>") >= 2:
+        return pipe
     # Gramática suelta del modelo especializado (`<tr>` sin envoltorio).
     return text if "<tr" in text else ""
 
@@ -153,6 +195,17 @@ def _self_check() -> None:
     # en el TEDS-S, así que no penaliza la etiqueta de cabecera.
     th = OcrOutput("<html><body><table><tr><th>a</th><th>b</th></tr></table></body></html>")
     assert score_table(sample, th) == {"table_teds": 1.0}
+    # VLM solo-Markdown: tabla-pipe suelta (PaddleOCR-VL), sin `<table>`.
+    gt2 = Sample("t2", Image.new("RGB", (4, 4)), "",
+                 gt_html="<table><tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr></table>")
+    assert score_table(gt2, OcrOutput("a | b\nc | d")) == {"table_teds": 1.0}
+    # …y filas-pipe DENTRO de un `<table>` sin gramática (LightOnOCR-3 0.8B).
+    inner = OcrOutput("<table>\n### Table - x\n| a | b |\n| --- | --- |\n| c | d |\n</table>")
+    assert score_table(gt2, inner) == {"table_teds": 1.0}
+    # Glm-OCR: celdas separadas por espacios (ni `|` ni `<table>`) -> N/A, nunca 0.0.
+    assert score_table(gt2, OcrOutput("a b\nc d")) == {"table_teds": ""}
+    # Una sola línea con un `|` suelto NO es una tabla -> N/A.
+    assert score_table(gt2, OcrOutput("a | b")) == {"table_teds": ""}
     print("features.table self-check OK")
 
 

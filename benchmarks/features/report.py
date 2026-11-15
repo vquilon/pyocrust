@@ -31,9 +31,28 @@ from typing import Any, Sequence
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from common import (BENCHMARKS_ROOT, applicable_rows, module_available,
-                    not_evaluable_metrics, select_device_rows)
+from common import (BENCHMARKS_ROOT, MODEL_NAMES, VLM_VARIANT, applicable_rows,
+                    module_available, not_evaluable_metrics, select_device_rows)
 from features._localization import english_markdown
+
+
+def _engine_label(row: dict) -> str:
+    """Etiqueta `modelo (variante/tamaño)` de una fila del CSV.
+
+    Una corrida de la serie `vl` escribe `model_variant="vl"` en TODAS sus filas,
+    lo que **pisa** el tamaño propio del modelo: `lightonocr3_08b` y `_4b`
+    comparten `model_name` ("LightOnOCR-3") y sin el tamaño colapsaban en UNA fila
+    (`n` y `ms` promediados: una "fila inventada"). El registro `MODEL_NAMES` es la
+    fuente de verdad del tamaño y se recupera para esta serie. `pyocrust_vl`, cuya
+    variante ES la serie, conserva `vl`.
+    """
+    model = row.get("model_name") or row["backend"]
+    variant = row.get("model_variant")
+    if variant == VLM_VARIANT:
+        declared = MODEL_NAMES.get(row.get("backend", ""), ("", ""))[1]
+        if declared and declared != "default":
+            variant = declared
+    return f"{model} ({variant})" if variant else model
 
 RESULTS_DIR = BENCHMARKS_ROOT / "results"
 REPORTS_DIR = BENCHMARKS_ROOT / "reports"
@@ -307,9 +326,7 @@ def strata_summary(rows: Sequence[dict], metrics: Sequence[str]) -> dict[tuple[s
         stratum = str(row.get("stratum") or "").strip()
         if not stratum:
             continue
-        motor = row.get("model_name") or row["backend"]
-        variant = row.get("model_variant")
-        name = f"{motor} ({variant})" if variant else motor
+        name = _engine_label(row)
         entry = grouped.setdefault(
             (name, stratum), {**{m: [] for m in metrics}, "n": 0})
         for key in metrics:
@@ -458,9 +475,7 @@ def render_page_typology(feature: str, rows: Sequence[dict]) -> list[str]:
         ptype = _row_page_type(row, index)
         if not ptype:
             continue
-        motor = row.get("model_name") or row["backend"]
-        variant = row.get("model_variant")
-        name = f"{motor} ({variant})" if variant else motor
+        name = _engine_label(row)
         entry = grouped.setdefault((name, ptype), {"values": [], "n": 0})
         value = row.get(key)
         if isinstance(value, float):
@@ -583,9 +598,7 @@ def render_title_coverage(feature: str, rows: Sequence[dict]) -> list[str]:
         return []
     by_engine: dict[str, list[int]] = {}
     for row in rows:
-        motor = row.get("model_name") or row["backend"]
-        variant = row.get("model_variant")
-        name = f"{motor} ({variant})" if variant else motor
+        name = _engine_label(row)
         total, titled = by_engine.setdefault(name, [0, 0])
         by_engine[name] = [total + 1, titled + (1 if row.get("image_id") in titled_ids else 0)]
     lines = [
@@ -635,9 +648,7 @@ def render_figure_coverage(feature: str, rows: Sequence[dict]) -> list[str]:
         return []
     by_engine: dict[str, list[int]] = {}
     for row in rows:
-        motor = row.get("model_name") or row["backend"]
-        variant = row.get("model_variant")
-        name = f"{motor} ({variant})" if variant else motor
+        name = _engine_label(row)
         total, with_fig = by_engine.setdefault(name, [0, 0])
         by_engine[name] = [total + 1, with_fig + (1 if row.get("image_id") in figure_ids else 0)]
     lines = [
@@ -729,9 +740,7 @@ def latex_coverage(run: Path) -> dict[str, float]:
 def summarize(rows: Sequence[dict]) -> dict[str, dict[str, Any]]:
     grouped: dict[str, list[dict]] = defaultdict(list)
     for row in rows:
-        model = row.get("model_name") or row["backend"]
-        variant = row.get("model_variant")
-        grouped[f"{model} ({variant})" if variant else model].append(row)
+        grouped[_engine_label(row)].append(row)
     report: dict[str, dict[str, Any]] = {}
     for name, group in grouped.items():
         times = sorted(r["elapsed_ms"] for r in group if r["elapsed_ms"] is not None)

@@ -78,9 +78,17 @@ def _engine_rows(report: dict, summary: dict) -> tuple[list[str], list[str]]:
     return md_rows, tex_rows
 
 
-def build() -> tuple[str, str]:
-    """(markdown_es, latex_en) de `benchmark_table.{md,tex}` para `layout`."""
-    run = report_mod.latest_run(FEATURE)
+def build(variant: str | None = None) -> tuple[str, str]:
+    """(markdown_es, latex_en) de `benchmark_table.{md,tex}` para `layout`.
+
+    Con `variant` (p. ej. `vl`) la run de referencia vive **bajo** la feature
+    (`results[/_gpu]/layout/<variant>/`): la pata de los VLMs es GPU-only, así que
+    si no hay run CPU de esa variante se usa la de GPU como referencia.
+    """
+    run = report_mod.latest_run(FEATURE, variant=variant) or (
+        report_mod.latest_run(FEATURE, root=report_mod.GPU_RESULTS_DIR,
+                              device="gpu", variant=variant)
+        if variant else None)
     if run is None:
         raise SystemExit(f"{FEATURE}: sin runs en results/{FEATURE}/ (nada que tabular)")
     report, summary = report_mod.analyze(FEATURE, run)
@@ -171,19 +179,29 @@ def _strata_tex_rows(grouped: dict, strata: list[str], key: str) -> list[str]:
     return rows
 
 
-def main() -> int:
-    md, tex = build()
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    (OUT_DIR / "benchmark_table.md").write_text(md, encoding="utf-8")
-    (OUT_DIR / "benchmark_table.tex").write_text(tex, encoding="utf-8")
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Tabla publicable de la feature layout")
+    parser.add_argument("--variant", default=None,
+                        help="subcarpeta de variante bajo la feature (p. ej. `vl`): "
+                             "lee results[/_gpu]/layout/<variant>/ y escribe la tabla "
+                             "en reports/layout/<variant>/, sin tocar la serie normal")
+    args = parser.parse_args(argv)
+    out_dir = (BENCHMARKS_ROOT / "reports" / FEATURE / args.variant
+               if args.variant else OUT_DIR)
+    md, tex = build(args.variant)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "benchmark_table.md").write_text(md, encoding="utf-8")
+    (out_dir / "benchmark_table.tex").write_text(tex, encoding="utf-8")
     # `report.py` deriva el `.en.md` de las demás features desde su `.md`; para
     # `layout` este generador manda, así que emite también su versión en inglés
     # (misma `english_markdown`, fuente única de traducción).
     from features._localization import english_markdown
-    (OUT_DIR / "benchmark_table.en.md").write_text(english_markdown(md), encoding="utf-8")
-    print(f"[layout.table] -> {OUT_DIR / 'benchmark_table.md'}")
-    print(f"[layout.table] -> {OUT_DIR / 'benchmark_table.en.md'}")
-    print(f"[layout.table] -> {OUT_DIR / 'benchmark_table.tex'}")
+    (out_dir / "benchmark_table.en.md").write_text(english_markdown(md), encoding="utf-8")
+    print(f"[layout.table] -> {out_dir / 'benchmark_table.md'}")
+    print(f"[layout.table] -> {out_dir / 'benchmark_table.en.md'}")
+    print(f"[layout.table] -> {out_dir / 'benchmark_table.tex'}")
     return 0
 
 

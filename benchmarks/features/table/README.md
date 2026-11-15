@@ -63,6 +63,15 @@ si la detecta en el recorte; en algunos recortes (p. ej. tablas muy simples o co
 líneas tenues) no devuelve tabla y la métrica queda **no evaluada** (`N/A`, nunca
 un 0.0). El TEDS medio se calcula sobre las muestras evaluadas, no sobre las 20.
 
+## VLMs fundacionales (variante `vl`)
+
+Los VLM documentales (PaddleOCR-VL, GLM-OCR, LightOnOCR-2/3) se miden también
+aquí, en GPU (`--variant vl`), sobre **la misma muestra** (n=8). Solo emiten
+Markdown: su tabla se **extrae del texto** —`<table>` HTML o **tabla-pipe**
+(`a | b`, sin `<table>`) convertida a `<tr>/<td>` por `_table_html`— y se puntúa
+con el mismo TEDS-S. Un VLM que no reconstruye estructura (celdas separadas por
+espacios, sin `|` ni `<table>`) queda `N/A`, nunca `0.0`.
+
 ## Provenance
 
 Cada cifra de `REPORT.md` va etiquetada **`medido`**: comando reproducible,

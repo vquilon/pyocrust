@@ -75,8 +75,8 @@ SPEC = FeatureSpec(
 # contra el detector especializado con el MISMO GT de layout. Las que no tengan
 # pesos en caché quedan `skipped` con su motivo — nunca `ok`.
 DEFAULT_BACKENDS = ",".join(
-    ["pyocrust_layout", "docling_heron_101", "deformable_detr", *sorted(YOLO_LAYOUT_MODELS),
-     "pyocrust_structure"]
+    ["pyocrust_layout", "docling_heron_101", "docling_layout_egret_xlarge",
+     "deformable_detr", *sorted(YOLO_LAYOUT_MODELS), "pyocrust_structure"]
 )
 
 
@@ -111,6 +111,12 @@ def score_layout(sample: Sample, output: OcrOutput) -> dict:
     mAP agrupado; el ranking entre motores no cambia. Agrupar exige acumular las
     cajas de todas las paginas en `run_backends` antes de puntuar.
     """
+    declares = output.extra.get("emits")
+    if declares is not None and "layout" not in declares:
+        # El motor NO declara el canal `layout` (VLM documental: solo Markdown, sin
+        # cajas). La metrica queda **no evaluada** ("") — nunca un `0.0` por las
+        # cajas que no emite. Misma regla que `full_page` (ver `STRUCTURE_CHANNELS`).
+        return {"layout_map": "", "layout_recall": ""}
     predicted: dict[str, list[tuple[float, tuple[float, float, float, float]]]] = {}
     for element in output.extra.get("elements") or []:
         category = _LAYOUT_KIND_TO_GT.get(str(element.get("element_type")))
@@ -193,6 +199,10 @@ def _self_check() -> None:
         {"element_type": "formula", "score": 0.9, "bbox": [[0, 0], [10, 0], [10, 5], [0, 5]]},
     ]})
     assert score_layout(eq, struct) == {"layout_map": 1.0, "layout_recall": 1.0}
+    # Un motor que NO declara el canal `layout` (VLM: solo Markdown, sin cajas)
+    # queda N/A, nunca un 0.0 por las cajas que no emite.
+    vlm = OcrOutput("", extra={"emits": frozenset(), "elements": []})
+    assert score_layout(eq, vlm) == {"layout_map": "", "layout_recall": ""}
     print("features.layout self-check OK")
 
 

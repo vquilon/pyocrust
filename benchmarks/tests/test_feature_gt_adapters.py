@@ -371,6 +371,41 @@ def test_formula_puntua_el_latex_aislado_del_pipeline_no_el_markdown_de_pagina()
 
 
 # ---------------------------------------------------------------------------
+# VLMs fundacionales: solo-Markdown, pero con tabla y LaTeX extraíbles del texto
+# (`t_92cded12`). La señal de canal manda: lo que no emiten queda `N/A`, no `0.0`.
+# ---------------------------------------------------------------------------
+
+def test_layout_no_mide_un_motor_que_no_declara_el_canal_layout():
+    """El VLM (solo-Markdown, `emits=frozenset()`) NO emite cajas -> `N/A`, nunca `0.0`."""
+    bank = _bank("layout")
+    sample = Sample("p", Image.new("RGB", (10, 10)), "",
+                    gt_layout={"text_block": ((0.0, 0.0, 10.0, 5.0),)})
+    vlm = OcrOutput("", extra={"emits": frozenset(), "elements": []})
+    assert bank.score_layout(sample, vlm) == {"layout_map": "", "layout_recall": ""}
+
+
+def test_table_puntua_la_tabla_pipe_de_los_vlm_como_gramatica_html():
+    """PaddleOCR-VL emite tabla-pipe (sin `<table>`): se convierte a `<tr>/<td>` y puntúa."""
+    bank = _bank("table")
+    sample = Sample("t", Image.new("RGB", (4, 4)), "",
+                    gt_html="<table><tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr></table>")
+    assert bank.score_table(sample, OcrOutput("a | b\nc | d")) == {"table_teds": 1.0}
+    # LightOnOCR-3 0.8B mete filas-pipe DENTRO de un `<table>` sin gramática.
+    inner = "<table>\n### Table - x\n| a | b |\n| --- | --- |\n| c | d |\n</table>"
+    assert bank.score_table(sample, OcrOutput(inner)) == {"table_teds": 1.0}
+    # Glm-OCR: celdas separadas por espacios (ni `|` ni `<table>`) -> `N/A`, nunca 0.0.
+    assert bank.score_table(sample, OcrOutput("a b\nc d")) == {"table_teds": ""}
+
+
+def test_formula_extrae_el_latex_de_un_bloque_de_codigo_cercado():
+    """LightOnOCR-3 envuelve la fórmula en ```latex … ``` : se puntúa su CUERPO."""
+    bank = _bank("formula")
+    sample = Sample("f", Image.new("RGB", (4, 4)), "", gt_by_task={"formula": r"x^2"})
+    assert bank.score_formula(sample, OcrOutput("```latex\nx^2\n```")) == {
+        "latex_exact": 1.0, "latex_sim": 1.0, "latex_token_f1": 1.0}
+
+
+# ---------------------------------------------------------------------------
 # Celdas `0.0` falsas: un motor que no emite estructura publica `N/A`, no `0.0`.
 # ---------------------------------------------------------------------------
 
