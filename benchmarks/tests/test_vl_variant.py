@@ -13,9 +13,12 @@ import json
 from pathlib import Path
 
 import features.report as report
+import features.summary as summary
 from common.runner import (FEATURE_TYPES, GPU_ONLY_BACKENDS, MODEL_NAMES, PROVIDERS,
                           STRUCTURE_CHANNELS, TASK_TYPES, emitted_channels)
 from features._base import FeatureSpec, feature_out_dir
+
+BENCH = Path(__file__).resolve().parent.parent
 
 SPEC = FeatureSpec(feature="full_page", summary="x", pyocrust_task=None, metric="m", dataset="d")
 
@@ -122,3 +125,54 @@ def test_pyocrust_vl_no_es_gpu_only_los_vlm_externos_si() -> None:
     """`pyocrust_vl` corre sobre Candle, que tambien corre en CPU (t_7e787468)."""
     assert "pyocrust_vl" not in GPU_ONLY_BACKENDS
     assert {"lightonocr", "glm_ocr", "paddleocr_vl"} <= GPU_ONLY_BACKENDS
+
+
+# --- Criterio t_10f4df8e: la variante `vl` se pinta en su propio tono ---
+
+def test_el_summary_pinta_la_variante_vl_en_su_tono_sin_repintar_el_resto() -> None:
+    """`vl` = `pyocrust` en otro tono; `math`/`6.8M` son el MODELO, no una variante.
+
+    El registro usa `model_variant` para tres cosas distintas (tamano, runtime y la
+    feature `vl`), asi que solo la variante declarada como serie (`VLM_VARIANT`)
+    cambia el tono: `indra (math)` y `pp-lcnet_x1_0_doc_ori (6.8M)` siguen verdes.
+    """
+    assert summary._pyocrust_variant("pyocrust_vl") == "vl"
+    for backend in ("pyocrust_structure", "pyocrust_indra", "pyocrust_orientation",
+                    "pyocrust_layout", "docling"):
+        assert summary._pyocrust_variant(backend) == "", backend
+    assert summary._bar_color("pyocrust (vl)", "pyocrust_vl") == summary.PYOCRUST_VARIANT_COLOR
+    for motor, backend in (("indra (math)", "pyocrust_indra"),
+                          ("pp_structurev3", "pyocrust_structure"),
+                          ("pp-doclayoutv3 (130M)", "pyocrust_layout")):
+        assert summary._bar_color(motor, backend) == summary.PYOCRUST_COLOR, motor
+    assert summary._bar_color("docling-default (pipeline)", "docling") == summary.ALT_COLOR
+
+
+def _panel_rows(summary_file: str, feature: str) -> dict[str, tuple[str, str]]:
+    """{motor: (valor, n)} del panel `feature` de un `SUMMARY*.md` publicado."""
+    out: dict[str, tuple[str, str]] = {}
+    text = (BENCH / "reports" / summary_file).read_text(encoding="utf-8")
+    block = text.split(f"## {feature}", 1)
+    if len(block) < 2:
+        return out
+    for line in block[1].split("## ", 1)[0].splitlines():
+        cells = [c.strip().strip("*") for c in line.strip("|").split("|")]
+        if len(cells) == 5 and cells[2].isdigit():
+            out[cells[0]] = (cells[1], cells[2])
+    return out
+
+
+def test_summary_publica_pyocrust_vl_con_los_mismos_numeros_en_es_y_en() -> None:
+    """El panel de `full_page` lleva el motor propio de la variante, con el mismo n/valor."""
+    import pytest
+
+    if not any(p.is_dir() for p in (BENCH / "results" / "full_page" / "vl").glob("*")):
+        pytest.skip("sin run `vl` publicada")
+    es = _panel_rows("SUMMARY.md", "full_page")
+    en = _panel_rows("SUMMARY.en.md", "full_page")
+    assert "pyocrust (vl)" in es, sorted(es)
+    assert es["pyocrust (vl)"] == en["pyocrust (vl)"]
+    valor, n = es["pyocrust (vl)"]
+    assert float(valor) > 0 and int(n) > 0
+    # Sigue distinguiendose del motor base: son dos filas, no una.
+    assert es["pyocrust (vl)"] != es.get("pp_structurev3")

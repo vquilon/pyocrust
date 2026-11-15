@@ -3,7 +3,8 @@
 > `measured` = run in this repository · `pending` = no data yet.
 > **No external references are published**: a quality measured on a different
 > dataset/ground truth is not comparable, so it never enters any table or figure.
-> Una fila per engine sobre **su mismo dataset** (el device solo se publica en los informes con tiempos). El `n` se declara por fila.
+> One row per engine on **its own dataset** (the device is only published in the reports that carry runtimes). The `n` is stated per row.
+> A **variant** (e.g. `pyocrust (vl)`) is the **same engine** under a different configuration, not a separate family: the figure gives it the same family colour in **a different tone**.
 > `license` is **informational** (flags non-permissive licenses, e.g. AGPL-3.0); the gate applies only to `pyocrust` models.
 
 ## text — FUNSD — `measured` · **measured dataset**: `funsd`
@@ -77,6 +78,7 @@
 | tableformer (docling) | 0.905 | 8 | measured | MIT |
 | **slanet_plus (7.8M)** | 0.868 | 8 | measured | Apache-2.0 |
 | table-transformer-structure-recognition | 0.790 | 8 | measured | MIT |
+| **pp_structurev3** | 0.753 | 8 | measured | Apache-2.0 |
 
 ## full_page — OmniDocBench (EN) — `measured` · **measured dataset**: `omnidocbench_full_page_en`
 
@@ -88,6 +90,7 @@
 | LightOnOCR-2-1B (1B) | 0.588 | 6 | measured | Apache-2.0 |
 | GLM-OCR (0.9B) | 0.559 | 6 | measured | MIT |
 | **indra (math)** | 0.556 | 6 | measured | OpenRAIL-M-Mod |
+| **pyocrust (vl)** | 0.534 | 6 | measured | Apache-2.0 |
 | **pp_structurev3** | 0.530 | 6 | measured | Apache-2.0 |
 | docling-default (pipeline) | 0.512 | 6 | measured | MIT |
 | PP-StructureV3 (paddleocr) | 0.427 | 6 | measured | Apache-2.0 |

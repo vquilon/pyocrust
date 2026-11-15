@@ -70,13 +70,13 @@
 | `rectification` | uvdoc (onnxruntime) | 0.604 | 78 | N/A | n/a (does not run on GPU) |
 | `seal` | pp-ocrv4_mobile_seal_det (4.8M) | 0.750 | 643 | 178 | cuda |
 | `seal` | pp-ocrv4_mobile_seal_det (onnxruntime) | 0.750 | 217 | N/A | n/a (does not run on GPU) |
-| `table` | SLANeXt_wired (paddleocr) | 0.882 | 126 | N/A | n/a (does not run on GPU) |
-| `table` | SLANet_plus (paddleocr) | 0.889 | 83 | N/A | n/a (does not run on GPU) |
-| `table` | pp_structurev3 (default) | 0.753 | N/A | 1479 | cuda |
-| `table` | slanet_plus (7.8M) | 0.868 | 47 | 474 | cuda |
-| `table` | slanext_wired (367M) | 0.914 | 500 | 190 | cuda |
-| `table` | table-transformer-structure-recognition (default) | 0.790 | 703 | N/A | n/a (does not run on GPU) |
-| `table` | tableformer (docling) | 0.905 | 20362 | N/A | n/a (does not run on GPU) |
+| `table` | SLANeXt_wired (paddleocr) | 0.882 | 115 | N/A | n/a (does not run on GPU) |
+| `table` | SLANet_plus (paddleocr) | 0.889 | 98 | N/A | n/a (does not run on GPU) |
+| `table` | pp_structurev3 (default) | 0.753 | 1289 | 3118 | cuda |
+| `table` | slanet_plus (7.8M) | 0.868 | 49 | 850 | cuda |
+| `table` | slanext_wired (367M) | 0.914 | 502 | 214 | cuda |
+| `table` | table-transformer-structure-recognition (default) | 0.790 | 636 | N/A | n/a (does not run on GPU) |
+| `table` | tableformer (docling) | 0.905 | 22377 | N/A | n/a (does not run on GPU) |
 | `text` | PP-OCRv6 (medium) | 0.796 | 19163 | N/A | n/a (does not run on GPU) |
 | `text` | easyocr (default) | 0.401 | 3167 | 1263 | cuda |
 | `text` | pp_ocrv6 (medium) | 0.800 | 2223 | N/A | n/a (does not run on GPU) |

@@ -36,8 +36,8 @@ FIGURES = BENCH / "figures"
 if str(BENCH) not in sys.path:
     sys.path.insert(0, str(BENCH))
 from common.runner import (  # noqa: E402
-    FORMULA_BACKENDS_EXCLUDED, LICENSES, MODEL_NAMES, YOLO_LAYOUT_MODELS,
-    alternative_provenance,
+    FORMULA_BACKENDS_EXCLUDED, LICENSES, MODEL_NAMES, VLM_VARIANT,
+    YOLO_LAYOUT_MODELS, alternative_provenance,
 )
 from features._localization import english_markdown  # noqa: E402
 
@@ -157,25 +157,34 @@ def _collect_rows() -> dict[tuple[str, str, str], list[dict]]:
     `pp_structurev3` `n=20`): una comparativa con distinto `n` **no es comparable**.
     Los motores que no esten en la corrida de referencia no entran en la tabla, en
     vez de colarse desde otra corrida.
+
+    Despues de la serie normal se lee su serie de **variante** (`results/<feature>/
+    <variant>/`, ver `VLM_VARIANT`) y se anade **solo** el motor que la normal no
+    mide (aqui `pyocrust (vl)`): los VLM externos de la variante ya estan en la
+    normal, con los mismos pesos, y no se re-publican. Sigue habiendo una fila por
+    motor.
     """
     from features.report import latest_run, run_csv  # perezoso: evita ciclo de import
 
     out: dict[tuple[str, str, str], list[dict]] = {}
     for feature, _titular in FEATURES:
         for device, root in (("cpu", RESULTS), ("gpu", RESULTS / "_gpu")):
-            run = latest_run(feature, root=root, device=device)
-            csv_path = run_csv(run) if run else None
-            if csv_path is None:
-                continue
-            by_key: dict[tuple[str, str, str], list[dict]] = defaultdict(list)
-            for r in csv.DictReader(csv_path.read_text(encoding="utf-8").splitlines()):
-                if r.get("status") != "ok" or (r.get("device_requested") or device) != device:
+            # Serie normal primero: su fila manda (`setdefault` no la pisa).
+            for variant in (None, VLM_VARIANT):
+                run = latest_run(feature, root=root, device=device, variant=variant)
+                csv_path = run_csv(run) if run else None
+                if csv_path is None:
                     continue
-                # `formula` no compara OCR de texto: no emiten LaTeX.
-                if feature == "formula" and r["backend"] in FORMULA_BACKENDS_EXCLUDED:
-                    continue
-                by_key[(feature, device, r["backend"])].append(r)
-            out.update(by_key)
+                by_key: dict[tuple[str, str, str], list[dict]] = defaultdict(list)
+                for r in csv.DictReader(csv_path.read_text(encoding="utf-8").splitlines()):
+                    if r.get("status") != "ok" or (r.get("device_requested") or device) != device:
+                        continue
+                    # `formula` no compara OCR de texto: no emiten LaTeX.
+                    if feature == "formula" and r["backend"] in FORMULA_BACKENDS_EXCLUDED:
+                        continue
+                    by_key[(feature, device, r["backend"])].append(r)
+                for key, rows in by_key.items():
+                    out.setdefault(key, rows)
     return out
 
 
@@ -378,6 +387,36 @@ def _is_pyocrust(motor: str, backend: str = "") -> bool:
     return any(b.startswith("pyocrust") and m == base for b, (m, _v) in MODEL_NAMES.items())
 
 
+# Color por FAMILIA: `pyocrust` y sus variantes (el mismo verde en otro tono) frente
+# a los motores de comparacion (gris azulado). Una variante NO es una familia nueva:
+# es el mismo motor con otra configuracion (`vl`), y asi se lee en la figura.
+PYOCRUST_COLOR = "#2e7d32"
+PYOCRUST_VARIANT_COLOR = "#81c784"
+ALT_COLOR = "#607d8b"
+
+
+def _pyocrust_variant(backend: str) -> str:
+    """Variante de **configuración** de un motor `pyocrust` (`vl`) o `""` si es base.
+
+    Solo cuenta la variante que el registro declara como serie propia
+    (`VLM_VARIANT`): es el MISMO motor con `--features vl`, no otro modelo. Los demás
+    tokens de `model_variant` que usa el registro son el **tamaño** del checkpoint
+    (`6.8M`, `0.9B`) o el **runtime** (`onnxruntime`, `direct`): `indra (math)` o
+    `pp-lcnet_x1_0_doc_ori (6.8M)` siguen siendo verde de familia, no variante.
+    """
+    if not backend.startswith("pyocrust"):
+        return ""
+    variant = MODEL_NAMES.get(backend, ("", ""))[1]
+    return variant if variant == VLM_VARIANT else ""
+
+
+def _bar_color(motor: str, backend: str) -> str:
+    """Color de barra: familia `pyocrust` (su variante en tono claro) o alternativa."""
+    if not _is_pyocrust(motor, backend):
+        return ALT_COLOR
+    return PYOCRUST_VARIANT_COLOR if _pyocrust_variant(backend) else PYOCRUST_COLOR
+
+
 def measured_from_rows(feature: str) -> dict[tuple[str, str], tuple[float, int, str]]:
     """Motores medidos por device: `(motor, device) -> (calidad, n, backend)`.
 
@@ -514,7 +553,7 @@ def _panel(ax, measured, title):
     names = [e[0] for e in entries]
     vals = [e[1] for e in entries]
     counts = [e[3] for e in entries]
-    colors = ["#2e7d32" if _is_pyocrust(n, backend) else "#607d8b"
+    colors = [_bar_color(n, backend)
               for n, _v, _origin, _cnt, backend in entries]
     bars = ax.barh(range(len(vals)), vals)
     for bar, c in zip(bars, colors):
@@ -542,16 +581,22 @@ def main() -> int:
     rows = math.ceil(n / cols)
     fig, axes = plt.subplots(rows, cols, figsize=(16, 4.0 * rows))
     axes = axes.ravel()
+    variants: set[str] = set()  # variantes de pyocrust realmente medidas (`vl`)
 
     md = ["# Resumen de benchmarks — 9 features (solo `medido`)", "",
           "> `medido` = ejecutado en este repo · `pendiente` = aún sin datos.",
           "> **No se publican referencias externas**: una calidad medida sobre otro",
           "> dataset/GT no es comparable, así que no entra en ninguna tabla ni gráfica.",
           "> Una fila por motor sobre **su mismo dataset** (el device solo se publica en los informes con tiempos). El `n` se declara por fila.",
+          "> Una **variante** (p. ej. `pyocrust (vl)`) es el **mismo motor** con otra configuración, no una familia aparte: la figura le da el mismo color de familia en **otro tono**.",
           "> `license` es **informativa** (señala las no permisivas, p. ej. AGPL-3.0); la puerta solo aplica a los modelos de `pyocrust`.", ""]
 
     for k, (feature, titular) in enumerate(FEATURES):
         measured = _one_row_per_motor(measured_from_rows(feature))
+        for _key, (_v, _n, backend) in measured.items():
+            variant = _pyocrust_variant(backend)
+            if variant:
+                variants.add(variant)  # leyenda: la variante NO es una familia nueva
         ds = parse_dataset(feature)
         title = feature_title(feature)
         plot_title = title.replace("sintético", "Synthetic")
@@ -572,10 +617,15 @@ def main() -> int:
     for ax in axes[n:]:
         ax.axis("off")
 
-    fig.legend(handles=[
-        Patch(facecolor="#2e7d32", label="pyocrust (measured)"),
-        Patch(facecolor="#607d8b", label="alternative (measured)"),
-    ], loc="lower center", bbox_to_anchor=(0.5, 0.035), ncol=2, frameon=False, fontsize=10)
+    handles = [Patch(facecolor=PYOCRUST_COLOR, label="pyocrust (measured)")]
+    if variants:
+        handles.append(Patch(
+            facecolor=PYOCRUST_VARIANT_COLOR,
+            label=f"pyocrust + {'/'.join(sorted(variants))} (same engine, variant)",
+        ))
+    handles.append(Patch(facecolor=ALT_COLOR, label="alternative (measured)"))
+    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.035),
+               ncol=len(handles), frameon=False, fontsize=10)
     fig.suptitle("pyocrust — benchmark results by feature (measured only)", fontsize=14)
     fig.text(0.5, 0.006,
              "Every bar is a MEASUREMENT on the panel's own dataset/ground truth. "

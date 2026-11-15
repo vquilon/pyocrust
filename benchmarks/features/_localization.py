@@ -29,6 +29,8 @@ _REPLACEMENTS = {
     "`medido` = ejecutado en este repo · `pendiente` = aún sin datos.": "`measured` = run in this repository · `pending` = no data yet.",
     "**No se publican referencias externas**: una calidad medida sobre otro": "**No external references are published**: a quality measured on a different",
     "dataset/GT no es comparable, así que no entra en ninguna tabla ni gráfica.": "dataset/ground truth is not comparable, so it never enters any table or figure.",
+    "> Una **variante** (p. ej. `pyocrust (vl)`) es el **mismo motor** con otra configuración, no una familia aparte: la figura le da el mismo color de familia en **otro tono**.": "> A **variant** (e.g. `pyocrust (vl)`) is the **same engine** under a different configuration, not a separate family: the figure gives it the same family colour in **a different tone**.",
+    "> Una fila por motor sobre **su mismo dataset** (el device solo se publica en los informes con tiempos). El `n` se declara por fila.": "> One row per engine on **its own dataset** (the device is only published in the reports that carry runtimes). The `n` is stated per row.",
     "Las filas medidas se separan por device y muestran `n`; si difiere entre motores, queda declarado por fila.": "Measured rows are separated by device and show `n`; per-engine differences are stated in each row.",
     "## Provenance (sin mezclar orígenes)": "## Provenance (sources kept separate)",
     "## Provenance": "## Provenance",

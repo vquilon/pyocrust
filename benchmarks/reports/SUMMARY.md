@@ -4,6 +4,7 @@
 > **No se publican referencias externas**: una calidad medida sobre otro
 > dataset/GT no es comparable, así que no entra en ninguna tabla ni gráfica.
 > Una fila por motor sobre **su mismo dataset** (el device solo se publica en los informes con tiempos). El `n` se declara por fila.
+> Una **variante** (p. ej. `pyocrust (vl)`) es el **mismo motor** con otra configuración, no una familia aparte: la figura le da el mismo color de familia en **otro tono**.
 > `license` es **informativa** (señala las no permisivas, p. ej. AGPL-3.0); la puerta solo aplica a los modelos de `pyocrust`.
 
 ## text — FUNSD — `medido` · **dataset medido**: `funsd`
@@ -77,6 +78,7 @@
 | tableformer (docling) | 0.905 | 8 | medido | MIT |
 | **slanet_plus (7.8M)** | 0.868 | 8 | medido | Apache-2.0 |
 | table-transformer-structure-recognition | 0.790 | 8 | medido | MIT |
+| **pp_structurev3** | 0.753 | 8 | medido | Apache-2.0 |
 
 ## full_page — OmniDocBench (EN) — `medido` · **dataset medido**: `omnidocbench_full_page_en`
 
@@ -88,6 +90,7 @@
 | LightOnOCR-2-1B (1B) | 0.588 | 6 | medido | Apache-2.0 |
 | GLM-OCR (0.9B) | 0.559 | 6 | medido | MIT |
 | **indra (math)** | 0.556 | 6 | medido | OpenRAIL-M-Mod |
+| **pyocrust (vl)** | 0.534 | 6 | medido | Apache-2.0 |
 | **pp_structurev3** | 0.530 | 6 | medido | Apache-2.0 |
 | docling-default (pipeline) | 0.512 | 6 | medido | MIT |
 | PP-StructureV3 (paddleocr) | 0.427 | 6 | medido | Apache-2.0 |

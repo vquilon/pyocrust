@@ -108,13 +108,14 @@
 
 | Engine | Device | ms/table ↓ | Quality ↑ | license |
 | :--- | :--- | ---: | ---: | :--- |
-| **slanet_plus (7.8M)** | cpu | 47 | 0.868 | Apache-2.0 |
-| **slanext_wired (367M)** | cpu | 500 | 0.914 | Apache-2.0 |
-| table-transformer-structure-recognition (default) | cpu | 703 | 0.790 | MIT |
-| tableformer (docling) | cpu | 20362 | 0.905 | MIT |
-| **slanext_wired (367M)** | gpu | 190 | 0.914 | Apache-2.0 |
-| **slanet_plus (7.8M)** | gpu | 474 | 0.868 | Apache-2.0 |
-| **pp_structurev3 (default)** | gpu | 1479 | 0.753 | Apache-2.0 |
+| **slanet_plus (7.8M)** | cpu | 49 | 0.868 | Apache-2.0 |
+| **slanext_wired (367M)** | cpu | 502 | 0.914 | Apache-2.0 |
+| table-transformer-structure-recognition (default) | cpu | 636 | 0.790 | MIT |
+| **pp_structurev3 (default)** | cpu | 1289 | 0.753 | Apache-2.0 |
+| tableformer (docling) | cpu | 22377 | 0.905 | MIT |
+| **slanext_wired (367M)** | gpu | 214 | 0.914 | Apache-2.0 |
+| **slanet_plus (7.8M)** | gpu | 850 | 0.868 | Apache-2.0 |
+| **pp_structurev3 (default)** | gpu | 3118 | 0.753 | Apache-2.0 |
 
 ## full_page — OmniDocBench (EN) — device `cpu+gpu` · measured engines
 
