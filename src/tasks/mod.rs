@@ -96,13 +96,17 @@ impl TaskPredictor {
         if input_shape.0 == 0 || input_shape.1 == 0 {
             return Err(crate::core::error::PyOcrValueError::new_err("input_shape dimensions must be positive"));
         }
-        let custom_root = match models {
-            Some(value) if value.extract::<String>().is_ok() => {
-                Some(PathBuf::from(value.extract::<String>()?))
-            }
-            _ => None,
-        };
-        let config = OcrConfig::new(custom_root.as_deref());
+        // `models` explícito es la RUTA DE UN FICHERO (`model_paths` lo toma tal
+        // cual), NUNCA la raíz de modelos: usarla como `custom_path` la
+        // reexportaba como `OAR_HOME` y envenenaba el proceso entero. El motor
+        // siguiente resolvía entonces una raíz que no es directorio, su preflight
+        // veía "faltan todos los artefactos" y el descargador moría en
+        // `create_dir_all` con `os error 183` aunque los ficheros estuvieran en su
+        // sitio (medido en el banco `table`: `pyocrust_table_slanet` antes de
+        // `pyocrust_structure`, 15-nov). Con `models` explícito la raíz no se usa
+        // para nada más (`ensure_task_models` se salta y el diccionario sale del
+        // propio fichero), así que no hay raíz que fijar.
+        let config = OcrConfig::new(None);
         let (model_path, tokenizer_path, explicit) = model_paths(models, task, &config.models_dir, artifacts)?;
         if !explicit {
             py.detach(|| models::ensure_task_models(&config.models_dir, task))?;

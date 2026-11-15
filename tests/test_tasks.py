@@ -215,3 +215,21 @@ def test_table_structure_score_threshold_precedes_model_loading(tmp_path, monkey
             "table_structure_recognition", models="slanext_wired.onnx", score_threshold=0.5
         )
     assert list(tmp_path.iterdir()) == []
+
+
+def test_explicit_model_path_does_not_poison_the_models_root(tmp_path, monkeypatch):
+    """`models=` explícito es la ruta de un FICHERO, nunca la raíz de modelos.
+
+    Regresión del banco `table` (2026-11-15): `pyocrust_table_slanet` pasaba
+    `models=<models_dir>/slanet_plus.onnx` y el crate lo reexportaba como
+    `OAR_HOME`. El backend siguiente (`pyocrust_structure`) resolvía así una raíz
+    que no es directorio, veía "faltan" sus 11 artefactos y moría con
+    `os error 183` en `create_dir_all` aunque los ficheros estuvieran en su sitio.
+    """
+    monkeypatch.setenv("PYOCRUST_OFFLINE", "1")
+    with pytest.raises(pyocrust.PyOcrRuntimeError):
+        pyocrust.TaskPredictor(
+            "table_structure_recognition", models=str(tmp_path / "slanet_plus.onnx")
+        )
+    root = pyocrust.resolve_models_dir()
+    assert Path(root).is_dir(), f"la raíz de modelos quedó apuntando a un fichero: {root}"
