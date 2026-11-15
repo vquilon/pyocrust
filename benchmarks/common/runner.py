@@ -1155,6 +1155,20 @@ HF_VLM_MODELS: dict[str, tuple[str, str | None, str, float]] = {
 # ~3,6-4,9 ks) y sigue cabiendo en el presupuesto de la campaña CPU (`max_runtime` 4 h).
 HF_VLM_TIMEOUT_S = 9000
 
+# Cota de lado mayor (px) ANTES del processor. 0 = sin tocar la imagen (default:
+# no altera ninguna medicion ya hecha). LightOnOCR-3 con resolucion dinamica sin
+# cota se iba a >24 min/pagina en GPU en las paginas densas (medido 15-nov); el
+# cliente oficial baja a 2048 px, asi que se replica esa cota. Declararlo en el
+# README: `markdown_f1` de `lightonocr3_*` se mide sobre la imagen reescalada.
+HF_VLM_MAX_SIDE: dict[str, int] = {
+    "lightonocr3_08b": 2048,
+    "lightonocr3_4b": 2048,
+}
+
+# Firma de `_HF_VLM_RUNNER` (subproceso del venv docling): si cambia, los
+# resultados previos de estos backends no son comparables. Un test la fija.
+HF_VLM_RUNNER_REV = "r2-max-side"
+
 
 def _hf_repo_cached(repo: str, min_bytes: int) -> bool:
     """¿El snapshot de `repo` está en la caché HF con sus pesos (>= `min_bytes`)?
@@ -1179,7 +1193,7 @@ import torch
 from PIL import Image
 import transformers
 
-model_id, prompt, class_name, image_path, device = sys.argv[1:6]
+model_id, prompt, class_name, image_path, device, max_side = sys.argv[1:7]
 if device != "cpu" and not torch.cuda.is_available():
     sys.stderr.write("vlm: torch.cuda.is_available() = False\n")
     sys.exit(3)
@@ -1187,7 +1201,12 @@ target = "cpu" if device == "cpu" else "cuda"
 dtype = torch.float32 if target == "cpu" else torch.bfloat16
 model = getattr(transformers, class_name).from_pretrained(model_id, dtype=dtype).to(target).eval()
 processor = transformers.AutoProcessor.from_pretrained(model_id)
-content = [{"type": "image", "image": Image.open(image_path).convert("RGB")}]
+img = Image.open(image_path).convert("RGB")
+cap = int(max_side or 0)
+if cap > 0 and max(img.size) > cap:
+    img.thumbnail((cap, cap), Image.LANCZOS)
+    sys.stderr.write(f"vlm: resized to {img.size} (cap {cap})\n")
+content = [{"type": "image", "image": img}]
 if prompt:
     content.append({"type": "text", "text": prompt})
 inputs = processor.apply_chat_template(
@@ -1235,7 +1254,8 @@ def _hf_vlm_backend(backend: str, device: str = "cpu") -> Callable[[Image.Image]
             start = time.perf_counter()
             proc = subprocess.run(
                 [str(DOCLING_VENV_PYTHON), "-c", _HF_VLM_RUNNER, repo, prompt or "", class_name,
-                 str(path), "cpu" if device == "cpu" else "cuda"],
+                 str(path), "cpu" if device == "cpu" else "cuda",
+                 str(HF_VLM_MAX_SIDE.get(backend, 0))],
                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=HF_VLM_TIMEOUT_S,
             )
             elapsed_ms = (time.perf_counter() - start) * 1000.0
@@ -1243,6 +1263,11 @@ def _hf_vlm_backend(backend: str, device: str = "cpu") -> Callable[[Image.Image]
             tail = (proc.stderr or "").strip().splitlines()[-1:]
             raise RuntimeError(f"{backend}: exit {proc.returncode}" + (
                 f": {tail[-1]}" if tail else " (sin stderr: probable fallo del VLM)"))
+        if "resized to" in (proc.stderr or ""):
+            # Deja rastro de la cota aplicada en el detalle del motor (auditoria).
+            for line in proc.stderr.splitlines():
+                if "resized to" in line:
+                    sys.stderr.write(f"{backend}: {line.strip()}\n")
         return OcrOutput(text=proc.stdout, elapsed_ms=elapsed_ms,
                          extra={"engine": "transformers", "model": repo.split("/")[-1]})
 
@@ -1364,8 +1389,11 @@ def _pyocrust_slanet_plus_backend(device: str = "cpu") -> Callable[[Image.Image]
     model_path = models_dir / "slanet_plus.onnx"
     if not model_path.is_file():
         raise ProviderUnavailable(f"falta slanet_plus.onnx en {models_dir} (no descargado)")
+    # Ojo: el crate compara el nombre tal cual; "slanet_plus" en minusculas aborta
+    # con "Unknown model name 'slanet_plus'. Supported names: SLANeXt_wired,
+    # SLANeXt_wireless, SLANet, SLANet_plus" (medido en la primera corrida).
     return _task_predictor_backend("table_structure_recognition", device=device,
-                                   models=str(model_path), model_name="slanet_plus")
+                                   models=str(model_path), model_name="SLANet_plus")
 
 
 def _paddleocr_slanet_backend(model_name: str = "SLANet_plus",
@@ -2619,7 +2647,7 @@ def run_benchmark(
         **provenance,
         "load_ms": load_ms,
         "warmup": warmup,
-        "input": "identical re-encoded PNG bytes for every adapter; no per-backend resize or preprocess; conversion excluded from timing",
+        "input": "identical re-encoded PNG bytes for every adapter; per-backend resize only where HF_VLM_MAX_SIDE declares a cap (lightonocr3_*); conversion excluded from timing",
         "image_sizes": {s.image_id: list(s.image.size) for s in samples},
         "inference_ms": timings,
         "p95_ms": sorted(timings)[min(len(timings) - 1, int(0.95 * len(timings)))] if timings else None,

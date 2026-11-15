@@ -183,6 +183,23 @@ def test_nuevas_alternativas_de_table_registradas():
     assert score_table(sample, th) == {"table_teds": 1.0}
 
 
+def test_nombre_de_modelo_de_tabla_es_el_que_acepta_el_motor():
+    """El `model_name` del predictor debe estar en la lista del crate, tal cual.
+
+    El crate compara case-sensitive y aborta con "Unknown model name 'slanet_plus'.
+    Supported names: SLANeXt_wired, SLANeXt_wireless, SLANet, SLANet_plus" — el
+    backend quedo `skipped` en una corrida entera por escribir el fichero
+    (`slanet_plus.onnx`) en vez de la variante (`SLANet_plus`).
+    """
+    import inspect
+    from common import runner
+
+    aceptados = {"SLANeXt_wired", "SLANeXt_wireless", "SLANet", "SLANet_plus"}
+    src = inspect.getsource(runner._pyocrust_slanet_plus_backend)
+    usados = {name for name in aceptados if f'"{name}"' in src}
+    assert usados == {"SLANet_plus"}, usados
+
+
 def test_mismo_peso_otra_via_exige_el_mismo_modelo():
     """Un `mismo_peso_otra_via` tiene que cargar el MISMO modelo que su pareja propia.
 
