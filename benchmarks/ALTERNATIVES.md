@@ -23,15 +23,28 @@
 
 | Feature | SOTA candidato | Adaptador | Veredicto |
 | :--- | :--- | :--- | :--- |
-| `layout` | PP-DocLayoutV3 (ya es el motor propio) / docling-egret-xlarge | propio / `_hf_layout_backend` | `medible ya` (egret: añadir 1 línea) |
+| `layout` | PP-DocLayoutV3 (ya es el motor propio) / docling-egret-xlarge | propio / `_hf_layout_backend` | `medido` (egret dado de alta + `device` CPU/GPU en heron/egret) |
 | `text` | Surya (datalab) | falta | `medible con adaptador` (fuera del default) |
-| `formula` | UniMERNet (small/tiny) / TexTeller | falta (`unavailable_factory`) | `medible con adaptador` |
-| `table` | TableFormer (docling) / TATR (ya medido) | falta / ya | `medible con adaptador` |
+| `formula` | UniMERNet (small/tiny) / TexTeller | `unimernet` ya / `texteller` falta | `medido` (unimernet, CPU/GPU); texteller `skipped` |
+| `table` | TableFormer (docling) / TATR (ya medido) | ya | `medido` CPU/GPU (tatr/paddleocr_slanet/docling_tableformer) |
 | `orientation` | PP-LCNet + **easyocr_rotation** (independiente) | ya | `medible ya` |
 | `text_line` | PP-LCNet + **rapidocr_mobile_cls** (PP-OCRv2, RapidAI) | ya | `medible ya` |
 | `rectification` | UVDoc + **opencv_perspective** (baseline clásico) | ya | `medible ya` |
 | `full_page` | **MinerU 2.5** / docling / PP-StructureV3 | **docling y PP-StructureV3 ya** | `medible ya` (VLMs SOTA: LightOnOCR/GLM-OCR/PaddleOCR-VL añadidos; **MinerU AGPL documentado**) |
-| `seal` | **PaddleOCR PP-OCRv4_mobile_seal_det** | **falta (0 reales)** | `medible ya` vía `paddleocr` |
+| `seal` | **PaddleOCR PP-OCRv4_mobile_seal_det** | **ya (`onnx_seal_det`)** | `medido` (mismos pesos vía `onnxruntime`) |
+
+> **Actualización 15-nov (barrido feature a feature, tarjeta `t_e2e3a0f8`).**
+> * `layout`: `docling-layout-egret-xlarge` (MIT) dado de alta (`LAYOUT_HF_MODELS` +
+>   registro) y `_hf_layout_backend` acepta `device`; **heron-101 y egret corren en
+>   CUDA**. `deformable_detr` queda `skipped`: los pesos de `Aryn/deformable-detr-DocLayNet`
+>   **no están en la caché HF local** (solo el directorio `refs/`, 0 bytes de payload).
+> * `text`: el adaptador `paddleocr` ya existe (`_paddleocr_text_backend`, PP-OCRv6
+>   det+rec) y ahora acepta `device` (paddle CUDA).
+> * `formula`: `unimernet` y `pix2tex` ya no fuerzan CPU (`pix2tex`: `no_cuda=False` +
+>   device real; `unimernet`: `model.to('cuda')` en su venv).
+> * `table`: `tatr`, `paddleocr_slanet` y `docling_tableformer` exponen `device` real.
+> * `seal`: `onnx_seal_det` **ya** medía los mismos pesos PP-OCRv4 seal det vía
+>   `onnxruntime` (la nota "0 reales" era previa a esa entrada).
 
 Leyenda de veredicto:
 `medible ya` = adaptador presente y pesos/dependencia disponibles en este host;
@@ -103,6 +116,11 @@ porque `pip install pix2text` degrada `transformers`/`huggingface_hub` y cambia
 `opencv-python-headless`→`opencv-python` (`features/formula/bank.py:99-107`), lo
 que rompería easyocr/rapidocr/datasets del mismo venv. UniMERNet en un venv
 aparte evita ese conflicto y tiene licencia limpia.
+
+> **Nota RaTeX.** El renderizador LaTeX en Rust puro (`github.com/erweixin/RaTeX`) **no**
+> es una alternativa a estos motores: **no hace OCR** (imagen → LaTeX) sino lo contrario
+> (LaTeX → PNG/SVG/PDF). Su evaluación con prueba real y su decisión están en **§9**; no
+> entra en esta tabla.
 
 ---
 
@@ -263,6 +281,54 @@ Apache-2.0.
 
 ---
 
+## 9. RaTeX — renderizador LaTeX (Rust) · **no es un motor OCR**
+
+**Qué es (verificado en este host, 2026-11-15).** RaTeX (`github.com/erweixin/RaTeX`;
+crates `ratex-parser`/`ratex-layout`/`ratex-render`/`ratex-svg`/`ratex-pdf`) es un
+**renderizador** LaTeX → layout → PNG/SVG/PDF en Rust puro, alineado con la sintaxis
+matemática de KaTeX. **No hace OCR**: la dirección es la **contraria** a la que necesita
+`formula` (imagen → LaTeX). Consecuencia: **no es una alternativa a `oar-ocr`/`pix2tex`/
+UniMERNet** y **no entra en la tabla de motores** de §3 ni en la comparativa.
+
+| Candidato | Peso / enlace | Licencia | Dep. y estado | Coste | Veredicto |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **RaTeX** (`ratex-render`) | `github.com/erweixin/RaTeX`; binario `render.exe` **4,2 MB** (`embed-fonts`) | **MIT** (fichero `LICENSE` del repo) | Rust 1.95 en el host; **no** es dependencia del banco | sin GPU; PNG vía `tiny-skia` | **`no es un motor`** (renderizador) |
+
+**Prueba real ejecutada (build en frío + render de 3 fórmulas del GT).**
+`git clone https://github.com/erweixin/RaTeX` → `cargo build --release -p ratex-render
+--features embed-fonts`: **57 s en frío, `rc=0`**, binario `target/release/render.exe`
+(4,2 MB, fuentes KaTeX embebidas, sin `--font-dir`). Con las **3 primeras fórmulas del GT
+de `omnidocbench_formula`** (cargadas con `load_omnidocbench_formulas(limit=3)`), una
+invocación por fórmula (`render --input fN.txt --output-dir outN`):
+
+| # | GT (LaTeX, extracto) | rc | ms | PNG |
+| :--- | :--- | :--- | :--- | :--- |
+| 1 | `y\left( t\right) = L\left\lbrack {\mathop{\sum }\limits_{i}{C}_{i}{x}_{i}\left( t\right) }\right\rbrack = \mathop{\sum }\limits_{i}{C}_{i}L\left\lbrack {{x}_{i}\left( t\right) }\right\rbrack` | 0 | 56,4 | 726×145 |
+| 2 | `\delta \left( t\right) = \mathop{\lim }\limits_{{{t}_{0} \rightarrow 0}}\frac{1\left( t\right) - 1\left( {t - {t}_{0}}\right) }{{t}_{0}}` | 0 | 55,8 | 498×113 |
+| 3 | `\mathbf{P} \xi\xi\left( \begin{matrix} {{}} & {{}} & {{}} \\ {{}} & {{1}} & {{}} & {{{}{2}}} \\ \end{matrix} \right) {\bf P}^{-1} {\bf A P}=\left( \begin{matrix} {{\lambda}} & {{}} \\ {{}} & {{}} \\ {{}} & {{\lambda}} \\ \end{matrix} \right)` | 0 | 62,0 | 668×165 |
+
+**Aceptadas sin error: 3/3** (rc=0, PNG válido con cabecera correcta, sin glifos de error).
+La **#1** se tipografía correctamente (sumatorios, `\left\lbrack…\right\rbrack`, subíndices).
+La **#3** renderiza **fielmente un GT malformado** (la propia anotación trae `\xi\xi` y una
+`matrix` con filas de distinto número de columnas) — el defecto es del **dato**, no del
+renderizador. Coste por fórmula **≈ 56–62 ms incluida la arrancada del proceso** (una
+fórmula por invocación).
+
+**Decisión.**
+- **Como métrica del banco: NO.** Sustituir `latex_sim` por una métrica visual (renderizar
+  el GT y el LaTeX predicho y comparar PNG con SSIM/píxel) es **una métrica nueva**: por la
+  regla del banco **invalida las runs y tablas ya medidas** de `formula`, y el beneficio
+  frente a la similitud de cadenas **no está probado**. Además la métrica solo aplica cuando
+  **también** el LaTeX **predicho** parsea en KaTeX/RaTeX, cosa no garantizada para todos los
+  motores de §3. Se descarta por ahora; si se quiere cuantificar la ganancia, va como
+  **tarjeta propia** (medir + decidir con el resultado de las dos métricas en paralelo).
+- **Como renderizador: sí, fuera del benchmark.** Previsualizar fórmulas (informes/visor) es
+  un uso real que RaTeX cubre bien: binario único, Rust puro, **MIT**, sin JS/WebView, sin
+  GPU, validado en este host (3/3, ~57 ms/fórmula). Integrarlo en el producto es una decisión
+  **aparte** que esta tarjeta **no abre**.
+
+---
+
 ## Qué falta, en una línea por feature
 
 - `layout`: **nada** para egret-xlarge (1 línea en `LAYOUT_HF_MODELS`).
@@ -294,3 +360,4 @@ Apache-2.0.
 - TexTeller (Apache-2.0; 0.3B): https://github.com/OleehyO/TexTeller · https://huggingface.co/OleehyO/TexTeller
 - nougat (MIT código, CC-BY-NC pesos): https://github.com/facebookresearch/nougat
 - Table Transformer (MIT): https://github.com/microsoft/table-transformer/blob/main/LICENSE
+- RaTeX (MIT; renderizador LaTeX→PNG/SVG/PDF en Rust, compatible KaTeX): https://github.com/erweixin/RaTeX

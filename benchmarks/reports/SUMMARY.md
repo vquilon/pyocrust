@@ -22,8 +22,13 @@
 
 | Motor | Valor | n | Origen | license |
 | :--- | ---: | ---: | :--- | :--- |
+| GLM-OCR (0.9B) | 0.748 | 10 | medido | MIT |
 | paddle_latex_ocr | 0.653 | 10 | medido | Apache-2.0 |
-| pix2tex | 0.552 | 10 | medido | MIT |
+| PaddleOCR-VL (0.9B) | 0.614 | 10 | medido | Apache-2.0 |
+| LightOnOCR-3 (4B) | 0.612 | 10 | medido | Apache-2.0 |
+| LightOnOCR-2-1B (1B) | 0.597 | 10 | medido | Apache-2.0 |
+| pix2tex | 0.555 | 10 | medido | MIT |
+| LightOnOCR-3 (0.8B) | 0.550 | 10 | medido | Apache-2.0 |
 | **pp-formulanet-s (direct)** | 0.499 | 10 | medido | Apache-2.0 |
 | **pp_structurev3 (pp-formulanet-s)** | 0.497 | 10 | medido | Apache-2.0 |
 | **pp_structurev3** | 0.398 | 10 | medido | Apache-2.0 |
@@ -35,6 +40,7 @@
 | Motor | Valor | n | Origen | license |
 | :--- | ---: | ---: | :--- | :--- |
 | docling-layout-heron-101 | 0.818 | 40 | medido |  |
+| docling-layout-egret-xlarge | 0.818 | 40 | medido | MIT |
 | **pp-doclayoutv3 (130M)** | 0.796 | 40 | medido | Apache-2.0 |
 | **pp_structurev3** | 0.751 | 40 | medido | Apache-2.0 |
 | armaggheddon/y26-n (2.6M) | 0.572 | 40 | medido | MIT |
@@ -55,14 +61,15 @@
 
 | Motor | Valor | n | Origen | license |
 | :--- | ---: | ---: | :--- | :--- |
-| **uvdoc (31.7M)** | 0.597 | 20 | medido | Apache-2.0 |
-| perspective-4corner (baseline (OpenCV, sin pesos)) | 0.491 | 20 | medido | Apache-2.0 |
+| **uvdoc (31.7M)** | 0.590 | 20 | medido | Apache-2.0 |
+| perspective-4corner (baseline (OpenCV, sin pesos)) | 0.473 | 20 | medido | Apache-2.0 |
 
 ## text_line — sintético — `medido` · **dataset medido**: `synthetic_text_line`
 
 | Motor | Valor | n | Origen | license |
 | :--- | ---: | ---: | :--- | :--- |
 | **pp-lcnet_x1_0_textline_ori (6.8M)** | 1.000 | 20 | medido | Apache-2.0 |
+| ch_ppocr_mobile_v2.0_cls (rapidocr) | 0.900 | 20 | medido | Apache-2.0 |
 
 ## seal — sintético — `medido` · **dataset medido**: `synthetic_seal`
 
@@ -74,9 +81,14 @@
 
 | Motor | Valor | n | Origen | license |
 | :--- | ---: | ---: | :--- | :--- |
+| PaddleOCR-VL (0.9B) | 0.933 | 8 | medido | Apache-2.0 |
+| LightOnOCR-3 (0.8B) | 0.926 | 8 | medido | Apache-2.0 |
+| GLM-OCR (0.9B) | 0.919 | 8 | medido | MIT |
 | **slanext_wired (367M)** | 0.914 | 8 | medido | Apache-2.0 |
 | tableformer (docling) | 0.905 | 8 | medido | MIT |
 | **slanet_plus (7.8M)** | 0.868 | 8 | medido | Apache-2.0 |
+| LightOnOCR-2-1B (1B) | 0.858 | 8 | medido | Apache-2.0 |
+| LightOnOCR-3 (4B) | 0.847 | 8 | medido | Apache-2.0 |
 | table-transformer-structure-recognition | 0.790 | 8 | medido | MIT |
 | **pp_structurev3** | 0.753 | 8 | medido | Apache-2.0 |
 

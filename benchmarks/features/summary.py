@@ -369,6 +369,17 @@ def _motor_label(backend: str, variant: str, model_name: str = "") -> str:
     de modo que `REPORT`, `SUMMARY`, `SCOREBOARD` y `QUALITY_VS_TIME` etiquetan
     el mismo motor con la misma cadena."""
     motor = model_name or backend
+    if variant == VLM_VARIANT:
+        # La serie `vl` escribe `model_variant="vl"` en TODAS sus filas y pisa el
+        # tamano propio del checkpoint: `lightonocr3_08b`/_4b comparten
+        # `model_name` ("LightOnOCR-3") y sin el tamano colapsan en UNA sola fila
+        # (`(table, LightOnOCR-3 (vl))` con dos valores). Se recupera del registro
+        # (`MODEL_NAMES`), **igual** que `report._engine_label`; sin esta rama
+        # SUMMARY/SCOREBOARD divergian del REPORT. `pyocrust_vl` declara `vl` como
+        # su propio `model_variant` y lo conserva.
+        declared = MODEL_NAMES.get(backend, ("", ""))[1]
+        if declared and declared != "default":
+            variant = declared
     return f"{motor} ({variant})" if variant and variant != "default" else motor
 
 

@@ -4,18 +4,19 @@
 
 ## Provenance
 
-- **command**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/text_line/bank.py --limit 20 --device cpu --backends pyocrust_textline,lcnet_textline_ori`
+- **command**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe features/text_line/bank.py --limit 20 --device cpu`
 - **dataset**: `synthetic_text_line` · **n** (per engine): `20` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **seed**: not applicable (deterministic benchmark, no randomness)
-- **run**: `benchmarks/results/text_line/2026-11-06_23-57-00` · **date**: `2026-11-06_23-57-00`
-- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': []}
+- **run**: `benchmarks/results/text_line/2026-11-15_20-30-55` · **date**: `2026-11-15_20-30-55`
+- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['cuda']}
 
 ## Comparison (mean by engine)
 
 | Engine (variant) | n | accuracy ↑ | ms/line ↓ |
 | :--- | ---: | ---: | ---: |
-| pp-lcnet_x1_0_textline_ori (6.8M) | 20 | 100.0% | 26 |
-| pp-lcnet_x1_0_textline_ori (onnxruntime) | 20 | 100.0% | **5** |
+| ch_ppocr_mobile_v2.0_cls (rapidocr) | 20 | 90.0% | 3 |
+| pp-lcnet_x1_0_textline_ori (6.8M) | 20 | 100.0% | 3 |
+| pp-lcnet_x1_0_textline_ori (onnxruntime) | 20 | **100.0%** | **2** |
 
 > Bold values mark the best result for each metric among the **measured** engines in `text_line`. `N/A` = not evaluated (no ground truth for that column **or** the engine does not emit that structure), never an invented `0.0`.
 
@@ -25,6 +26,7 @@
 
 ## Provenance of the alternatives
 
+- `ch_ppocr_mobile_v2.0_cls (rapidocr)` — an **independent** model (different project/checkpoint)
 - `pp-lcnet_x1_0_textline_ori (onnxruntime)` — **same weights, a different path** (the SAME PaddleOCR `.onnx` through another runtime — NOT a different model)
 
 > The reference engine (`pyocrust`) is not listed: it defines the base result. An alternative with **same weights, a different path** measures the same model through another runtime; it does **not** add an independent competitor, and it is stated as such.
@@ -41,8 +43,9 @@
 
 | Engine (variant) | accuracy ↑ (CPU) | accuracy ↑ (GPU) | ms CPU | ms GPU | GPU provider |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| pp-lcnet_x1_0_textline_ori (6.8M) | 1.000 | 1.000 | 26 | 152 | cuda |
-| pp-lcnet_x1_0_textline_ori (onnxruntime) | 1.000 | N/A | 5 | N/A | n/a (does not run on GPU) |
+| ch_ppocr_mobile_v2.0_cls (rapidocr) | 0.900 | N/A | 3 | N/A | n/a (does not run on GPU) |
+| pp-lcnet_x1_0_textline_ori (6.8M) | 1.000 | 1.000 | 3 | 205 | cuda |
+| pp-lcnet_x1_0_textline_ori (onnxruntime) | 1.000 | N/A | 2 | N/A | n/a (does not run on GPU) |
 
 > The GPU provider comes from the actual `provider_effective` value in the GPU `summary.json` (`n/a` = the engine does not expose GPU execution in this benchmark). No GPU rows are invented: engines that did not run on an accelerator appear as `N/A`.
 

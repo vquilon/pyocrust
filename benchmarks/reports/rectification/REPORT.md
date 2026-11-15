@@ -4,19 +4,19 @@
 
 ## Provenance
 
-- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/rectification/bank.py --limit 20 --device cpu`
+- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/rectification/bank.py --limit 20`
 - **dataset**: `synthetic_rectification` · **n** (por motor): `20` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **seed**: no aplica (banco determinista, sin aleatoriedad)
-- **run**: `benchmarks/results/rectification/2026-11-08_19-53-54` · **fecha**: `2026-11-08_19-53-54`
-- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': []}
+- **run**: `benchmarks/results/rectification/2026-11-15_21-24-42` · **fecha**: `2026-11-15_21-24-42`
+- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['cuda']}
 
 ## Comparativa (media por motor)
 
 | Motor (variante) | n | SSIM ↑ | ms/página ↓ |
 | :--- | ---: | ---: | ---: |
-| perspective-4corner (baseline (OpenCV, sin pesos)) | 20 | 0.491 | **11** |
-| uvdoc (31.7M) | 20 | 0.597 | 297 |
-| uvdoc (onnxruntime) | 20 | **0.604** | 78 |
+| perspective-4corner (baseline (OpenCV, sin pesos)) | 20 | 0.473 | **9** |
+| uvdoc (31.7M) | 20 | 0.590 | 71 |
+| uvdoc (onnxruntime) | 20 | **0.595** | 74 |
 
 > En negrita, el mejor de cada métrica entre los motores **medidos** de `rectification`. `N/A` = no evaluada (sin GT de esa columna **o** el motor no emite esa estructura), nunca un `0.0` inventado.
 
@@ -43,9 +43,9 @@
 
 | Motor (variante) | SSIM ↑ (CPU) | SSIM ↑ (GPU) | ms CPU | ms GPU | provider GPU |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| perspective-4corner (baseline (OpenCV, sin pesos)) | 0.491 | N/A | 11 | N/A | n/a (no corre en GPU) |
-| uvdoc (31.7M) | 0.597 | 0.590 | 297 | 33 | cuda |
-| uvdoc (onnxruntime) | 0.604 | N/A | 78 | N/A | n/a (no corre en GPU) |
+| perspective-4corner (baseline (OpenCV, sin pesos)) | 0.473 | N/A | 9 | N/A | n/a (no corre en GPU) |
+| uvdoc (31.7M) | 0.590 | 0.590 | 71 | 34 | cuda |
+| uvdoc (onnxruntime) | 0.595 | N/A | 74 | N/A | n/a (no corre en GPU) |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.
 

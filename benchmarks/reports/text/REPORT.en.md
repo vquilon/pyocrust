@@ -4,22 +4,22 @@
 
 ## Provenance
 
-- **command**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe features/text/bank.py --limit 20 --device cpu --output-dir results`
+- **command**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe features/text/bank.py --limit 20 --device cpu`
 - **dataset**: `funsd` · **n** (per engine): `20` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **seed**: not applicable (deterministic benchmark, no randomness)
-- **run**: `benchmarks/results/text/2026-11-15_12-06-10` · **date**: `2026-11-15_12-06-10`
+- **run**: `benchmarks/results/text/2026-11-15_20-11-47` · **date**: `2026-11-15_20-11-47`
 - **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['cuda']}
 
 ## Comparison (mean by engine)
 
 | Engine (variant) | n | Word F1 ↑ | Ordered WER ↓ | CER ↓ | WER ↓ | box recall ↑ | Mean IoU ↑ | ms/img ↓ |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| PP-OCRv6 (medium) | 20 | 0.796 | 0.266 | 0.473 | 0.644 | 0.039 | 0.115 | 19163 |
-| easyocr (default) | 20 | 0.401 | 0.693 | 0.527 | 0.798 | **0.068** | **0.156** | 3167 |
-| pp_ocrv6 (medium) | 20 | **0.800** | **0.260** | **0.472** | **0.643** | 0.042 | 0.116 | 2223 |
-| pp_ocrv6 (small) | 20 | 0.784 | 0.280 | 0.472 | 0.650 | 0.042 | 0.117 | 866 |
-| pp_ocrv6 (tiny) | 20 | 0.717 | 0.360 | 0.483 | 0.675 | 0.047 | 0.120 | **336** |
-| rapidocr (default) | 20 | 0.585 | 0.512 | 0.476 | 0.701 | 0.037 | 0.108 | 4286 |
+| PP-OCRv6 (medium) | 20 | 0.796 | 0.266 | 0.473 | 0.644 | 0.039 | 0.115 | 19811 |
+| easyocr (default) | 20 | 0.401 | 0.693 | 0.527 | 0.798 | **0.068** | **0.156** | 3662 |
+| pp_ocrv6 (medium) | 20 | **0.800** | **0.260** | **0.472** | **0.643** | 0.042 | 0.116 | 2138 |
+| pp_ocrv6 (small) | 20 | 0.784 | 0.280 | 0.472 | 0.650 | 0.042 | 0.117 | 823 |
+| pp_ocrv6 (tiny) | 20 | 0.717 | 0.360 | 0.483 | 0.675 | 0.047 | 0.120 | **318** |
+| rapidocr (default) | 20 | 0.585 | 0.512 | 0.476 | 0.701 | 0.037 | 0.108 | 4807 |
 
 > Bold values mark the best result for each metric among the **measured** engines in `text`. `N/A` = not evaluated (no ground truth for that column **or** the engine does not emit that structure), never an invented `0.0`.
 
@@ -45,12 +45,12 @@
 
 | Engine (variant) | Word F1 ↑ (CPU) | Word F1 ↑ (GPU) | ms CPU | ms GPU | GPU provider |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| PP-OCRv6 (medium) | 0.796 | N/A | 19163 | N/A | n/a (does not run on GPU) |
-| easyocr (default) | 0.401 | 0.399 | 3167 | 1263 | cuda |
-| pp_ocrv6 (medium) | 0.800 | N/A | 2223 | N/A | n/a (does not run on GPU) |
-| pp_ocrv6 (small) | 0.784 | N/A | 866 | N/A | n/a (does not run on GPU) |
-| pp_ocrv6 (tiny) | 0.717 | 0.684 | 336 | 330 | cuda |
-| rapidocr (default) | 0.585 | 0.585 | 4286 | 5842 | cuda |
+| PP-OCRv6 (medium) | 0.796 | 0.796 | 19811 | 487 | cuda |
+| easyocr (default) | 0.401 | 0.399 | 3662 | 1660 | cuda |
+| pp_ocrv6 (medium) | 0.800 | 0.779 | 2138 | 2258 | cuda |
+| pp_ocrv6 (small) | 0.784 | 0.767 | 823 | 1012 | cuda |
+| pp_ocrv6 (tiny) | 0.717 | 0.684 | 318 | 419 | cuda |
+| rapidocr (default) | 0.585 | 0.585 | 4807 | 4498 | cuda |
 
 > The GPU provider comes from the actual `provider_effective` value in the GPU `summary.json` (`n/a` = the engine does not expose GPU execution in this benchmark). No GPU rows are invented: engines that did not run on an accelerator appear as `N/A`.
 

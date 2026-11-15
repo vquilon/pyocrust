@@ -4,19 +4,19 @@
 
 ## Provenance
 
-- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/orientation/bank.py --limit 20 --device cpu`
+- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/orientation/bank.py --limit 20`
 - **dataset**: `synthetic_orientation` · **n** (por motor): `20` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **seed**: no aplica (banco determinista, sin aleatoriedad)
-- **run**: `benchmarks/results/orientation/2026-11-08_19-54-17` · **fecha**: `2026-11-08_19-54-17`
-- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': []}
+- **run**: `benchmarks/results/orientation/2026-11-15_21-08-32` · **fecha**: `2026-11-15_21-08-32`
+- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['cuda']}
 
 ## Comparativa (media por motor)
 
 | Motor (variante) | n | accuracy ↑ | ms/página ↓ |
 | :--- | ---: | ---: | ---: |
-| craft_mlt_25k+latin_g2 (easyocr) | 20 | 35.0% | 42794 |
-| pp-lcnet_x1_0_doc_ori (6.8M) | 20 | 100.0% | 1448 |
-| pp-lcnet_x1_0_doc_ori (onnxruntime) | 20 | **100.0%** | **5** |
+| craft_mlt_25k+latin_g2 (easyocr) | 20 | 35.0% | 43311 |
+| pp-lcnet_x1_0_doc_ori (6.8M) | 20 | 100.0% | 60 |
+| pp-lcnet_x1_0_doc_ori (onnxruntime) | 20 | **100.0%** | **4** |
 
 > En negrita, el mejor de cada métrica entre los motores **medidos** de `orientation`. `N/A` = no evaluada (sin GT de esa columna **o** el motor no emite esa estructura), nunca un `0.0` inventado.
 
@@ -43,9 +43,9 @@
 
 | Motor (variante) | accuracy ↑ (CPU) | accuracy ↑ (GPU) | ms CPU | ms GPU | provider GPU |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| craft_mlt_25k+latin_g2 (easyocr) | 0.350 | N/A | 42794 | N/A | n/a (no corre en GPU) |
-| pp-lcnet_x1_0_doc_ori (6.8M) | 1.000 | 1.000 | 1448 | 192 | cuda |
-| pp-lcnet_x1_0_doc_ori (onnxruntime) | 1.000 | N/A | 5 | N/A | n/a (no corre en GPU) |
+| craft_mlt_25k+latin_g2 (easyocr) | 0.350 | N/A | 43311 | N/A | n/a (no corre en GPU) |
+| pp-lcnet_x1_0_doc_ori (6.8M) | 1.000 | 1.000 | 60 | 298 | cuda |
+| pp-lcnet_x1_0_doc_ori (onnxruntime) | 1.000 | N/A | 4 | N/A | n/a (no corre en GPU) |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.
 

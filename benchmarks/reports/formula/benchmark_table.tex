@@ -5,14 +5,14 @@
 \toprule
 Engine (variant/size) & n & LaTeX exacto $\uparrow$ & Similitud $\uparrow$ & F1 tokens $\uparrow$ & Salidas con LaTeX $\uparrow$ & ms/fórmula $\downarrow$ & license \\
 \midrule
-indra (math) & 10 & 0.000 & 0.326 & 0.575 & N/A & \textbf{141} & OpenRAIL-M-Mod \\
-paddle\_latex\_ocr (default) & 10 & 0.000 & \textbf{0.653} & \textbf{0.799} & N/A & 16326 & Apache-2.0 \\
-pix2tex (default) & 10 & 0.000 & \underline{0.552} & \underline{0.777} & N/A & 5500 & MIT \\
-pp-formulanet-s (direct) & 10 & 0.000 & 0.499 & 0.652 & N/A & \underline{998} & Apache-2.0 \\
-pp\_structurev3 (default) & 10 & 0.000 & 0.398 & 0.613 & N/A & 2774 & Apache-2.0 \\
-pp\_structurev3 (pp-formulanet-s) & 10 & 0.000 & 0.497 & 0.708 & N/A & 2474 & Apache-2.0 \\
-unimernet (tiny) & 10 & 0.000 & 0.260 & 0.385 & N/A & 17493 & Apache-2.0 \\
+indra (math) & 10 & 0.000 & 0.326 & 0.575 & N/A & \textbf{82} & OpenRAIL-M-Mod \\
+paddle\_latex\_ocr (default) & 10 & 0.000 & \textbf{0.653} & \textbf{0.799} & N/A & 11331 & Apache-2.0 \\
+pix2tex (default) & 10 & 0.000 & \underline{0.555} & \underline{0.793} & N/A & 4659 & MIT \\
+pp-formulanet-s (direct) & 10 & 0.000 & 0.499 & 0.652 & N/A & \underline{696} & Apache-2.0 \\
+pp\_structurev3 (default) & 10 & 0.000 & 0.398 & 0.613 & N/A & 1028 & Apache-2.0 \\
+pp\_structurev3 (pp-formulanet-s) & 10 & 0.000 & 0.497 & 0.708 & N/A & 1052 & Apache-2.0 \\
+unimernet (tiny) & 10 & 0.000 & 0.260 & 0.385 & N/A & 14927 & Apache-2.0 \\
 \bottomrule
 \end{tabular}
-\par\smallskip{\footnotesize Note: N/A = not evaluated (no ground truth for that column, or the engine does not emit that structure, e.g. docling emits Markdown only); 0.000 = evaluated and the engine got it wrong, never an unmeasured 0.0. Values and n match REPORT.md (run 2026-11-09\_14-13-57, device cpu, n <= 10).}
+\par\smallskip{\footnotesize Note: N/A = not evaluated (no ground truth for that column, or the engine does not emit that structure, e.g. docling emits Markdown only); 0.000 = evaluated and the engine got it wrong, never an unmeasured 0.0. Values and n match REPORT.md (run 2026-11-15\_20-24-00, device cpu, n <= 10).}
 \end{document}

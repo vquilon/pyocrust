@@ -4,18 +4,19 @@
 
 ## Provenance
 
-- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/text_line/bank.py --limit 20 --device cpu --backends pyocrust_textline,lcnet_textline_ori`
+- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe features/text_line/bank.py --limit 20 --device cpu`
 - **dataset**: `synthetic_text_line` · **n** (por motor): `20` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **seed**: no aplica (banco determinista, sin aleatoriedad)
-- **run**: `benchmarks/results/text_line/2026-11-06_23-57-00` · **fecha**: `2026-11-06_23-57-00`
-- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': []}
+- **run**: `benchmarks/results/text_line/2026-11-15_20-30-55` · **fecha**: `2026-11-15_20-30-55`
+- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['cuda']}
 
 ## Comparativa (media por motor)
 
 | Motor (variante) | n | accuracy ↑ | ms/línea ↓ |
 | :--- | ---: | ---: | ---: |
-| pp-lcnet_x1_0_textline_ori (6.8M) | 20 | 100.0% | 26 |
-| pp-lcnet_x1_0_textline_ori (onnxruntime) | 20 | 100.0% | **5** |
+| ch_ppocr_mobile_v2.0_cls (rapidocr) | 20 | 90.0% | 3 |
+| pp-lcnet_x1_0_textline_ori (6.8M) | 20 | 100.0% | 3 |
+| pp-lcnet_x1_0_textline_ori (onnxruntime) | 20 | **100.0%** | **2** |
 
 > En negrita, el mejor de cada métrica entre los motores **medidos** de `text_line`. `N/A` = no evaluada (sin GT de esa columna **o** el motor no emite esa estructura), nunca un `0.0` inventado.
 
@@ -25,6 +26,7 @@
 
 ## Procedencia de las alternativas
 
+- `ch_ppocr_mobile_v2.0_cls (rapidocr)` — modelo **independiente** (otro proyecto/checkpoint)
 - `pp-lcnet_x1_0_textline_ori (onnxruntime)` — **mismo peso, distinta vía** (el MISMO `.onnx` de PaddleOCR por otro runtime — NO es un modelo distinto)
 
 > El motor de referencia (`pyocrust`) no se lista: es el que define el resultado base. Una alternativa con **mismo peso, distinta vía** mide el mismo modelo con otro runtime; **no** aporta un competidor independiente y así queda declarado.
@@ -41,8 +43,9 @@
 
 | Motor (variante) | accuracy ↑ (CPU) | accuracy ↑ (GPU) | ms CPU | ms GPU | provider GPU |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| pp-lcnet_x1_0_textline_ori (6.8M) | 1.000 | 1.000 | 26 | 152 | cuda |
-| pp-lcnet_x1_0_textline_ori (onnxruntime) | 1.000 | N/A | 5 | N/A | n/a (no corre en GPU) |
+| ch_ppocr_mobile_v2.0_cls (rapidocr) | 0.900 | N/A | 3 | N/A | n/a (no corre en GPU) |
+| pp-lcnet_x1_0_textline_ori (6.8M) | 1.000 | 1.000 | 3 | 205 | cuda |
+| pp-lcnet_x1_0_textline_ori (onnxruntime) | 1.000 | N/A | 2 | N/A | n/a (no corre en GPU) |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.
 

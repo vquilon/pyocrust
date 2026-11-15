@@ -43,4 +43,7 @@ licenses-report.pdf
 /benchmarks/.certs/
 /benchmarks/_probe_*.py
 /.probe_*.py
+/probes/
+/.scratch/
+*.pyd.t
 *.pyd.debug.bak

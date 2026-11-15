@@ -4,19 +4,19 @@
 
 ## Provenance
 
-- **command**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/orientation/bank.py --limit 20 --device cpu`
+- **command**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/orientation/bank.py --limit 20`
 - **dataset**: `synthetic_orientation` · **n** (per engine): `20` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **seed**: not applicable (deterministic benchmark, no randomness)
-- **run**: `benchmarks/results/orientation/2026-11-08_19-54-17` · **date**: `2026-11-08_19-54-17`
-- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': []}
+- **run**: `benchmarks/results/orientation/2026-11-15_21-08-32` · **date**: `2026-11-15_21-08-32`
+- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['cuda']}
 
 ## Comparison (mean by engine)
 
 | Engine (variant) | n | accuracy ↑ | ms/page ↓ |
 | :--- | ---: | ---: | ---: |
-| craft_mlt_25k+latin_g2 (easyocr) | 20 | 35.0% | 42794 |
-| pp-lcnet_x1_0_doc_ori (6.8M) | 20 | 100.0% | 1448 |
-| pp-lcnet_x1_0_doc_ori (onnxruntime) | 20 | **100.0%** | **5** |
+| craft_mlt_25k+latin_g2 (easyocr) | 20 | 35.0% | 43311 |
+| pp-lcnet_x1_0_doc_ori (6.8M) | 20 | 100.0% | 60 |
+| pp-lcnet_x1_0_doc_ori (onnxruntime) | 20 | **100.0%** | **4** |
 
 > Bold values mark the best result for each metric among the **measured** engines in `orientation`. `N/A` = not evaluated (no ground truth for that column **or** the engine does not emit that structure), never an invented `0.0`.
 
@@ -43,9 +43,9 @@
 
 | Engine (variant) | accuracy ↑ (CPU) | accuracy ↑ (GPU) | ms CPU | ms GPU | GPU provider |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| craft_mlt_25k+latin_g2 (easyocr) | 0.350 | N/A | 42794 | N/A | n/a (does not run on GPU) |
-| pp-lcnet_x1_0_doc_ori (6.8M) | 1.000 | 1.000 | 1448 | 192 | cuda |
-| pp-lcnet_x1_0_doc_ori (onnxruntime) | 1.000 | N/A | 5 | N/A | n/a (does not run on GPU) |
+| craft_mlt_25k+latin_g2 (easyocr) | 0.350 | N/A | 43311 | N/A | n/a (does not run on GPU) |
+| pp-lcnet_x1_0_doc_ori (6.8M) | 1.000 | 1.000 | 60 | 298 | cuda |
+| pp-lcnet_x1_0_doc_ori (onnxruntime) | 1.000 | N/A | 4 | N/A | n/a (does not run on GPU) |
 
 > The GPU provider comes from the actual `provider_effective` value in the GPU `summary.json` (`n/a` = the engine does not expose GPU execution in this benchmark). No GPU rows are invented: engines that did not run on an accelerator appear as `N/A`.
 

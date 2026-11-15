@@ -23,6 +23,11 @@ BENCH = REPO / "benchmarks"
 # Límites del banco estratificado (t_4d2155d3, features/sample_banks.py::BANKS);
 # el resto conserva su banco de 20. Deben casar con la run CPU de referencia.
 LIMIT = {"formula": 10, "table": 8, "full_page": 6, "layout": 40}  # el resto, 20
+# Dataset de la run CPU de referencia, por feature (el resto usa el default del
+# banco). `full_page` se mide sobre la muestra **no china** (`omnidocbench_full_page_en`);
+# sin declararlo aquí el banco cae al dataset por defecto y la run GPU no saldría
+# comparable con la CPU que sí lo usó (regla "no mezclar datasets").
+DATASET = {"full_page": "omnidocbench_full_page_en"}
 FEATURES = ["text", "formula", "layout", "orientation", "rectification", "text_line", "seal", "table", "full_page"]
 
 
@@ -70,8 +75,10 @@ print(f"[binario] available_providers={PROVIDERS}", flush=True)
 
 for feature in FEATURES:
     n = LIMIT.get(feature, 20)
-    cmd = [str(PY), str(BENCH / "features" / feature / "bank.py"),
-           "--limit", str(n), "--device", "gpu", "--output-dir", "benchmarks/results/_gpu"]
+    cmd = [str(PY), str(BENCH / "features" / feature / "bank.py"), "--limit", str(n)]
+    if feature in DATASET:
+        cmd += ["--dataset", DATASET[feature]]
+    cmd += ["--device", "gpu", "--output-dir", "benchmarks/results/_gpu"]
     t0 = time.time()
     r = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True)
     tail = [ln for ln in (r.stdout or r.stderr or "").strip().splitlines() if ln.strip()][-6:]

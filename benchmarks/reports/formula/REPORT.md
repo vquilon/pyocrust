@@ -4,24 +4,24 @@
 
 ## Provenance
 
-- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe features/formula/bank.py --limit 10 --device cpu --output-dir results`
+- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe features/formula/bank.py --limit 10 --device cpu`
 - **dataset**: `omnidocbench_formula` · **n** (por motor): `10` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **revision HF (fijada)**: `aa1ee96d106dbe53d0ae59474d75c6e6d9b53fec` — misma revision en cualquier maquina; los bytes se verifican contra `benchmarks/datasets_manifest.json`
 - **seed**: no aplica (banco determinista, sin aleatoriedad)
-- **run**: `benchmarks/results/formula/2026-11-09_14-13-57` · **fecha**: `2026-11-09_14-13-57`
+- **run**: `benchmarks/results/formula/2026-11-15_20-24-00` · **fecha**: `2026-11-15_20-24-00`
 - **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['cuda']}
 
 ## Comparativa (media por motor)
 
 | Motor (variante) | n | LaTeX exacto ↑ | Similitud ↑ | F1 tokens ↑ | Salidas con LaTeX ↑ | ms/fórmula ↓ |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
-| indra (math) | 10 | 0.000 | 0.326 | 0.575 | N/A | **141** |
-| paddle_latex_ocr (default) | 10 | 0.000 | **0.653** | **0.799** | N/A | 16326 |
-| pix2tex (default) | 10 | 0.000 | 0.552 | 0.777 | N/A | 5500 |
-| pp-formulanet-s (direct) | 10 | 0.000 | 0.499 | 0.652 | N/A | 998 |
-| pp_structurev3 (default) | 10 | 0.000 | 0.398 | 0.613 | N/A | 2774 |
-| pp_structurev3 (pp-formulanet-s) | 10 | 0.000 | 0.497 | 0.708 | N/A | 2474 |
-| unimernet (tiny) | 10 | 0.000 | 0.260 | 0.385 | N/A | 17493 |
+| indra (math) | 10 | 0.000 | 0.326 | 0.575 | N/A | **82** |
+| paddle_latex_ocr (default) | 10 | 0.000 | **0.653** | **0.799** | N/A | 11331 |
+| pix2tex (default) | 10 | 0.000 | 0.555 | 0.793 | N/A | 4659 |
+| pp-formulanet-s (direct) | 10 | 0.000 | 0.499 | 0.652 | N/A | 696 |
+| pp_structurev3 (default) | 10 | 0.000 | 0.398 | 0.613 | N/A | 1028 |
+| pp_structurev3 (pp-formulanet-s) | 10 | 0.000 | 0.497 | 0.708 | N/A | 1052 |
+| unimernet (tiny) | 10 | 0.000 | 0.260 | 0.385 | N/A | 14927 |
 
 > En negrita, el mejor de cada métrica entre los motores **medidos** de `formula`. `N/A` = no evaluada (sin GT de esa columna **o** el motor no emite esa estructura), nunca un `0.0` inventado.
 
@@ -47,13 +47,13 @@
 
 | Motor (variante) | LaTeX similarity ↑ (CPU) | LaTeX similarity ↑ (GPU) | ms CPU | ms GPU | provider GPU |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| indra (math) | 0.326 | 0.326 | 141 | 808 | cuda |
-| paddle_latex_ocr (default) | 0.653 | 0.653 | 16326 | 4191 | cuda |
-| pix2tex (default) | 0.552 | N/A | 5500 | N/A | n/a (no corre en GPU) |
-| pp-formulanet-s (direct) | 0.499 | 0.499 | 998 | 1603 | cuda |
-| pp_structurev3 (default) | 0.398 | 0.398 | 2774 | 2553 | cuda |
-| pp_structurev3 (pp-formulanet-s) | 0.497 | 0.497 | 2474 | 2221 | cuda |
-| unimernet (tiny) | 0.260 | N/A | 17493 | N/A | n/a (no corre en GPU) |
+| indra (math) | 0.326 | 0.326 | 82 | 708 | cuda |
+| paddle_latex_ocr (default) | 0.653 | 0.653 | 11331 | 3322 | cuda |
+| pix2tex (default) | 0.555 | 0.566 | 4659 | 1182 | cuda |
+| pp-formulanet-s (direct) | 0.499 | 0.499 | 696 | 1385 | cuda |
+| pp_structurev3 (default) | 0.398 | 0.398 | 1028 | 2095 | cuda |
+| pp_structurev3 (pp-formulanet-s) | 0.497 | 0.497 | 1052 | 2031 | cuda |
+| unimernet (tiny) | 0.260 | N/A | 14927 | N/A | n/a (no corre en GPU) |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.
 
@@ -69,7 +69,7 @@
 | :--- | ---: | ---: | ---: | ---: | ---: |
 | indra (math) | 0.197 | 0.243 | 0.249 | 0.366 | 0.989 |
 | paddle_latex_ocr (default) | 0.401 | 0.700 | 0.714 | 0.838 | 0.824 |
-| pix2tex (default) | 0.449 | 0.397 | 0.525 | 0.779 | 0.777 |
+| pix2tex (default) | 0.482 | 0.419 | 0.527 | 0.783 | 0.641 |
 | pp-formulanet-s (direct) | 0.382 | 0.447 | 0.376 | 0.764 | 0.670 |
 | pp_structurev3 (default) | 0.300 | 0.354 | 0.352 | 0.764 | 0.143 |
 | pp_structurev3 (pp-formulanet-s) | 0.300 | 0.410 | 0.639 | 0.764 | — |
@@ -87,7 +87,7 @@
 | :--- | ---: | ---: | ---: |
 | indra (math) | 0.326 (n=10) | N/A | N/A |
 | paddle_latex_ocr (default) | 0.653 (n=10) | N/A | N/A |
-| pix2tex (default) | 0.552 (n=10) | N/A | N/A |
+| pix2tex (default) | 0.555 (n=10) | N/A | N/A |
 | pp-formulanet-s (direct) | 0.499 (n=10) | N/A | N/A |
 | pp_structurev3 (default) | 0.398 (n=10) | N/A | N/A |
 | pp_structurev3 (pp-formulanet-s) | 0.497 (n=10) | N/A | N/A |

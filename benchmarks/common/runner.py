@@ -191,7 +191,11 @@ STRUCTURE_CHANNELS: dict[str, frozenset[str]] = {
     "pp_structurev3_api": frozenset({"tables"}),
     "pyocrust_indra": frozenset({"boxes", "tables"}),
     # VLMs documentales SOTA (`full_page`): una pasada página→Markdown, sin
-    # cajas/tabla/fórmula aparte -> 0 canales (como `docling`), nunca `0.0`.
+    # cajas/tabla/fórmula **aparte** -> 0 canales (como `docling`), nunca `0.0`.
+    # En los bancos de `table`/`formula` su salida SÍ se puntúa: la tabla/el LaTeX
+    # se EXTRAEN del Markdown (tabla-pipe o `<table>` en `features/table/bank.py`,
+    # LaTeX inline o en bloque cercado en `features/formula/bank.py`), no por estos
+    # canales (que son de `full_page`).
     "lightonocr": frozenset(),
     "glm_ocr": frozenset(),
     "paddleocr_vl": frozenset(),
@@ -335,6 +339,15 @@ GPU_CAPABLE_BACKENDS = frozenset({
     "lightonocr", "glm_ocr", "paddleocr_vl",
     # LightOnOCR-3 0.8B/4B (Qwen3.5 VL): mismo runtime torch/CUDA del venv.
     "lightonocr3_08b", "lightonocr3_4b",
+    # --- Barrido 15-nov: rivales antes CPU-only, ahora con pata GPU real ---
+    # Detectores de layout `transformers` (RT-DETR / Deformable-DETR): torch CUDA.
+    "docling_heron_101", "docling_layout_egret_xlarge", "deformable_detr",
+    # Estructura de tabla: TATR (torch), SLANet de PaddleOCR (paddle CUDA) y
+    # TableFormer del pipeline docling (torch CUDA en su venv aislado).
+    "tatr", "paddleocr_slanet", "docling_tableformer",
+    # OCR de texto de PaddleOCR (paddle CUDA) y formula LaTeX: pix2tex (torch) y
+    # UniMERNet (`model.to('cuda')` en su venv aislado).
+    "paddleocr", "pix2tex", "unimernet",
 })
 
 # Sondas baratas (un subproceso, `sys.exit(3)` si el runtime no ve la GPU) con las
@@ -745,6 +758,11 @@ def _tatr_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
     _patch_legacy_timm_feature_index()
     model = TableTransformerForObjectDetection.from_pretrained(TATR_MODEL_ID)
     model.eval()
+    # `device` real: en `gpu` se exige que torch vea CUDA (si no, `skipped`).
+    torch_device = "cpu" if device == "cpu" else "cuda"
+    if torch_device == "cuda" and not torch.cuda.is_available():
+        raise ProviderUnavailable("TATR: device=gpu pedido pero torch no ve CUDA")
+    model.to(torch_device)
     id2label = {int(key): str(value) for key, value in model.config.id2label.items()}
     row_labels = frozenset({"table row", "table column header"})
     col_labels = frozenset({"table column", "table projected row header"})
@@ -753,13 +771,15 @@ def _tatr_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
         # El preprocesado (resize/normalize) va **fuera** del cronómetro, igual que
         # el re-encode PNG del resto de adaptadores (fairness, B4/D12).
         inputs = image_processor(images=image, return_tensors="pt")
+        inputs = {k: (v.to(torch_device) if hasattr(v, "to") else v) for k, v in inputs.items()}
         start = time.perf_counter()
         with torch.no_grad():
             outputs = model(**inputs)
         # El post-proceso es parte de la salida del motor (como el decode interno
         # de rapidocr/easyocr): también dentro del cronómetro.
         results = image_processor.post_process_object_detection(
-            outputs, threshold=0.5, target_sizes=torch.tensor([image.size[::-1]])
+            outputs, threshold=0.5,
+            target_sizes=torch.tensor([image.size[::-1]], device=torch_device),
         )[0]
         elapsed_ms = (time.perf_counter() - start) * 1000.0
 
@@ -781,6 +801,7 @@ def _tatr_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
             },
         )
 
+    run.provider_effective = "cpu" if device == "cpu" else "cuda"
     return run
 
 
@@ -815,6 +836,7 @@ DOCLAYNET_CLASSES = frozenset({
 # Backend -> `model_id` de HF (pesos en la cache HF local; ruta **offline**).
 LAYOUT_HF_MODELS = {
     "docling_heron_101": "docling-project/docling-layout-heron-101",
+    "docling_layout_egret_xlarge": "docling-project/docling-layout-egret-xlarge",
     "deformable_detr": "Aryn/deformable-detr-DocLayNet",
 }
 
@@ -831,7 +853,8 @@ LAYOUT_HF_MODELS = {
 LAYOUT_AP_SCORE_FLOOR = 0.05
 
 
-def _hf_layout_backend(model_id: str, threshold: float = LAYOUT_AP_SCORE_FLOOR) -> Callable[[Image.Image], OcrOutput]:
+def _hf_layout_backend(model_id: str, threshold: float = LAYOUT_AP_SCORE_FLOOR,
+                       device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
     """Detector de layout de `transformers` (RT-DETR / Deformable-DETR) -> `elements`.
 
     Carga **offline** (`local_files_only=True`): si los pesos no estan en la cache
@@ -857,18 +880,27 @@ def _hf_layout_backend(model_id: str, threshold: float = LAYOUT_AP_SCORE_FLOOR) 
             f"pesos de {model_id} no estan en la cache HF local ({type(exc).__name__}: {exc})"
         ) from exc
     model.eval()
+    # `device`: el eje del banco (`cpu`/`gpu`) decide el tensor dev de torch. En
+    # `gpu` se exige que torch vea CUDA; si no, `skipped` honesto (nunca un `ok`
+    # de CPU etiquetado como GPU).
+    torch_device = "cpu" if device == "cpu" else "cuda"
+    if torch_device == "cuda" and not torch.cuda.is_available():
+        raise ProviderUnavailable(f"{model_id}: device=gpu pedido pero torch no ve CUDA")
+    model.to(torch_device)
     id2label = {int(key): str(value) for key, value in model.config.id2label.items()}
 
     def run(image: Image.Image) -> OcrOutput:
         # El preprocesado va **fuera** del cronometro, simetrico con TATR (B4/D12).
         inputs = image_processor(images=image, return_tensors="pt")
+        inputs = {k: (v.to(torch_device) if hasattr(v, "to") else v) for k, v in inputs.items()}
         start = time.perf_counter()
         with torch.no_grad():
             outputs = model(**inputs)
         # El post-proceso es parte de la salida del motor (como el decode de
         # rapidocr/easyocr): tambien dentro del cronometro.
         results = image_processor.post_process_object_detection(
-            outputs, threshold=threshold, target_sizes=torch.tensor([image.size[::-1]])
+            outputs, threshold=threshold,
+            target_sizes=torch.tensor([image.size[::-1]], device=torch_device),
         )[0]
         elapsed_ms = (time.perf_counter() - start) * 1000.0
         elements: list[dict] = []
@@ -889,6 +921,7 @@ def _hf_layout_backend(model_id: str, threshold: float = LAYOUT_AP_SCORE_FLOOR) 
             extra={"engine": "transformers", "model": model_id, "elements": elements, "boxes": boxes},
         )
 
+    run.provider_effective = "cpu" if device == "cpu" else "cuda"
     return run
 
 
@@ -972,6 +1005,8 @@ LICENSES = {
     "unimernet": "Apache-2.0",
     # OCR de texto de PaddleOCR (PP-OCRv6, Apache-2.0).
     "paddleocr": "Apache-2.0",
+    # Detector de layout docling egret-xlarge (MIT: codigo docling-ibm-models).
+    "docling_layout_egret_xlarge": "MIT",
 }
 
 # ---------------------------------------------------------------------------
@@ -996,6 +1031,7 @@ ALTERNATIVE_PROVENANCE: dict[str, str] = {
     "paddleocr_slanext_wired": "mismo_peso_otra_via",
     "docling_tableformer": "independiente",
     "docling_heron_101": "independiente",
+    "docling_layout_egret_xlarge": "independiente",
     "deformable_detr": "independiente",
     "pp_structurev3_api": "independiente",
     "docling": "independiente",
@@ -1063,13 +1099,24 @@ print(conv.convert(sys.argv[1]).document.export_to_markdown())
 # salga estructurada; sin OCR la tabla queda vacía. Sin `do_table_structure` no
 # habría estructura: se pide explícitamente.
 _DOCLING_TABLE_RUNNER = r'''
-import sys, warnings
+import os, pathlib, sys, warnings
 warnings.filterwarnings("ignore")
+device = sys.argv[2] if len(sys.argv) > 2 else "cpu"
+if device != "cpu":
+    import torch
+    if not torch.cuda.is_available():
+        sys.stderr.write("docling: torch.cuda.is_available() = False\n")
+        sys.exit(3)
+    torch_lib = pathlib.Path(torch.__file__).parent / "lib"
+    if torch_lib.is_dir():
+        os.add_dll_directory(str(torch_lib))
 from docling.document_converter import DocumentConverter, ImageFormatOption
 from docling.datamodel.base_models import InputFormat
+from docling.datamodel.accelerator_options import AcceleratorOptions
 from docling.datamodel.pipeline_options import PdfPipelineOptions
 
-pipe = PdfPipelineOptions()
+# `device` gobierna TableFormer (torch) y el OCR del pipeline, igual que en `_DOCLING_RUNNER`.
+pipe = PdfPipelineOptions(accelerator_options=AcceleratorOptions(device=device))
 pipe.do_ocr = True
 pipe.do_table_structure = True
 conv = DocumentConverter(format_options={InputFormat.IMAGE: ImageFormatOption(pipeline_options=pipe)})
@@ -1152,12 +1199,15 @@ HF_VLM_MODELS: dict[str, tuple[str, str | None, str, float]] = {
     "lightonocr3_4b":  ("lightonai/LightOnOCR-3-4B",   None, "Qwen3_5ForConditionalGeneration", 7.50),
 }
 
-# Timeout por página del subproceso VLM. 1200 s se quedaba corto para PaddleOCR-VL
-# en **CPU** sobre las páginas densas (NaViT a resolución dinámica: medido hasta 652 s
-# en las que sí acaban, y >1200 s en las dos más densas -> `TimeoutExpired` -> n=4/6).
-# 9000 s (2,5 h/página) cubre el peor caso estimado (~18-24x el tiempo de GPU medido,
-# ~3,6-4,9 ks) y sigue cabiendo en el presupuesto de la campaña CPU (`max_runtime` 4 h).
-HF_VLM_TIMEOUT_S = 9000
+# Timeout por página del subproceso VLM. Los VLM documentales son GPU-only
+# (`GPU_ONLY_BACKENDS`): en CPU son impracticables (>1200 s/página en las densas,
+# 3,5 h medidas para un solo motor), así que el peor caso de CPU que justificó los
+# 9000 s ya no aplica. Pero el timeout debe superar la página GPU más costosa
+# medida: `lightonocr3_08b` tarda hasta **1278 s** (`full_page_en`, con su cota de
+# 2048 px ya aplicada). 3600 s (1 h) da 2,8x de margen sobre esa página y acota un
+# cuelgue a 1 h en lugar de las 2,5 h de 9000 s — un valor menor (p. ej. 1200 s)
+# truncaría esa página y rompería la paridad.
+HF_VLM_TIMEOUT_S = 3600
 
 # Cota de lado mayor (px) ANTES del processor. 0 = sin tocar la imagen (default:
 # no altera ninguna medicion ya hecha). LightOnOCR-3 con resolucion dinamica sin
@@ -1229,9 +1279,10 @@ def _hf_vlm_backend(backend: str, device: str = "cpu") -> Callable[[Image.Image]
     """VLM documental SOTA (`full_page`) por su ruta **`transformers`** -> Markdown.
 
     Corre en el venv aislado de docling (transformers 5.x + torch CUDA) por
-    **subproceso con timeout** (`HF_VLM_TIMEOUT_S`, hoy 9000 s = 2,5 h por página:
-    PaddleOCR-VL en CPU tarda cientos de segundos en las páginas densas), un modelo a
-    la vez. La fila GPU solo se etiqueta
+    **subproceso con timeout** (`HF_VLM_TIMEOUT_S`, 3600 s por página: los VLM son
+    GPU-only, así que el peor caso de CPU ya no aplica; el margen cubre la página
+    más costosa medida, `lightonocr3_08b` a 1278 s), un modelo a la vez. La fila
+    GPU solo se etiqueta
     `cuda` si ese venv **ve la GPU** (sonda); si no, `skipped` con motivo, nunca una
     fila CPU disfrazada de CUDA. Sin los pesos en caché -> `skipped` con el comando
     de descarga, para que un banco que no los pida no baje ~2 GiB a mitad de run.
@@ -1417,7 +1468,12 @@ def _paddleocr_slanet_backend(model_name: str = "SLANet_plus",
 
     if model_name not in PADDLEOCR_TABLE_MODELS:  # pragma: no cover - guardia
         raise ProviderUnavailable(f"modelo SLANet desconocido: {model_name!r}")
-    model = TableStructureRecognition(model_name=model_name, enable_mkldnn=False)
+    if device != "cpu" and not _runtime_sees_cuda(sys.executable, _PADDLE_CUDA_CHECK):
+        raise ProviderUnavailable("paddleocr SLANet: el paddle del interprete no ve CUDA (device=gpu pedido)")
+    model = TableStructureRecognition(
+        model_name=model_name, enable_mkldnn=False,
+        device=("cpu" if device == "cpu" else "gpu"),
+    )
 
     def run(image: Image.Image) -> OcrOutput:
         arr = np.asarray(image.convert("RGB"))
@@ -1455,6 +1511,10 @@ def _docling_tableformer_backend(device: str = "cpu") -> Callable[[Image.Image],
         raise ProviderUnavailable(
             f"falta el venv de docling; crear con: uv venv {DOCLING_VENV_PYTHON.parents[1]} "
             f"&& uv pip install --python {DOCLING_VENV_PYTHON} docling")
+    child_device = "cpu" if device == "cpu" else "cuda"
+    if child_device != "cpu" and not _runtime_sees_cuda(DOCLING_VENV_PYTHON, _TORCH_CUDA_CHECK):
+        raise ProviderUnavailable(
+            "docling tableformer: el venv de docling no ve CUDA (device=gpu pedido)")
 
     def run(image: Image.Image) -> OcrOutput:
         with tempfile.TemporaryDirectory() as tmp:
@@ -1462,7 +1522,7 @@ def _docling_tableformer_backend(device: str = "cpu") -> Callable[[Image.Image],
             image.convert("RGB").save(path, format="PNG")
             start = time.perf_counter()
             proc = subprocess.run(
-                [str(DOCLING_VENV_PYTHON), "-c", _DOCLING_TABLE_RUNNER, str(path)],
+                [str(DOCLING_VENV_PYTHON), "-c", _DOCLING_TABLE_RUNNER, str(path), child_device],
                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900,
             )
             elapsed_ms = (time.perf_counter() - start) * 1000.0
@@ -1523,14 +1583,23 @@ from unimernet.models.unimernet.unimernet import UniMERModel
 from unimernet.processors.formula_processor import FormulaImageEvalProcessor
 
 model_dir, image_path = sys.argv[1], sys.argv[2]
+device = sys.argv[3] if len(sys.argv) > 3 else "cpu"
 cfg = OmegaConf.load(model_dir + "/unimernet_tiny.yaml").model
 cfg.model_config.model_name = model_dir
 cfg.tokenizer_config.path = model_dir
 cfg.pretrained = model_dir + "/pytorch_model.pth"
 model = UniMERModel.from_config(cfg).eval()
+if device != "cpu":
+    import torch
+    if not torch.cuda.is_available():
+        sys.stderr.write("unimernet: torch.cuda.is_available() = False\n")
+        sys.exit(3)
+    model = model.to(device)
 proc = FormulaImageEvalProcessor.from_config(OmegaConf.create({"image_size": [192, 672]}))
 img = Image.open(image_path).convert("RGB")
 tensor = proc(img).unsqueeze(0)
+if device != "cpu":
+    tensor = tensor.to(device)
 out = model.generate({"image": tensor})
 pred = out["pred_str"]
 sys.stdout.write(pred[0] if isinstance(pred, list) else str(pred))
@@ -1553,6 +1622,10 @@ def _unimernet_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput
             f"&& uv pip install --python {UNIMERNET_VENV_PYTHON} 'numpy<2' 'pyarrow<16' 'datasets==2.21.0'")
     if not (UNIMERNET_MODEL_DIR / "pytorch_model.pth").is_file():
         raise ProviderUnavailable(f"faltan los pesos de unimernet en {UNIMERNET_MODEL_DIR}")
+    child_device = "cpu" if device == "cpu" else "cuda"
+    if child_device != "cpu" and not _runtime_sees_cuda(UNIMERNET_VENV_PYTHON, _TORCH_CUDA_CHECK):
+        raise ProviderUnavailable(
+            "unimernet: el venv de unimernet no ve CUDA (device=gpu pedido)")
 
     def run(image: Image.Image) -> OcrOutput:
         with tempfile.TemporaryDirectory() as tmp:
@@ -1561,7 +1634,7 @@ def _unimernet_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput
             start = time.perf_counter()
             proc = subprocess.run(
                 [str(UNIMERNET_VENV_PYTHON), "-c", _UNIMERNET_RUNNER,
-                 str(UNIMERNET_MODEL_DIR), str(path)],
+                 str(UNIMERNET_MODEL_DIR), str(path), child_device],
                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900,
             )
             elapsed_ms = (time.perf_counter() - start) * 1000.0
@@ -2143,9 +2216,16 @@ def _paddleocr_text_backend(device: str = "cpu") -> Callable[[Image.Image], OcrO
         raise ProviderUnavailable("pip install paddleocr paddlepaddle")
     import numpy as np  # noqa: PLC0415
     from paddleocr import PaddleOCR  # noqa: PLC0415
+    # Eje del banco (`cpu`/`gpu`) -> device de PaddleOCR. En `gpu` se exige que el
+    # paddle del interprete vea CUDA; si no, `skipped` honesto (nunca un `ok` de CPU
+    # etiquetado como GPU). `enable_mkldnn=False` por el choque oneDNN/PIR (ver
+    # `pp_structurev3_api`).
+    if device != "cpu" and not _runtime_sees_cuda(sys.executable, _PADDLE_CUDA_CHECK):
+        raise ProviderUnavailable("paddleocr: el paddle del interprete no ve CUDA (device=gpu pedido)")
     try:
         engine = PaddleOCR(use_doc_orientation_classify=False, use_doc_unwarping=False,
-                           use_textline_orientation=False, enable_mkldnn=False, device="cpu")
+                           use_textline_orientation=False, enable_mkldnn=False,
+                           device=("cpu" if device == "cpu" else "gpu"))
     except Exception as exc:  # noqa: BLE001 - entorno roto => skipped con motivo
         raise ProviderUnavailable(f"paddleocr no arranca: {exc}") from exc
 
@@ -2167,9 +2247,8 @@ def _paddleocr_text_backend(device: str = "cpu") -> Callable[[Image.Image], OcrO
             extra={"engine": "paddleocr", "boxes": boxes},
         )
 
-    # Solo CPU: no esta en `GPU_CAPABLE_BACKENDS`, asi que el runner nunca lo
-    # etiqueta `cuda` (honestidad de proveedor).
-    run.provider_effective = "cpu"
+    # Honestidad de proveedor: el runner confirma el EP leyendo este atributo.
+    run.provider_effective = "cpu" if device == "cpu" else "cuda"
     return run
 
 
@@ -2218,9 +2297,12 @@ PROVIDERS: dict[str, Callable[..., Callable[[Image.Image], OcrOutput]]] = {
     # det), otro runtime (`onnxruntime`). Deteccion de cajas -> `extra["boxes"]`.
     "onnx_seal_det": lambda device="cpu": _onnx_seal_det_backend(device=device),
     # Alternativas reales de `layout` (`transformers`, offline desde la cache HF):
-    # RT-DETR (docling heron-101) y Deformable-DETR (DocLayNet). Solo CPU.
-    "docling_heron_101": lambda device="cpu": _hf_layout_backend(LAYOUT_HF_MODELS["docling_heron_101"]),
-    "deformable_detr": lambda device="cpu": _hf_layout_backend(LAYOUT_HF_MODELS["deformable_detr"]),
+    # RT-DETR (docling heron-101 / egret-xlarge) y Deformable-DETR (DocLayNet).
+    # `device` real: `--device gpu` mueve el modelo a CUDA (sonda torch antes de
+    # etiquetar `cuda`).
+    "docling_heron_101": lambda device="cpu": _hf_layout_backend(LAYOUT_HF_MODELS["docling_heron_101"], device=device),
+    "docling_layout_egret_xlarge": lambda device="cpu": _hf_layout_backend(LAYOUT_HF_MODELS["docling_layout_egret_xlarge"], device=device),
+    "deformable_detr": lambda device="cpu": _hf_layout_backend(LAYOUT_HF_MODELS["deformable_detr"], device=device),
     "paddle_latex_ocr": _paddle_latex_ocr_backend,
     # Alternativa real de `formula`: UniMERNet (Apache-2.0) en su venv aislado,
     # por subproceso (solo CPU). Pesos `unimernet_tiny` del cache local.
@@ -2298,6 +2380,7 @@ TASK_TYPES = {"pyocrust": "text", "pyocrust_text_small": "text", "pyocrust_text_
               "pyocrust_table_slanet": "table",
               # Alternativas reales de `layout` (transformers): mismo task_type.
               "docling_heron_101": "layout", "deformable_detr": "layout",
+              "docling_layout_egret_xlarge": "layout",
               "pyocrust_orientation": "orientation", "pyocrust_textline": "text_line",
               "pyocrust_rectify": "rectification", "pyocrust_seal": "seal",
               # Alternativas reales de esas tareas (`onnxruntime`): mismo task_type.
@@ -2336,6 +2419,7 @@ MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"),
                "pyocrust_layout": ("pp-doclayoutv3", "130M"),
                # Alternativas reales de `layout` (transformers, DocLayNet/RT-DETR).
                "docling_heron_101": ("docling-layout-heron-101", "default"),
+               "docling_layout_egret_xlarge": ("docling-layout-egret-xlarge", "default"),
                "deformable_detr": ("deformable-detr-DocLayNet", "default"),
                # El default del registro para `table_structure_recognition` es
                # `slanext_wired` (367 MB), NO SLANet_plus: se etiqueta lo que corre.
@@ -2410,6 +2494,7 @@ FEATURE_TYPES = {"pyocrust": "text", "pyocrust_text_small": "text", "pyocrust_te
                  "pyocrust_table_slanet": "table",
                  # Alternativas reales de `layout` (transformers): mismo banco.
                  "docling_heron_101": "layout", "deformable_detr": "layout",
+                 "docling_layout_egret_xlarge": "layout",
               "pyocrust_orientation": "orientation", "pyocrust_textline": "text_line",
                  "pyocrust_rectify": "rectification", "pyocrust_seal": "seal",
                  # Alternativas reales de esas tareas (`onnxruntime`): mismo banco.
@@ -2482,10 +2567,14 @@ def run_benchmark(
     """
     task_type = task_override or TASK_TYPES.get(backend, "text")
     model_name, model_variant = model or MODEL_NAMES.get(backend, (backend, "default"))
-    if variant:
+    if variant and model_variant in ("", "default"):
         # Corrida de una **variante** (`vl`): el `model_variant` de las filas y los
-        # metadatos pasa a ser la variante, para que el informe la etiquete
-        # `Modelo (vl)` y no se confunda con la serie normal.
+        # metadatos pasa a ser la variante (el informe la etiqueta `Modelo (vl)` y
+        # no se confunde con la serie normal). NO se pisa un `model_variant` propio
+        # del motor: `lightonocr3_08b`/`_4b` comparten `model_name`
+        # ("LightOnOCR-3") y el tamaño ("0.8B"/"4B") es lo único que los
+        # distingue — pisarlo fundía los dos checkpoints en una sola fila. La serie
+        # queda declarada aparte (`variant` del `summary.json`, subcarpeta `vl/`).
         model_variant = variant
     feature = feature or FEATURE_TYPES.get(backend, "text")
     provider_effective, skip_reason = device_outcome(backend, device)
