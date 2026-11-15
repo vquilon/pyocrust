@@ -38,7 +38,7 @@ from common import OcrOutput, Sample, load_dataset, run_backends
 from common.datasets import LAYOUT_MODEL_TO_GT, STRUCTURE_KIND_TO_GT, layout_gt_classes
 from common.metrics import detection_map
 from common.runner import YOLO_LAYOUT_MODELS
-from features._base import FeatureSpec, common_argparser, feature_out_dir
+from features._base import FeatureSpec, common_argparser, feature_run_dir, feature_out_dir
 
 # Vocabulario -> categoría OmniDocBench para puntuar las cajas de **cualquier**
 # motor de este banco. Union de los dos vocabularios reales:
@@ -141,12 +141,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     strata = sorted({s.stratum for s in samples if s.stratum})
     print(f"[layout] dataset={dataset} muestras={len(samples)} estratos={len(strata)}")
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    out_dir = feature_out_dir(args.output_dir, SPEC) / timestamp
+    out_dir, timestamp, resume = feature_run_dir(
+        args.output_dir, SPEC, timestamp, args.variant, resume=args.resume,
+        signature={"dataset": dataset, "n_samples": len(samples), "warmup": args.warmup,
+                   "repeats": args.repeats, "device_requested": args.device},
+    )
     run_backends(
         samples,
         [b.strip() for b in (args.backends or DEFAULT_BACKENDS).split(",") if b.strip()],
         dataset, out_dir, timestamp,
         warmup=args.warmup, repeats=args.repeats, device=args.device,
+        variant=args.variant, resume=resume,
         feature=SPEC.feature, scorer=score_layout,
     )
     print(f"\n[layout] resultados en {out_dir}")

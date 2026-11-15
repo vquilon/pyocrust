@@ -18,6 +18,7 @@ medido con un set **sintético** (sello pegado en posición conocida).
 from __future__ import annotations
 
 import argparse
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Sequence
@@ -92,12 +93,58 @@ def common_argparser(feature: str, description: str) -> argparse.ArgumentParser:
     parser.add_argument("--output-dir", type=Path, default=BENCHMARKS_ROOT / "results")
     parser.add_argument("--dump-outputs", action="store_true")
     parser.add_argument("--feature", default=feature)
+    parser.add_argument("--variant", default=None,
+                        help="subcarpeta de variante bajo la feature (p. ej. `vl` -> "
+                             "results/<feature>/vl/<run>/), sin tocar la serie normal")
+    parser.add_argument("--resume", action="store_true",
+                        help="reanuda la corrida incompleta mas reciente de esta feature "
+                             "(misma firma dataset/muestra/device) en vez de empezar de cero")
     return parser
 
 
-def feature_out_dir(base: Path, spec: FeatureSpec) -> Path:
-    """Subcarpeta de resultados por feature (`results/<feature>/`)."""
-    return base / spec.feature
+def feature_out_dir(base: Path, spec: FeatureSpec, variant: str | None = None) -> Path:
+    """Subcarpeta de resultados por feature: `results/<feature>[/<variant>]/`.
+
+    La variante (`vl`) va **bajo** la feature, no al lado: así `latest_run` de la
+    serie normal (`results/<feature>/*/`) no la confunde con una corrida propia.
+    """
+    root = base / spec.feature
+    return root / variant if variant else root
+
+
+def feature_run_dir(
+    base: Path, spec: FeatureSpec, timestamp: str, variant: str | None = None,
+    *, resume: bool = False, signature: dict | None = None,
+) -> tuple[Path, str, bool]:
+    """Resuelve `(run_dir, timestamp, resume_efectivo)` del banco.
+
+    Sin `resume` (o sin corrida incompleta que case): `results/<feature>[/<variant>]/<timestamp>/`.
+    Con `resume`: reusa la corrida **más reciente** cuyo `summary.json` tenga la misma
+    `run_signature` (dataset/muestra/device) y le falte algún backend de su propio
+    `backends_requested`, y devuelve su timestamp; el banco continúa ESA corrida en vez
+    de empezar de cero.
+
+    `ponytail:` casa por firma la corrida incompleta más reciente, no fusiona corridas
+    ni elige a mano; para reanudar una concreta pásale su `--output-dir` directo.
+    """
+    root = feature_out_dir(base, spec, variant)
+    root.mkdir(parents=True, exist_ok=True)
+    if resume and signature is not None:
+        for run in sorted((d for d in root.iterdir() if d.is_dir()), reverse=True):
+            summary_path = run / "summary.json"
+            if not summary_path.exists():
+                continue
+            try:
+                data = json.loads(summary_path.read_text(encoding="utf-8"))
+            except (ValueError, OSError):
+                continue
+            if data.get("run_signature") != signature:
+                continue
+            done = {b for b, m in (data.get("backends") or {}).items()
+                    if isinstance(m, dict) and m.get("status") == "ok"}
+            if set(data.get("backends_requested") or ()) - done:
+                return run, str(data.get("timestamp") or run.name), True
+    return root / timestamp, timestamp, False
 
 
 def run_skeleton(spec: FeatureSpec, argv: Sequence[str] | None = None) -> int:

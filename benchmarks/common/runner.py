@@ -195,7 +195,17 @@ STRUCTURE_CHANNELS: dict[str, frozenset[str]] = {
     "lightonocr": frozenset(),
     "glm_ocr": frozenset(),
     "paddleocr_vl": frozenset(),
+    # Motor propio con la feature `vl` (ADR-001): mismo caso, una pasada VLM.
+    "pyocrust_vl": frozenset(),
 }
+
+# Variante `vl`: la comparativa de los motores vision-language vive **bajo** la
+# feature (`results/<feature>/vl/<run>/`), marcada `model_variant="vl"`, para no
+# contaminar la serie normal (`results/<feature>/<run>/`). La subcarpeta `vl` ES
+# la variante: la comparten los VLMs externos y `pyocrust_vl` (el motor propio
+# con `--features vl`, preset `glm_ocr`).
+VLM_VARIANT = "vl"
+VLM_BACKENDS = ("lightonocr", "glm_ocr", "paddleocr_vl", "pyocrust_vl")
 
 
 def emitted_channels(backend: str) -> frozenset[str]:
@@ -497,8 +507,26 @@ def _pyocrust_backend(preset: str, formula_only: bool = False, device: str = "cp
     # `pp_structurev3` emite todos los canales. Sin esta senal, un motor que no
     # emite una estructura publicaria `0.0` en vez de `N/A` (ver `STRUCTURE_CHANNELS`).
     run.emits = (emitted_channels("pyocrust_indra") if preset == "indra"
+                 else frozenset() if preset == "glm_ocr"  # VLM: solo Markdown
                  else ALL_STRUCTURE_CHANNELS)
     return run
+
+
+def _pyocrust_vl_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
+    """`pyocrust` con la feature `vl` (preset `glm_ocr`, motor VLM propio).
+
+    La feature es opt-in (ADR-001): con el `.pyd` por defecto el preset no existe
+    y el backend queda **`skipped`** con el comando de build, nunca medido a
+    medias. Emite solo Markdown (`emits=frozenset()`).
+    """
+    import pyocrust  # noqa: PLC0415
+
+    if "glm_ocr" not in pyocrust.pipeline_profiles():
+        raise ProviderUnavailable(
+            "el `.pyd` desplegado no trae la feature `vl` (preset glm_ocr): "
+            "`.venv/Scripts/maturin develop --features vl`"
+        )
+    return _pyocrust_backend("glm_ocr", device=device)
 
 
 def _rapidocr_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
@@ -2254,6 +2282,7 @@ def run_benchmark(
     feature: str | None = None,
     model: tuple[str, str] | None = None,
     scorer: Callable[[Sample, OcrOutput], dict] | None = None,
+    variant: str | None = None,
 ) -> tuple[list[dict], dict]:
     """Ejecuta un backend sobre todas las muestras y devuelve (filas, metadatos).
 
@@ -2271,6 +2300,11 @@ def run_benchmark(
     """
     task_type = task_override or TASK_TYPES.get(backend, "text")
     model_name, model_variant = model or MODEL_NAMES.get(backend, (backend, "default"))
+    if variant:
+        # Corrida de una **variante** (`vl`): el `model_variant` de las filas y los
+        # metadatos pasa a ser la variante, para que el informe la etiquete
+        # `Modelo (vl)` y no se confunda con la serie normal.
+        model_variant = variant
     feature = feature or FEATURE_TYPES.get(backend, "text")
     provider_effective, skip_reason = device_outcome(backend, device)
     provenance = {"task_type": task_type, "model_name": model_name, "model_variant": model_variant,
@@ -2484,6 +2518,44 @@ def write_csv(rows: Sequence[dict], out_dir: Path, timestamp: str) -> Path:
     return path
 
 
+def _run_signature(dataset, samples, warmup, repeats, device) -> dict:
+    """Firma de una corrida, para casar la reanudacion (mismo dataset/muestra/device)."""
+    return {"dataset": dataset, "n_samples": len(samples), "warmup": warmup,
+            "repeats": repeats, "device_requested": device}
+
+
+def _write_run_outputs(out_dir, timestamp, all_rows, summary, dataset, backends,
+                       samples, warmup, repeats, device) -> Path:
+    """Escribe CSV + `summary.json` (idempotente). Se llama tras **cada** motor.
+
+    Guardado incremental = regla contra perdida de trabajo (ver `run_backends`); la
+    `run_signature` es lo que permite reanudar una corrida incompleta.
+    """
+    csv_path = write_csv(all_rows, out_dir, timestamp)
+    (out_dir / "summary.json").write_text(
+        json.dumps({
+            "timestamp": timestamp,
+            "runtime": _describe_runtime(),
+            "origen": "medido",
+            # Provenance del DATASET: `dataset` (muestra real) o `fixture`
+            # (fallback minimo versionado, sin red). El informe lo declara.
+            "dataset_source": fixture_provenance(),
+            # Provenance: comando exacto + parametros de la corrida.
+            "command": [sys.executable, *sys.argv],
+            "dataset": dataset,
+            "backends_requested": list(backends),
+            "n_samples": len(samples),
+            "warmup": warmup,
+            "repeats": repeats,
+            "device_requested": device,
+            "run_signature": _run_signature(dataset, samples, warmup, repeats, device),
+            "backends": summary,
+        }, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    return csv_path
+
+
 def run_backends(
     samples: Sequence[Sample],
     backends: Sequence[str],
@@ -2500,12 +2572,22 @@ def run_backends(
     dump_outputs: bool = False,
     task_types: set[str] | None = None,
     scorer: Callable[[Sample, OcrOutput], dict] | None = None,
+    variant: str | None = None,
+    resume: bool = False,
 ) -> tuple[list[dict], dict[str, dict]]:
     """Ejecuta una lista de backends y escribe CSV + metadatos. Interfaz de los bancos.
 
     Los bancos por feature llaman aquí: un backend/modelo a la vez, `skipped` con
     motivo para lo no disponible, y `summary.json` con el origen de cada número.
     `scorer` es la métrica propia de la feature (ver `run_benchmark`).
+
+    **Guardado incremental y reanudación (regla dura, pérdida de trabajo).** El CSV
+    y el `summary.json` se reescriben tras **cada** motor, no solo al final: una
+    corrida interrumpida (kill, timeout, cap de la tarjeta, `Ctrl-C`) deja en disco
+    todo lo ya medido. Sin esto, matar la corrida en el último motor dejaba los
+    `<backend>.meta.json` huérfanos e invisibles para los reporteros (que leen el
+    CSV). Con `resume=True` se recargan las filas/resumen existentes y se saltan los
+    motores ya `ok`, así reenganchar cuesta segundos y no horas.
     """
     all_rows: list[dict] = []
     summary: dict[str, dict] = {}
@@ -2517,7 +2599,23 @@ def run_backends(
         # Antes de construir NINGÚN motor: deja cargado el cudnn/cublas de torch
         # para que el provider CUDA de ORT los reutilice (ver preload_gpu_runtime).
         preload_gpu_runtime()
+    if resume:
+        csv_path = out_dir / f"{timestamp}.csv"
+        if csv_path.exists():
+            with csv_path.open(encoding="utf-8") as fh:
+                all_rows = list(csv.DictReader(fh))
+        summary_path = out_dir / "summary.json"
+        if summary_path.exists():
+            try:
+                summary = json.loads(summary_path.read_text(encoding="utf-8")).get("backends") or {}
+            except (ValueError, OSError):
+                summary = {}
+        print(f"[resume] reengancho en {out_dir}: {len(all_rows)} filas previas, "
+              f"motores ok={sorted(b for b, m in summary.items() if isinstance(m, dict) and m.get('status') == 'ok')}")
     for backend in backends:
+        if resume and isinstance(summary.get(backend), dict) and summary[backend].get("status") == "ok":
+            print(f"[resume] {backend}: ya medido, se reutiliza")
+            continue
         factories = factories or {}
         if backend not in PROVIDERS and backend not in factories:
             print(f"[skip] backend desconocido: {backend}")
@@ -2534,6 +2632,7 @@ def run_backends(
             backend_factory=(factories or {}).get(backend),
             model=(models or {}).get(backend),
             scorer=scorer,
+            variant=variant,
         )
         all_rows.extend(rows)
         summary[backend] = meta
@@ -2560,34 +2659,14 @@ def run_backends(
         (out_dir / f"{backend}.meta.json").write_text(
             json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
         )
+        # Guardado incremental: un kill a mitad de la lista NO pierde lo ya medido.
+        _write_run_outputs(out_dir, timestamp, all_rows, summary, dataset, backends,
+                           samples, warmup, repeats, device)
 
-    csv_path = write_csv(all_rows, out_dir, timestamp)
+    csv_path = _write_run_outputs(out_dir, timestamp, all_rows, summary, dataset,
+                                  backends, samples, warmup, repeats, device)
     print(f"\n[csv] {csv_path}")
     print(f"[json] {out_dir / 'summary.json'}")
-    (out_dir / "summary.json").write_text(
-        json.dumps(
-            {
-                "timestamp": timestamp,
-                "runtime": _describe_runtime(),
-                "origen": "medido",
-                # Provenance del DATASET: `dataset` (muestra real) o `fixture`
-                # (fallback minimo versionado, sin red). El informe lo declara.
-                "dataset_source": fixture_provenance(),
-                # Provenance: comando exacto + parámetros de la corrida.
-                "command": [sys.executable, *sys.argv],
-                "dataset": dataset,
-                "backends_requested": list(backends),
-                "n_samples": len(samples),
-                "warmup": warmup,
-                "repeats": repeats,
-                "device_requested": device,
-                "backends": summary,
-            },
-            indent=2,
-            ensure_ascii=False,
-        ),
-        encoding="utf-8",
-    )
     return all_rows, summary
 
 

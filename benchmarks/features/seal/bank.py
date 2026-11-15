@@ -35,7 +35,7 @@ from datetime import datetime
 
 from common import load_dataset, run_backends
 from common.runner import _onnx_seal_det_backend
-from features._base import FeatureSpec, common_argparser, feature_out_dir, unavailable_factory
+from features._base import FeatureSpec, common_argparser, feature_run_dir, feature_out_dir, unavailable_factory
 
 SPEC = FeatureSpec(
     feature="seal",
@@ -77,7 +77,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     samples = load_dataset(dataset, limit=args.limit, split=args.split)
     print(f"[seal] dataset={dataset} muestras={len(samples)}")
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    out_dir = feature_out_dir(args.output_dir, SPEC) / timestamp
+    out_dir, timestamp, resume = feature_run_dir(
+        args.output_dir, SPEC, timestamp, args.variant, resume=args.resume,
+        signature={"dataset": dataset, "n_samples": len(samples), "warmup": args.warmup,
+                   "repeats": args.repeats, "device_requested": args.device},
+    )
     # La métrica de sello es la de cajas (recall@IoU / IoU medio): el runner la
     # calcula solo cuando la muestra trae `gt_boxes`; no hace falta scorer propio.
     run_backends(
@@ -85,6 +89,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         [b.strip() for b in (args.backends or "pyocrust_seal").split(",") if b.strip()],
         dataset, out_dir, timestamp,
         warmup=args.warmup, repeats=args.repeats, device=args.device,
+        variant=args.variant, resume=resume,
         feature=SPEC.feature, factories=EXTRA_FACTORIES, models=EXTRA_MODELS,
     )
     print(f"\n[seal] resultados en {out_dir}")

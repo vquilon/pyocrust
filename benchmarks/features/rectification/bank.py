@@ -36,7 +36,7 @@ from PIL import Image
 
 from common import OcrOutput, Sample, load_dataset, run_backends
 from common.metrics import image_ssim
-from features._base import FeatureSpec, common_argparser, feature_out_dir
+from features._base import FeatureSpec, common_argparser, feature_run_dir, feature_out_dir
 
 SPEC = FeatureSpec(
     feature="rectification",
@@ -78,12 +78,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     samples = load_dataset(dataset, limit=args.limit, split=args.split)
     print(f"[rectification] dataset={dataset} muestras={len(samples)}")
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    out_dir = feature_out_dir(args.output_dir, SPEC) / timestamp
+    out_dir, timestamp, resume = feature_run_dir(
+        args.output_dir, SPEC, timestamp, args.variant, resume=args.resume,
+        signature={"dataset": dataset, "n_samples": len(samples), "warmup": args.warmup,
+                   "repeats": args.repeats, "device_requested": args.device},
+    )
     run_backends(
         samples,
         [b.strip() for b in (args.backends or DEFAULT_BACKENDS).split(",") if b.strip()],
         dataset, out_dir, timestamp,
         warmup=args.warmup, repeats=args.repeats, device=args.device,
+        variant=args.variant, resume=resume,
         feature=SPEC.feature, scorer=score_rectification,
     )
     print(f"\n[rectification] resultados en {out_dir}")

@@ -30,7 +30,7 @@ if __package__ in (None, ""):
 from datetime import datetime
 
 from common import load_dataset, run_backends
-from features._base import FeatureSpec, common_argparser, feature_out_dir, orientation_accuracy
+from features._base import FeatureSpec, common_argparser, feature_run_dir, feature_out_dir, orientation_accuracy
 
 SPEC = FeatureSpec(
     feature="text_line",
@@ -60,12 +60,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     samples = load_dataset(dataset, limit=args.limit, split=args.split)
     print(f"[text_line] dataset={dataset} muestras={len(samples)}")
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    out_dir = feature_out_dir(args.output_dir, SPEC) / timestamp
+    out_dir, timestamp, resume = feature_run_dir(
+        args.output_dir, SPEC, timestamp, args.variant, resume=args.resume,
+        signature={"dataset": dataset, "n_samples": len(samples), "warmup": args.warmup,
+                   "repeats": args.repeats, "device_requested": args.device},
+    )
     run_backends(
         samples,
         [b.strip() for b in (args.backends or DEFAULT_BACKENDS).split(",") if b.strip()],
         dataset, out_dir, timestamp,
         warmup=args.warmup, repeats=args.repeats, device=args.device,
+        variant=args.variant, resume=resume,
         feature=SPEC.feature, scorer=orientation_accuracy,
     )
     print(f"\n[text_line] resultados en {out_dir}")

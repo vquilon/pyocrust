@@ -42,7 +42,7 @@ from PIL import Image
 from common import OcrOutput, ProviderUnavailable, Sample, load_dataset, run_backends
 from common.metrics import latex_exact, latex_similarity, latex_token_f1
 from common.runner import _image_bytes, _paddle_latex_ocr_backend
-from features._base import FeatureSpec, common_argparser, feature_out_dir, unavailable_factory
+from features._base import FeatureSpec, common_argparser, feature_run_dir, feature_out_dir, unavailable_factory
 
 SPEC = FeatureSpec(
     feature="formula",
@@ -177,12 +177,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     samples = load_dataset(dataset, limit=args.limit, split=args.split)
     print(f"[formula] dataset={dataset} muestras={len(samples)}")
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    out_dir = feature_out_dir(args.output_dir, SPEC) / timestamp
+    out_dir, timestamp, resume = feature_run_dir(
+        args.output_dir, SPEC, timestamp, args.variant, resume=args.resume,
+        signature={"dataset": dataset, "n_samples": len(samples), "warmup": args.warmup,
+                   "repeats": args.repeats, "device_requested": args.device},
+    )
     run_backends(
         samples,
         [b.strip() for b in (args.backends or DEFAULT_BACKENDS).split(",") if b.strip()],
         dataset, out_dir, timestamp,
         warmup=args.warmup, repeats=args.repeats, device=args.device,
+        variant=args.variant, resume=resume,
         task_override="formula", feature=SPEC.feature,
         factories=EXTRA_FACTORIES, models=EXTRA_MODELS, dump_outputs=args.dump_outputs,
         scorer=score_formula,
