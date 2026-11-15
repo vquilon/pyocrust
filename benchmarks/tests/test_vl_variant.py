@@ -75,6 +75,24 @@ def test_el_informe_de_variante_escribe_bajo_la_feature(tmp_path: Path, monkeypa
     assert fig["out"] == tmp_path / "figures" / "full_page" / "vl" / "REPORT"
 
 
+def test_variant_sin_run_cpu_usa_la_de_gpu_como_referencia(tmp_path: Path, monkeypatch) -> None:
+    """Una variante GPU-only (VLM externos en layout/table/formula) igual tiene subcarpeta."""
+    gpu = _run_dir(tmp_path / "_gpu", "vl", "2026-01-03_00-00-00", "glm_ocr", device="gpu")
+    monkeypatch.setattr(report, "GPU_RESULTS_DIR", tmp_path / "_gpu")
+    monkeypatch.setattr(report, "REPORTS_DIR", tmp_path / "reports")
+    monkeypatch.setattr(report, "FIGURES_DIR", tmp_path / "figures")
+    monkeypatch.setattr(report, "analyze", lambda feature, run: ({}, {}))
+    monkeypatch.setattr(report, "render_md", lambda *a, **k: "# md")
+    monkeypatch.setattr(report, "render_table", lambda *a, **k: ("| t |", "tex"))
+    monkeypatch.setattr(report, "plot_feature", lambda *a, **k: None)
+
+    assert report.latest_run("full_page", root=tmp_path) is None
+    assert report.latest_run("full_page", root=tmp_path / "_gpu", device="gpu",
+                             variant="vl") == gpu
+    assert report.main(["--feature", "full_page", "--variant", "vl", "--no-gpu"]) == 0
+    assert (tmp_path / "reports" / "full_page" / "vl" / "REPORT.md").is_file()
+
+
 def test_variant_exige_feature(tmp_path: Path) -> None:
     """`--variant` sin `--feature`/con `--all` es un error de uso, no un informe suelto."""
     import pytest

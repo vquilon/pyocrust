@@ -1308,7 +1308,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     features = sorted(FEATURE_COLUMNS) if args.all or not args.feature else [args.feature]
     rc = 0
     for feature in features:
-        run = args.run or latest_run(feature, variant=variant)
+        # La variante puede tener solo pata GPU (p. ej. los VLM externos de
+        # layout/table/formula, GPU-only): sin run CPU, la de GPU es la referencia
+        # — asi la subcarpeta `vl` existe aunque ese motor no tenga pata CPU.
+        run = args.run or latest_run(feature, variant=variant) or (
+            latest_run(feature, root=GPU_RESULTS_DIR, device="gpu", variant=variant)
+            if variant else None)
         if run is None:
             print(f"[report] {feature}: sin runs en results/{feature}/ (nada que reportar)")
             rc = 1
