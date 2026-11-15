@@ -37,6 +37,7 @@ if str(BENCH) not in sys.path:
     sys.path.insert(0, str(BENCH))
 from common.runner import (  # noqa: E402
     FORMULA_BACKENDS_EXCLUDED, LICENSES, MODEL_NAMES, YOLO_LAYOUT_MODELS,
+    alternative_provenance,
 )
 from features._localization import english_markdown  # noqa: E402
 
@@ -277,9 +278,53 @@ def summary_yolo_layout_backends(rows: dict[tuple[str, str, str], list[dict]] | 
     return winners
 
 
+def _model_key(model_name: str, backend: str) -> str:
+    """Identidad del modelo **subyacente** (`model_name` canonico en minusculas).
+
+    Dos backends que miden los MISMOS pesos por otra via (`lcnet_doc_ori` vs
+    `pyocrust_orientation`; `paddleocr_slanet` vs `pyocrust_table`) comparten
+    clave: en los paneles resumen son **un duplicado**, no dos motores. La
+    normalizacion colapsa separadores y caja (`pp_structurev3` == `PP-StructureV3`,
+    `slanet_plus` == `SLANet_plus`). Sin nombre de modelo se usa el backend, para
+    no colapsar motores distintos.
+    """
+    nombre = MODEL_NAMES[backend][0] if backend in MODEL_NAMES else (model_name or backend)
+    return re.sub(r"[^a-z0-9]", "", nombre.split(" (")[0].strip().casefold())
+
+
+def _dedupe_same_model(rows: dict[tuple[str, str, str], list[dict]]
+                       ) -> dict[tuple[str, str, str], list[dict]]:
+    """Publica **una** fila por par "mismo peso por otra via" con pyocrust.
+
+    El usuario pidio **sin duplicados**: cuando el MISMO checkpoint entra dos
+    veces (PaddleOCR por `onnxruntime` y por `pyocrust`) solo una fila se publica.
+    La senal NO se adivina por el nombre: es `ALTERNATIVE_PROVENANCE` del propio
+    registro (`mismo_peso_otra_via` = mismo `.onnx` cargado por otro runtime:
+    `lcnet_doc_ori` vs `pyocrust_orientation`, `uvdoc` vs `pyocrust_rectify`,
+    `onnx_seal_det` vs `pyocrust_seal`, `paddleocr_slanet` vs `pyocrust_table`).
+    De cada par gana **pyocrust** (mismo peso -> su metrica ES la del modelo; las
+    diferencias son ruido de runtime) y el detalle externo queda en el `REPORT.md`
+    de la feature como provenance. Un motor **independiente** con nombre parecido
+    (`PP-StructureV3` externo vs `pp_structurev3` propio, cuyos numeros difieren)
+    **no** se toca: si la cifra es otra, es otro modelo.
+    """
+    pyocrust_keys = {
+        (f, d, _model_key((m[0] if m else {}).get("model_name", ""), b))
+        for (f, d, b), m in rows.items() if _is_pyocrust("", b)
+    }
+    out: dict[tuple[str, str, str], list[dict]] = {}
+    for (f, d, backend), measurements in rows.items():
+        first = measurements[0] if measurements else {}
+        clave = _model_key(first.get("model_name", ""), backend)
+        if alternative_provenance(backend) == "mismo_peso_otra_via" and (f, d, clave) in pyocrust_keys:
+            continue
+        out[(f, d, backend)] = measurements
+    return out
+
+
 def collect_rows() -> dict[tuple[str, str, str], list[dict]]:
     """Latest rows shared by SUMMARY/SCOREBOARD, with the summary YOLO subset."""
-    rows = _collect_rows()
+    rows = _dedupe_same_model(_collect_rows())
     winners = summary_yolo_layout_backends(rows)
     return {
         key: measurements for key, measurements in rows.items()

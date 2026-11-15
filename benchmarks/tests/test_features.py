@@ -182,16 +182,17 @@ def test_nuevas_alternativas_de_table_registradas():
 def test_default_backends_solo_nombres_que_producen_filas():
     """`text`: el default no anuncia motores sin fabrica (criterio de la tarjeta).
 
-    Los anunciados sin adaptador (`surya`/`paddleocr`/`python-doctr`) quedan fuera del
-    default —ahí solo va lo que produce filas— pero siguen siendo un `skipped`
-    honesto si se piden de forma explícita.
+    Los anunciados sin adaptador (`surya`/`python-doctr`) quedan fuera del default
+    —ahí solo va lo que produce filas— pero siguen siendo un `skipped` honesto si se
+    piden de forma explícita. `paddleocr` **sí** tiene adaptador real (PP-OCRv6
+    det+rec) y entra en el default como motor medido.
     """
     from common.runner import PROVIDERS
     from features.text.bank import DEFAULT_BACKENDS, EXTRA_FACTORIES
 
     defaults = DEFAULT_BACKENDS.split(",")
-    assert defaults == ["pyocrust", "rapidocr", "easyocr", "tesseract"]
-    for absent in ("surya", "paddleocr", "python-doctr"):
+    assert defaults == ["pyocrust", "rapidocr", "easyocr", "tesseract", "paddleocr"]
+    for absent in ("surya", "python-doctr"):
         assert absent not in defaults, absent
         assert absent in EXTRA_FACTORIES, absent  # explícito -> skipped con motivo
     # Todo backend del default tiene fabrica real en `PROVIDERS` o en las EXTRA.

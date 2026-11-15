@@ -45,14 +45,12 @@
 | Engine | Value | n | Source | license |
 | :--- | ---: | ---: | :--- | :--- |
 | **pp-lcnet_x1_0_doc_ori (6.8M)** | 1.000 | 20 | measured | Apache-2.0 |
-| pp-lcnet_x1_0_doc_ori (onnxruntime) | 1.000 | 20 | measured | Apache-2.0 |
 | craft_mlt_25k+latin_g2 (easyocr) | 0.350 | 20 | measured | Apache-2.0 |
 
 ## rectification — Synthetic — `measured` · **measured dataset**: `synthetic_rectification`
 
 | Engine | Value | n | Source | license |
 | :--- | ---: | ---: | :--- | :--- |
-| uvdoc (onnxruntime) | 0.604 | 20 | measured | Apache-2.0 |
 | **uvdoc (31.7M)** | 0.597 | 20 | measured | Apache-2.0 |
 | perspective-4corner (baseline (OpenCV, sin pesos)) | 0.491 | 20 | measured | Apache-2.0 |
 
@@ -61,14 +59,12 @@
 | Engine | Value | n | Source | license |
 | :--- | ---: | ---: | :--- | :--- |
 | **pp-lcnet_x1_0_textline_ori (6.8M)** | 1.000 | 20 | measured | Apache-2.0 |
-| pp-lcnet_x1_0_textline_ori (onnxruntime) | 1.000 | 20 | measured | Apache-2.0 |
 
 ## seal — Synthetic — `measured` · **measured dataset**: `synthetic_seal`
 
 | Engine | Value | n | Source | license |
 | :--- | ---: | ---: | :--- | :--- |
 | **pp-ocrv4_mobile_seal_det (4.8M)** | 0.750 | 20 | measured | Apache-2.0 |
-| pp-ocrv4_mobile_seal_det (onnxruntime) | 0.750 | 20 | measured | Apache-2.0 |
 
 ## table — OmniDocBench — `measured` · **measured dataset**: `omnidocbench_table`
 
@@ -76,7 +72,6 @@
 | :--- | ---: | ---: | :--- | :--- |
 | **slanet_plus** | 0.914 | 8 | measured | Apache-2.0 |
 | tableformer (docling) | 0.905 | 8 | measured | MIT |
-| SLANet_plus (paddleocr) | 0.889 | 8 | measured | Apache-2.0 |
 | table-transformer-structure-recognition | 0.790 | 8 | measured | MIT |
 | **pp_structurev3** | 0.753 | 8 | measured | Apache-2.0 |
 

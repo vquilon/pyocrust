@@ -39,10 +39,11 @@ if str(HERE) not in sys.path:
 # fuente de verdad para "qué features hay y cuál es su métrica titular".
 from summary import (
     FEATURES, MODEL_NAMES, YOLO_LAYOUT_MODELS, _LEGACY_YOLO_LAYOUT_BACKENDS,
-    _clean, _is_pyocrust, _license_for, _num, _rows_from, feature_title,
+    _clean, _is_pyocrust, _license_for, _model_key, _num, _rows_from, feature_title,
     summary_yolo_layout_backends,
 )
 from features._localization import english_markdown  # noqa: E402
+from common.runner import alternative_provenance  # noqa: E402
 
 
 def _device(lines: list[str]) -> str:
@@ -154,6 +155,16 @@ def parse_quality_time(feature: str, titular: str | None) -> tuple[list[tuple[st
         points = {key: point for key, point in points.items()
                   if point[0].split(" (")[0] not in _LEGACY_YOLO_LAYOUT_BACKENDS
                   and (point[0] not in all_labels or point[0] in selected_labels)}
+    # **Sin duplicados**: se elimina el punto "mismo peso por otra via" que ya
+    # mide pyocrust (`ALTERNATIVE_PROVENANCE` = `mismo_peso_otra_via`, p. ej.
+    # `pp-… (onnxruntime)` vs `pp-… (6.8M)`). Misma senal que `summary`; gana el
+    # punto de pyocrust. Un motor independiente con nombre parecido no se toca.
+    dup_labels = {f"{mn} ({v})" if v and v != "default" else mn
+                  for b, (mn, v) in MODEL_NAMES.items()
+                  if alternative_provenance(b) == "mismo_peso_otra_via"}
+    pyocrust_keys = {(_model_key(p[0], ""), p[3]) for p in points.values() if _is_pyocrust(p[0])}
+    points = {key: p for key, p in points.items()
+              if not (p[0] in dup_labels and (_model_key(p[0], ""), p[3]) in pyocrust_keys)}
     devices = {point[3] for point in points.values()}
     device = "+".join(d for d in ("cpu", "gpu") if d in devices) or default_device
     return list(points.values()), device, mkey

@@ -195,6 +195,9 @@ STRUCTURE_CHANNELS: dict[str, frozenset[str]] = {
     "lightonocr": frozenset(),
     "glm_ocr": frozenset(),
     "paddleocr_vl": frozenset(),
+    # LightOnOCR-3 (familia Qwen3.5 VL): misma ruta `transformers`, solo Markdown.
+    "lightonocr3_08b": frozenset(),
+    "lightonocr3_4b": frozenset(),
     # Motor propio con la feature `vl` (ADR-001): mismo caso, una pasada VLM.
     "pyocrust_vl": frozenset(),
 }
@@ -205,7 +208,8 @@ STRUCTURE_CHANNELS: dict[str, frozenset[str]] = {
 # la variante: la comparten los VLMs externos y `pyocrust_vl` (el motor propio
 # con `--features vl`, preset `glm_ocr`).
 VLM_VARIANT = "vl"
-VLM_BACKENDS = ("lightonocr", "glm_ocr", "paddleocr_vl", "pyocrust_vl")
+VLM_BACKENDS = ("lightonocr", "glm_ocr", "paddleocr_vl", "pyocrust_vl",
+                "lightonocr3_08b", "lightonocr3_4b")
 
 
 def emitted_channels(backend: str) -> frozenset[str]:
@@ -317,6 +321,8 @@ GPU_CAPABLE_BACKENDS = frozenset({
     # VLMs documentales SOTA (`full_page`): corren en CUDA cuando el torch del venv
     # aislado ve la GPU; el adaptador lo sondea antes de etiquetar `cuda`.
     "lightonocr", "glm_ocr", "paddleocr_vl",
+    # LightOnOCR-3 0.8B/4B (Qwen3.5 VL): mismo runtime torch/CUDA del venv.
+    "lightonocr3_08b", "lightonocr3_4b",
 })
 
 # Sondas baratas (un subproceso, `sys.exit(3)` si el runtime no ve la GPU) con las
@@ -935,6 +941,9 @@ LICENSES = {
     "lightonocr": "Apache-2.0",
     "glm_ocr": "MIT",
     "paddleocr_vl": "Apache-2.0",
+    # LightOnOCR-3 (0.8B/4B): Apache-2.0 (ficha HF, `cardData.license`).
+    "lightonocr3_08b": "Apache-2.0",
+    "lightonocr3_4b": "Apache-2.0",
     # Alternativas externas del banco `table` (además de TATR, MIT).
     "paddleocr_slanet": "Apache-2.0",
     "docling_tableformer": "MIT",
@@ -945,6 +954,8 @@ LICENSES = {
     "opencv_perspective": "Apache-2.0",
     # Alternativa externa del banco `formula` (UniMERNet, Apache-2.0).
     "unimernet": "Apache-2.0",
+    # OCR de texto de PaddleOCR (PP-OCRv6, Apache-2.0).
+    "paddleocr": "Apache-2.0",
 }
 
 # ---------------------------------------------------------------------------
@@ -964,7 +975,7 @@ ALTERNATIVE_PROVENANCE: dict[str, str] = {
     "easyocr_rotation": "independiente",
     "opencv_perspective": "baseline_clasico",
     "tatr": "independiente",
-    "paddleocr_slanet": "independiente",
+    "paddleocr_slanet": "mismo_peso_otra_via",
     "docling_tableformer": "independiente",
     "docling_heron_101": "independiente",
     "deformable_detr": "independiente",
@@ -973,11 +984,14 @@ ALTERNATIVE_PROVENANCE: dict[str, str] = {
     "lightonocr": "independiente",
     "glm_ocr": "independiente",
     "paddleocr_vl": "independiente",
+    "lightonocr3_08b": "independiente",
+    "lightonocr3_4b": "independiente",
     "rapidocr": "independiente",
     "easyocr": "independiente",
     "tesseract": "independiente",
     "paddle_latex_ocr": "independiente",
     "unimernet": "independiente",
+    "paddleocr": "independiente",
 }
 
 
@@ -1111,6 +1125,13 @@ HF_VLM_MODELS: dict[str, tuple[str, str | None, str, float]] = {
     "lightonocr":   ("lightonai/LightOnOCR-2-1B",  None,                "LightOnOcrForConditionalGeneration",  1.87),
     "glm_ocr":      ("zai-org/GLM-OCR",            "Text Recognition:", "GlmOcrForConditionalGeneration",      1.80),
     "paddleocr_vl": ("PaddlePaddle/PaddleOCR-VL",  "OCR:",              "PaddleOCRVLForConditionalGeneration", 1.80),
+    # LightOnOCR-3 (misma familia, generacion nueva). La 0.8B y la 4B usan la
+    # arquitectura Qwen3.5 vision-language (`Qwen3_5ForConditionalGeneration`,
+    # transformers>=5.5.4 -> ya 5.22 en `.venv_docling`); la 1B mantiene la de
+    # LightOnOCR-2. Prompt vacio = transcripcion plana (el modo `grounding` no lo
+    # mide este banco). Apache-2.0.
+    "lightonocr3_08b": ("lightonai/LightOnOCR-3-0.8B", None, "Qwen3_5ForConditionalGeneration", 1.50),
+    "lightonocr3_4b":  ("lightonai/LightOnOCR-3-4B",   None, "Qwen3_5ForConditionalGeneration", 7.50),
 }
 
 # Timeout por página del subproceso VLM. 1200 s se quedaba corto para PaddleOCR-VL
@@ -2042,6 +2063,52 @@ def _task_predictor_backend(task: str, device: str = "cpu", **options: object) -
     return run
 
 
+def _paddleocr_text_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
+    """OCR de texto con **PaddleOCR** (det+rec, Apache-2.0) por su API oficial.
+
+    Mismo alcance que `rapidocr`/`easyocr` (imagen completa -> lineas de texto),
+    para que la comparacion con `pyocrust` (`pp_ocrv6`) sea homogenea. **Solo
+    CPU**: se fija `device="cpu"` explicito porque PaddleOCR 3.x elige la GPU por
+    su cuenta si no se le dice lo contrario, y este banco (`text`) no declara pata
+    GPU para el. `PaddleOCR` 3.x resuelve su modelo por defecto (aqui
+    `PP-OCRv6_medium` det+rec) y lo descarga la primera vez; `enable_mkldnn=False`
+    por el crash de oneDNN/PIR de este paddle (ver `pp_structurev3_api`). La salida
+    trae `rec_texts`/`rec_scores`/`rec_polys` por pagina (OCRResult, dict-like).
+    """
+    if importlib.util.find_spec("paddleocr") is None:  # pragma: no cover - entorno sin paddleocr
+        raise ProviderUnavailable("pip install paddleocr paddlepaddle")
+    import numpy as np  # noqa: PLC0415
+    from paddleocr import PaddleOCR  # noqa: PLC0415
+    try:
+        engine = PaddleOCR(use_doc_orientation_classify=False, use_doc_unwarping=False,
+                           use_textline_orientation=False, enable_mkldnn=False, device="cpu")
+    except Exception as exc:  # noqa: BLE001 - entorno roto => skipped con motivo
+        raise ProviderUnavailable(f"paddleocr no arranca: {exc}") from exc
+
+    def run(image: Image.Image) -> OcrOutput:
+        start = time.perf_counter()
+        pages = engine.predict(np.asarray(image.convert("RGB")))
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+        texts: list[str] = []
+        scores: list[float] = []
+        boxes: list = []
+        for page in pages or []:
+            texts += [str(t) for t in (page.get("rec_texts") or [])]
+            scores += [float(s) for s in (page.get("rec_scores") or [])]
+            boxes += [_quad_to_bbox(p) for p in (page.get("rec_polys") or [])]
+        return OcrOutput(
+            text="\n".join(texts), n_regions=len(texts),
+            mean_confidence=sum(scores) / len(scores) if scores else 0.0,
+            elapsed_ms=elapsed_ms,
+            extra={"engine": "paddleocr", "boxes": boxes},
+        )
+
+    # Solo CPU: no esta en `GPU_CAPABLE_BACKENDS`, asi que el runner nunca lo
+    # etiqueta `cuda` (honestidad de proveedor).
+    run.provider_effective = "cpu"
+    return run
+
+
 # nombre -> factoría (el preset por defecto es el de `pp_ocrv6` = Tiny). Las de
 # `pyocrust` reciben el `device` resuelto (`cpu`/`auto`); el resto lo ignoran.
 PROVIDERS: dict[str, Callable[..., Callable[[Image.Image], OcrOutput]]] = {
@@ -2093,6 +2160,9 @@ PROVIDERS: dict[str, Callable[..., Callable[[Image.Image], OcrOutput]]] = {
     "rapidocr": _rapidocr_backend,
     "easyocr": _easyocr_backend,
     "tesseract": _tesseract_backend,
+    # OCR de texto de PaddleOCR (PP-OCRv6 det+rec, Apache-2.0): competidor directo
+    # de `rapidocr`/`easyocr` y del `pp_ocrv6` de pyocrust. Solo CPU.
+    "paddleocr": _paddleocr_text_backend,
     # Alternativa real al `table_structure_recognition` de `pyocrust` en el banco
     # de `table`: TATR vía `transformers` (solo CPU; `--device gpu` -> `skipped`).
     "tatr": _tatr_backend,
@@ -2106,6 +2176,9 @@ PROVIDERS: dict[str, Callable[..., Callable[[Image.Image], OcrOutput]]] = {
     "lightonocr": lambda device="cpu": _hf_vlm_backend("lightonocr", device=device),
     "glm_ocr": lambda device="cpu": _hf_vlm_backend("glm_ocr", device=device),
     "paddleocr_vl": lambda device="cpu": _hf_vlm_backend("paddleocr_vl", device=device),
+    # LightOnOCR-3 0.8B/4B: mismo adaptador `transformers`, otra clase/pesos.
+    "lightonocr3_08b": lambda device="cpu": _hf_vlm_backend("lightonocr3_08b", device=device),
+    "lightonocr3_4b": lambda device="cpu": _hf_vlm_backend("lightonocr3_4b", device=device),
     # Alternativas externas al `table_structure_recognition` de `pyocrust` (además
     # de TATR): SLANet oficial de PaddleOCR y TableFormer de docling. Solo CPU.
     "paddleocr_slanet": lambda device="cpu": _paddleocr_slanet_backend(device=device),
@@ -2158,13 +2231,16 @@ TASK_TYPES = {"pyocrust_structure": "structure", "pyocrust_formula": "formula", 
               "tatr": "table",
               # Alternativa real de `formula`: UniMERNet (LaTeX, mismo GT anotado).
               "unimernet": "formula",
+              # OCR de texto de PaddleOCR: mismo `task_type` que el banco `text`.
+              "paddleocr": "text",
               # Otras alternativas reales de `table`: SLANet (PaddleOCR) y
               # TableFormer (docling), misma GT que el especialista.
               "paddleocr_slanet": "table", "docling_tableformer": "table",
               # Pipelines documentales completos: mismo task_type que el banco.
               "pp_structurev3_api": "full_page", "docling": "full_page",
               # VLMs documentales SOTA: su tarea nativa es la página completa.
-              "lightonocr": "full_page", "glm_ocr": "full_page", "paddleocr_vl": "full_page"}
+              "lightonocr": "full_page", "glm_ocr": "full_page", "paddleocr_vl": "full_page",
+              "lightonocr3_08b": "full_page", "lightonocr3_4b": "full_page"}
 MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"), "pyocrust_structure": ("pp_structurev3", "default"),
                "pyocrust_formula": ("pp_structurev3", "pp-formulanet-s"), "pyocrust_formulanet": ("pp-formulanet-s", "direct"),
                "pyocrust_formulanet_l": ("pp-formulanet-l", "direct"),
@@ -2194,6 +2270,8 @@ MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"), "pyocrust_structure": ("pp_stru
                "tatr": ("table-transformer-structure-recognition", "default"),
                # Alternativa real de `formula`: UniMERNet (`unimernet`), pesos tiny.
                "unimernet": ("unimernet", "tiny"),
+               # OCR de texto de PaddleOCR (PP-OCRv6 medium: su modelo por defecto).
+               "paddleocr": ("PP-OCRv6", "medium"),
                # Otras alternativas de `table`: SLANet (PaddleOCR, Apache-2.0) y
                # TableFormer (docling, MIT).
                "paddleocr_slanet": ("SLANet_plus", "paddleocr"),
@@ -2204,7 +2282,10 @@ MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"), "pyocrust_structure": ("pp_stru
                # va en la variante: la etiqueta del informe es "<nombre> (<tamaño>)".
                "lightonocr": ("LightOnOCR-2-1B", "1B"),
                "glm_ocr": ("GLM-OCR", "0.9B"),
-               "paddleocr_vl": ("PaddleOCR-VL", "0.9B")}
+               "paddleocr_vl": ("PaddleOCR-VL", "0.9B"),
+               # LightOnOCR-3 (el tamaño va en la variante, como el resto de VLMs).
+               "lightonocr3_08b": ("LightOnOCR-3", "0.8B"),
+               "lightonocr3_4b": ("LightOnOCR-3", "4B")}
 
 # `params_m` conocido por mediciones previas, el smoke limitado y los ejemplos
 # explícitos del criterio; para los demás se deja desconocido hasta medir el
@@ -2246,12 +2327,15 @@ FEATURE_TYPES = {"pyocrust_structure": "full_page", "pyocrust_indra": "full_page
                  "tatr": "table",
                  # Alternativa real del banco `formula` (UniMERNet).
                  "unimernet": "formula",
+                 # OCR de texto de PaddleOCR: banco `text`.
+                 "paddleocr": "text",
                  # Otras alternativas reales de `table` (SLANet / TableFormer).
                  "paddleocr_slanet": "table", "docling_tableformer": "table",
                  # Pipelines documentales completos: mismo banco.
                  "pp_structurev3_api": "full_page", "docling": "full_page",
                  # VLMs documentales SOTA: banco `full_page`.
-                 "lightonocr": "full_page", "glm_ocr": "full_page", "paddleocr_vl": "full_page"}
+                 "lightonocr": "full_page", "glm_ocr": "full_page", "paddleocr_vl": "full_page",
+                 "lightonocr3_08b": "full_page", "lightonocr3_4b": "full_page"}
 FEATURE_TYPES.update({backend: "layout" for backend in YOLO_LAYOUT_MODELS})
 
 # `formula` compara motores que **emiten LaTeX**. Los OCR de texto no tienen

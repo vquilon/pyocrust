@@ -18,7 +18,7 @@ from PIL import Image
 
 import common.runner as runner
 
-VLM_BACKENDS = ("lightonocr", "glm_ocr", "paddleocr_vl")
+VLM_BACKENDS = ("lightonocr", "glm_ocr", "paddleocr_vl", "lightonocr3_08b", "lightonocr3_4b")
 
 
 def test_registro_completo_y_canales_de_estructura_vacios():

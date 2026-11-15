@@ -41,23 +41,18 @@
 | layout | pp-doclayoutv3 (130M) | Apache-2.0 | layout | gpu | 40 | 0.796 | 488 | cuda | omnidocbench_layout |
 | layout | docling-layout-heron-101 |  | layout | cpu | 40 | 0.818 | 1005 | cpu | omnidocbench_layout |
 | orientation | craft_mlt_25k+latin_g2 (easyocr) | Apache-2.0 | orientation | cpu | 20 | 0.350 | 42794 | cpu | synthetic_orientation |
-| orientation | pp-lcnet_x1_0_doc_ori (onnxruntime) | Apache-2.0 | orientation | cpu | 20 | 1.000 | 5 | cpu | synthetic_orientation |
 | orientation | pp-lcnet_x1_0_doc_ori (6.8M) | Apache-2.0 | orientation | cpu | 20 | 1.000 | 1448 | cpu | synthetic_orientation |
 | orientation | pp-lcnet_x1_0_doc_ori (6.8M) | Apache-2.0 | orientation | gpu | 20 | 1.000 | 192 | cuda | synthetic_orientation |
 | rectification | perspective-4corner (baseline (OpenCV, sin pesos)) | Apache-2.0 | rectification | cpu | 20 | 0.491 | 11 | cpu | synthetic_rectification |
 | rectification | uvdoc (31.7M) | Apache-2.0 | rectification | gpu | 20 | 0.590 | 33 | cuda | synthetic_rectification |
 | rectification | uvdoc (31.7M) | Apache-2.0 | rectification | cpu | 20 | 0.597 | 297 | cpu | synthetic_rectification |
-| rectification | uvdoc (onnxruntime) | Apache-2.0 | rectification | cpu | 20 | 0.604 | 78 | cpu | synthetic_rectification |
-| text_line | pp-lcnet_x1_0_textline_ori (onnxruntime) | Apache-2.0 | text_line | cpu | 20 | 1.000 | 5 | cpu | synthetic_text_line |
 | text_line | pp-lcnet_x1_0_textline_ori (6.8M) | Apache-2.0 | text_line | cpu | 20 | 1.000 | 26 | cpu | synthetic_text_line |
 | text_line | pp-lcnet_x1_0_textline_ori (6.8M) | Apache-2.0 | text_line | gpu | 20 | 1.000 | 152 | cuda | synthetic_text_line |
-| seal | pp-ocrv4_mobile_seal_det (onnxruntime) | Apache-2.0 | seal | cpu | 20 | 0.750 | 217 | cpu | synthetic_seal |
 | seal | pp-ocrv4_mobile_seal_det (4.8M) | Apache-2.0 | seal | cpu | 20 | 0.750 | 643 | cpu | synthetic_seal |
 | seal | pp-ocrv4_mobile_seal_det (4.8M) | Apache-2.0 | seal | gpu | 20 | 0.750 | 178 | cuda | synthetic_seal |
 | table | pp_structurev3 | Apache-2.0 | table | cpu | 8 | 0.753 | 3530 | cpu | omnidocbench_table |
 | table | pp_structurev3 | Apache-2.0 | table | gpu | 8 | 0.753 | 1479 | cuda | omnidocbench_table |
 | table | table-transformer-structure-recognition | MIT | table | cpu | 8 | 0.790 | 131 | cpu | omnidocbench_table |
-| table | SLANet_plus (paddleocr) | Apache-2.0 | table | cpu | 8 | 0.889 | 72 | cpu | omnidocbench_table |
 | table | tableformer (docling) | MIT | table | cpu | 8 | 0.905 | 28609 | cpu | omnidocbench_table |
 | table | slanet_plus | Apache-2.0 | table | cpu | 8 | 0.914 | 1103 | cpu | omnidocbench_table |
 | table | slanet_plus | Apache-2.0 | table | gpu | 8 | 0.914 | 172 | cuda | omnidocbench_table |

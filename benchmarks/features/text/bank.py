@@ -57,17 +57,18 @@ SPEC = FeatureSpec(
 # el default dejaba el informe con motores que nunca aparecen (criterio de la tarjeta).
 # El fantasma `doctrl` (nombre no publicado) se resolvió a su paquete real:
 # `python-doctr` (mindee/doctr, Apache-2.0), importable como `doctr`.
+# `paddleocr` ya tiene adaptador real (`common/runner._paddleocr_text_backend`,
+# PP-OCRv6 det+rec, solo CPU) -> sale del default como motor medido.
 EXTRA_FACTORIES = {
     "surya": unavailable_factory("surya", "surya-ocr (requiere torch)"),
-    "paddleocr": unavailable_factory("paddleocr", "paddleocr paddlepaddle"),
     "python-doctr": unavailable_factory("doctr", "python-doctr (mindee/doctr)"),
 }
 EXTRA_MODELS = {name: (name, "default") for name in EXTRA_FACTORIES}
 
 # Orden por defecto: solo motores con adaptador real que producen filas. Las
-# alternativas anunciadas sin fabrica (surya/paddleocr/python-doctr) se piden de
-# forma explicita y salen como `skipped` con su motivo, no en el default.
-DEFAULT_BACKENDS = "pyocrust,rapidocr,easyocr,tesseract"
+# alternativas anunciadas sin fabrica (surya/python-doctr) se piden de forma
+# explicita y salen como `skipped` con su motivo, no en el default.
+DEFAULT_BACKENDS = "pyocrust,rapidocr,easyocr,tesseract,paddleocr"
 
 
 def main(argv: Sequence[str] | None = None) -> int:

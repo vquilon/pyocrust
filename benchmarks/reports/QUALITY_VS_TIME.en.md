@@ -75,7 +75,6 @@
 
 | Engine | Device | ms/page ↓ | Quality ↑ | license |
 | :--- | :--- | ---: | ---: | :--- |
-| **pp-lcnet_x1_0_doc_ori (onnxruntime)** | cpu | 5 | 1.000 | Apache-2.0 |
 | **pp-lcnet_x1_0_doc_ori (6.8M)** | cpu | 1448 | 1.000 | Apache-2.0 |
 | craft_mlt_25k+latin_g2 (easyocr) | cpu | 42794 | 0.350 | Apache-2.0 |
 | **pp-lcnet_x1_0_doc_ori (6.8M)** | gpu | 192 | 1.000 | Apache-2.0 |
@@ -85,7 +84,6 @@
 | Engine | Device | ms/page ↓ | Quality ↑ | license |
 | :--- | :--- | ---: | ---: | :--- |
 | perspective-4corner (baseline (OpenCV, sin pesos)) | cpu | 11 | 0.491 | Apache-2.0 |
-| **uvdoc (onnxruntime)** | cpu | 78 | 0.604 | Apache-2.0 |
 | **uvdoc (31.7M)** | cpu | 297 | 0.597 | Apache-2.0 |
 | **uvdoc (31.7M)** | gpu | 33 | 0.590 | Apache-2.0 |
 
@@ -93,7 +91,6 @@
 
 | Engine | Device | ms/line ↓ | Quality ↑ | license |
 | :--- | :--- | ---: | ---: | :--- |
-| **pp-lcnet_x1_0_textline_ori (onnxruntime)** | cpu | 5 | 1.000 | Apache-2.0 |
 | **pp-lcnet_x1_0_textline_ori (6.8M)** | cpu | 26 | 1.000 | Apache-2.0 |
 | **pp-lcnet_x1_0_textline_ori (6.8M)** | gpu | 152 | 1.000 | Apache-2.0 |
 
@@ -101,7 +98,6 @@
 
 | Engine | Device | ms/image ↓ | Quality ↑ | license |
 | :--- | :--- | ---: | ---: | :--- |
-| **pp-ocrv4_mobile_seal_det (onnxruntime)** | cpu | 217 | 0.750 | Apache-2.0 |
 | **pp-ocrv4_mobile_seal_det (4.8M)** | cpu | 643 | 0.750 | Apache-2.0 |
 | **pp-ocrv4_mobile_seal_det (4.8M)** | gpu | 178 | 0.750 | Apache-2.0 |
 
@@ -109,7 +105,6 @@
 
 | Engine | Device | ms/table ↓ | Quality ↑ | license |
 | :--- | :--- | ---: | ---: | :--- |
-| SLANet_plus (paddleocr) | cpu | 72 | 0.889 | Apache-2.0 |
 | table-transformer-structure-recognition (default) | cpu | 131 | 0.790 | MIT |
 | **slanet_plus (default)** | cpu | 1103 | 0.914 | Apache-2.0 |
 | **pp_structurev3 (default)** | cpu | 3530 | 0.753 | Apache-2.0 |
