@@ -29,7 +29,7 @@
 
 ## Provenance of the alternatives
 
-- `SLANet_plus (paddleocr)` — an **independent** model (different project/checkpoint)
+- `SLANet_plus (paddleocr)` — **same weights, a different path** (the SAME PaddleOCR `.onnx` through another runtime — NOT a different model)
 - `table-transformer-structure-recognition (default)` — an **independent** model (different project/checkpoint)
 - `tableformer (docling)` — an **independent** model (different project/checkpoint)
 

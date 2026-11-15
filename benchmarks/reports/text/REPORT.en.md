@@ -4,28 +4,32 @@
 
 ## Provenance
 
-- **command**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/text/bank.py --limit 20 --device cpu`
+- **command**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe features/text/bank.py --limit 20 --device cpu --output-dir results`
 - **dataset**: `funsd` · **n** (per engine): `20` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **seed**: not applicable (deterministic benchmark, no randomness)
-- **run**: `benchmarks/results/text/2026-11-06_22-46-46` · **date**: `2026-11-06_22-46-46`
-- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': []}
+- **run**: `benchmarks/results/text/2026-11-15_11-52-57` · **date**: `2026-11-15_11-52-57`
+- **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['cuda']}
 
 ## Comparison (mean by engine)
 
 | Engine (variant) | n | Word F1 ↑ | Ordered WER ↓ | CER ↓ | WER ↓ | box recall ↑ | Mean IoU ↑ | ms/img ↓ |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| easyocr (default) | 20 | 0.401 | 0.693 | 0.527 | 0.798 | **0.068** | **0.156** | 4600 |
-| pp_ocrv6 (tiny) | 20 | **0.717** | **0.360** | 0.483 | **0.675** | 0.047 | 0.120 | **970** |
-| rapidocr (default) | 20 | 0.585 | 0.512 | **0.476** | 0.701 | 0.037 | 0.108 | 6748 |
+| PP-OCRv6 (medium) | 20 | **0.796** | **0.266** | **0.473** | **0.644** | 0.039 | 0.115 | 19361 |
+| easyocr (default) | 20 | 0.401 | 0.693 | 0.527 | 0.798 | **0.068** | **0.156** | 3701 |
+| pp_ocrv6 (tiny) | 20 | 0.717 | 0.360 | 0.483 | 0.675 | 0.047 | 0.120 | **332** |
+| rapidocr (default) | 20 | 0.585 | 0.512 | 0.476 | 0.701 | 0.037 | 0.108 | 4710 |
 
 > Bold values mark the best result for each metric among the **measured** engines in `text`. `N/A` = not evaluated (no ground truth for that column **or** the engine does not emit that structure), never an invented `0.0`.
 
 ## Skipped — not counted as executed
 
-- `doctrl` — pip install doctrl
-- `paddleocr` — NotImplementedError: paddleocr adapter pending integration
-- `surya` — pip install surya-ocr (requiere torch)
 - `tesseract` — pip install pytesseract + binario Tesseract
+
+## Provenance of the alternatives
+
+- `PP-OCRv6 (medium)` — an **independent** model (different project/checkpoint)
+
+> The reference engine (`pyocrust`) is not listed: it defines the base result. An alternative with **same weights, a different path** measures the same model through another runtime; it does **not** add an independent competitor, and it is stated as such.
 
 ## Reporting notes
 
@@ -39,9 +43,10 @@
 
 | Engine (variant) | Word F1 ↑ (CPU) | Word F1 ↑ (GPU) | ms CPU | ms GPU | GPU provider |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| easyocr (default) | 0.401 | 0.399 | 4600 | 1263 | cuda |
-| pp_ocrv6 (tiny) | 0.717 | 0.684 | 970 | 330 | cuda |
-| rapidocr (default) | 0.585 | 0.585 | 6748 | 5842 | cuda |
+| PP-OCRv6 (medium) | 0.796 | N/A | 19361 | N/A | n/a (does not run on GPU) |
+| easyocr (default) | 0.401 | 0.399 | 3701 | 1263 | cuda |
+| pp_ocrv6 (tiny) | 0.717 | 0.684 | 332 | 330 | cuda |
+| rapidocr (default) | 0.585 | 0.585 | 4710 | 5842 | cuda |
 
 > The GPU provider comes from the actual `provider_effective` value in the GPU `summary.json` (`n/a` = the engine does not expose GPU execution in this benchmark). No GPU rows are invented: engines that did not run on an accelerator appear as `N/A`.
 

@@ -6,11 +6,12 @@
 | Feature | Motor | Licencia | Task | Device | n | Calidad | ms | Proveedor | Dataset |
 | :--- | :--- | :--- | :--- | :--- | ---: | ---: | ---: | :--- | :--- |
 | text | easyocr | Apache-2.0 | text | gpu | 20 | 0.399 | 1263 | cuda | funsd |
-| text | easyocr | Apache-2.0 | text | cpu | 20 | 0.401 | 4600 | cpu | funsd |
-| text | rapidocr | Apache-2.0 | text | cpu | 20 | 0.585 | 6748 | cpu | funsd |
+| text | easyocr | Apache-2.0 | text | cpu | 20 | 0.401 | 3701 | cpu | funsd |
+| text | rapidocr | Apache-2.0 | text | cpu | 20 | 0.585 | 4710 | cpu | funsd |
 | text | rapidocr | Apache-2.0 | text | gpu | 20 | 0.585 | 5842 | cuda | funsd |
 | text | pp_ocrv6 (tiny) | Apache-2.0 | text | gpu | 20 | 0.684 | 330 | cuda | funsd |
-| text | pp_ocrv6 (tiny) | Apache-2.0 | text | cpu | 20 | 0.717 | 970 | cpu | funsd |
+| text | pp_ocrv6 (tiny) | Apache-2.0 | text | cpu | 20 | 0.717 | 332 | cpu | funsd |
+| text | PP-OCRv6 (medium) | Apache-2.0 | text | cpu | 20 | 0.796 | 19361 | cpu | funsd |
 | formula | unimernet (tiny) | Apache-2.0 | formula | cpu | 10 | 0.260 | 17493 | cpu | omnidocbench_formula |
 | formula | indra (math) | OpenRAIL-M-Mod | formula | cpu | 10 | 0.326 | 141 | cpu | omnidocbench_formula |
 | formula | indra (math) | OpenRAIL-M-Mod | formula | gpu | 10 | 0.326 | 808 | cuda | omnidocbench_formula |

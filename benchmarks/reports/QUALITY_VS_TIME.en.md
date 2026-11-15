@@ -25,9 +25,10 @@
 
 | Engine | Device | ms/img ↓ | Quality ↑ | license |
 | :--- | :--- | ---: | ---: | :--- |
-| **pp_ocrv6 (tiny)** | cpu | 970 | 0.717 | Apache-2.0 |
-| easyocr (default) | cpu | 4600 | 0.401 | Apache-2.0 |
-| rapidocr (default) | cpu | 6748 | 0.585 | Apache-2.0 |
+| **pp_ocrv6 (tiny)** | cpu | 332 | 0.717 | Apache-2.0 |
+| easyocr (default) | cpu | 3701 | 0.401 | Apache-2.0 |
+| rapidocr (default) | cpu | 4710 | 0.585 | Apache-2.0 |
+| PP-OCRv6 (medium) | cpu | 19361 | 0.796 | Apache-2.0 |
 | **pp_ocrv6 (tiny)** | gpu | 330 | 0.684 | Apache-2.0 |
 | easyocr (default) | gpu | 1263 | 0.399 | Apache-2.0 |
 | rapidocr (default) | gpu | 5842 | 0.585 | Apache-2.0 |

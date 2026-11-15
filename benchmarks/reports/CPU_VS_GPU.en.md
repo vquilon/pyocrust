@@ -73,8 +73,9 @@
 | `table` | slanet_plus (default) | 0.914 | 1103 | 172 | cuda |
 | `table` | table-transformer-structure-recognition (default) | 0.790 | 131 | N/A | n/a (does not run on GPU) |
 | `table` | tableformer (docling) | 0.905 | 28609 | N/A | n/a (does not run on GPU) |
-| `text` | easyocr (default) | 0.401 | 4600 | 1263 | cuda |
-| `text` | pp_ocrv6 (tiny) | 0.717 | 970 | 330 | cuda |
-| `text` | rapidocr (default) | 0.585 | 6748 | 5842 | cuda |
+| `text` | PP-OCRv6 (medium) | 0.796 | 19361 | N/A | n/a (does not run on GPU) |
+| `text` | easyocr (default) | 0.401 | 3701 | 1263 | cuda |
+| `text` | pp_ocrv6 (tiny) | 0.717 | 332 | 330 | cuda |
+| `text` | rapidocr (default) | 0.585 | 4710 | 5842 | cuda |
 | `text_line` | pp-lcnet_x1_0_textline_ori (6.8M) | 1.000 | 26 | 152 | cuda |
 | `text_line` | pp-lcnet_x1_0_textline_ori (onnxruntime) | 1.000 | 5 | N/A | n/a (does not run on GPU) |
