@@ -515,6 +515,7 @@ Los backends que no están instalados (o cuyos modelos faltan) se registran como
 | `reports/` | Informes Markdown/LaTeX, por feature en `reports/<feature>/`; la subcarpeta `legacy/` conserva salidas del agregador anterior. |
 | `figures/` | Gráficos PNG/SVG, por feature en `figures/<feature>/`; `legacy/` contiene salidas del agregador anterior. |
 | `results/<feature>/<run>/` | Salida por run: `<ts>.csv`, `<ts>.meta.json`, `<backend>.meta.json` y `summary.json`. **No se versiona.** |
+| `results/<feature>/vl/<run>/` | Serie **`vl`**: la comparativa con los **VLMs documentales** (incluido el motor propio `pyocrust (vl)`) vive **bajo** la feature, sin tocar la serie normal. Se puebla con `bank.py … --variant vl` (inferencia real) o con `benchmarks/_merge_runs.py <feature> <dest> <src> --backends … --variant vl` (regrupa filas ya medidas, sin inferencia). Sus informes van a `reports|figures/<feature>/vl/`. |
 | `data_cache/` | Caché local de FUNSD (`nielsr/funsd`) y OmniDocBench. Gitignored. |
 | `tests/` | Contrato del CSV/organización por feature (`test_features.py`) y pruebas funcionales (`test_functional.py`). |
 

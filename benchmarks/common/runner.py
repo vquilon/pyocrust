@@ -217,7 +217,11 @@ VLM_BACKENDS = ("lightonocr", "glm_ocr", "paddleocr_vl", "pyocrust_vl",
 # "motores pesados -> GPU"). `validez_medicion` no los cuenta como desemparejamiento
 # CPU/GPU y `CPU_VS_GPU` los deja `N/A` en CPU — nunca un valor de CPU con `n`
 # recortado. Simetrico a la regla CPU-only de las features clasicas.
-GPU_ONLY_BACKENDS = frozenset(VLM_BACKENDS)
+#
+# Excepcion: `pyocrust_vl` es un VLM sobre **Candle**, que tambien corre en CPU
+# (medido en t_7e787468: `vl` entra en el wheel de CPU, +0,63 %), asi que SI tiene
+# pata CPU y no se declara GPU-only.
+GPU_ONLY_BACKENDS = frozenset(VLM_BACKENDS) - {"pyocrust_vl"}
 
 
 def emitted_channels(backend: str) -> frozenset[str]:
@@ -2243,6 +2247,10 @@ PROVIDERS: dict[str, Callable[..., Callable[[Image.Image], OcrOutput]]] = {
     # LightOnOCR-3 0.8B/4B: mismo adaptador `transformers`, otra clase/pesos.
     "lightonocr3_08b": lambda device="cpu": _hf_vlm_backend("lightonocr3_08b", device=device),
     "lightonocr3_4b": lambda device="cpu": _hf_vlm_backend("lightonocr3_4b", device=device),
+    # Motor **propio** con la Cargo feature `vl` (ADR-001): un VLM documental
+    # (preset `glm_ocr`, GLM-OCR 0.9B sobre Candle, no ONNX). Con el `.pyd` por
+    # defecto el preset no existe y la fila sale `skipped` con el comando de build.
+    "pyocrust_vl": lambda device="cpu": _pyocrust_vl_backend(device=device),
     # Alternativas externas al `table_structure_recognition` de `pyocrust` (además
     # de TATR): SLANet oficial de PaddleOCR y TableFormer de docling. Solo CPU.
     "paddleocr_slanet": lambda device="cpu": _paddleocr_slanet_backend(device=device),
@@ -2312,7 +2320,9 @@ TASK_TYPES = {"pyocrust": "text", "pyocrust_text_small": "text", "pyocrust_text_
               "pp_structurev3_api": "full_page", "docling": "full_page",
               # VLMs documentales SOTA: su tarea nativa es la página completa.
               "lightonocr": "full_page", "glm_ocr": "full_page", "paddleocr_vl": "full_page",
-              "lightonocr3_08b": "full_page", "lightonocr3_4b": "full_page"}
+              "lightonocr3_08b": "full_page", "lightonocr3_4b": "full_page",
+              # El motor propio con `--features vl` (preset `glm_ocr`): misma tarea.
+              "pyocrust_vl": "full_page"}
 MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"),
                "pyocrust_text_small": ("pp_ocrv6", "small"),
                "pyocrust_text_medium": ("pp_ocrv6", "medium"),
@@ -2364,7 +2374,10 @@ MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"),
                "paddleocr_vl": ("PaddleOCR-VL", "0.9B"),
                # LightOnOCR-3 (el tamaño va en la variante, como el resto de VLMs).
                "lightonocr3_08b": ("LightOnOCR-3", "0.8B"),
-               "lightonocr3_4b": ("LightOnOCR-3", "4B")}
+               "lightonocr3_4b": ("LightOnOCR-3", "4B"),
+               # El motor propio con la feature `vl`: la **variante** es `vl` (asi la
+               # etiqueta del informe es `pyocrust (vl)` y cae en su propia serie).
+               "pyocrust_vl": ("pyocrust", "vl")}
 
 # `params_m` conocido por mediciones previas, el smoke limitado y los ejemplos
 # explícitos del criterio; para los demás se deja desconocido hasta medir el
@@ -2418,7 +2431,9 @@ FEATURE_TYPES = {"pyocrust": "text", "pyocrust_text_small": "text", "pyocrust_te
                  "pp_structurev3_api": "full_page", "docling": "full_page",
                  # VLMs documentales SOTA: banco `full_page`.
                  "lightonocr": "full_page", "glm_ocr": "full_page", "paddleocr_vl": "full_page",
-                 "lightonocr3_08b": "full_page", "lightonocr3_4b": "full_page"}
+                 "lightonocr3_08b": "full_page", "lightonocr3_4b": "full_page",
+                 # Motor propio con `--features vl`: banco `full_page`.
+                 "pyocrust_vl": "full_page"}
 FEATURE_TYPES.update({backend: "layout" for backend in YOLO_LAYOUT_MODELS})
 
 # `formula` compara motores que **emiten LaTeX**. Los OCR de texto no tienen
@@ -2692,33 +2707,36 @@ def _run_signature(dataset, samples, warmup, repeats, device) -> dict:
 
 
 def _write_run_outputs(out_dir, timestamp, all_rows, summary, dataset, backends,
-                       samples, warmup, repeats, device) -> Path:
+                       samples, warmup, repeats, device, variant=None) -> Path:
     """Escribe CSV + `summary.json` (idempotente). Se llama tras **cada** motor.
 
     Guardado incremental = regla contra perdida de trabajo (ver `run_backends`); la
-    `run_signature` es lo que permite reanudar una corrida incompleta.
+    `run_signature` es lo que permite reanudar una corrida incompleta. `variant`
+    (p. ej. `vl`) viaja en la provenance: la run vive bajo la feature y lo declara.
     """
     csv_path = write_csv(all_rows, out_dir, timestamp)
+    payload = {
+        "timestamp": timestamp,
+        "runtime": _describe_runtime(),
+        "origen": "medido",
+        # Provenance del DATASET: `dataset` (muestra real) o `fixture`
+        # (fallback minimo versionado, sin red). El informe lo declara.
+        "dataset_source": fixture_provenance(),
+        # Provenance: comando exacto + parametros de la corrida.
+        "command": [sys.executable, *sys.argv],
+        "dataset": dataset,
+        "backends_requested": list(backends),
+        "n_samples": len(samples),
+        "warmup": warmup,
+        "repeats": repeats,
+        "device_requested": device,
+        "run_signature": _run_signature(dataset, samples, warmup, repeats, device),
+        "backends": summary,
+    }
+    if variant:
+        payload["variant"] = variant
     (out_dir / "summary.json").write_text(
-        json.dumps({
-            "timestamp": timestamp,
-            "runtime": _describe_runtime(),
-            "origen": "medido",
-            # Provenance del DATASET: `dataset` (muestra real) o `fixture`
-            # (fallback minimo versionado, sin red). El informe lo declara.
-            "dataset_source": fixture_provenance(),
-            # Provenance: comando exacto + parametros de la corrida.
-            "command": [sys.executable, *sys.argv],
-            "dataset": dataset,
-            "backends_requested": list(backends),
-            "n_samples": len(samples),
-            "warmup": warmup,
-            "repeats": repeats,
-            "device_requested": device,
-            "run_signature": _run_signature(dataset, samples, warmup, repeats, device),
-            "backends": summary,
-        }, indent=2, ensure_ascii=False),
-        encoding="utf-8",
+        json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
     )
     return csv_path
 
@@ -2828,10 +2846,10 @@ def run_backends(
         )
         # Guardado incremental: un kill a mitad de la lista NO pierde lo ya medido.
         _write_run_outputs(out_dir, timestamp, all_rows, summary, dataset, backends,
-                           samples, warmup, repeats, device)
+                           samples, warmup, repeats, device, variant)
 
     csv_path = _write_run_outputs(out_dir, timestamp, all_rows, summary, dataset,
-                                  backends, samples, warmup, repeats, device)
+                                  backends, samples, warmup, repeats, device, variant)
     print(f"\n[csv] {csv_path}")
     print(f"[json] {out_dir / 'summary.json'}")
     return all_rows, summary

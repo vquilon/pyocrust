@@ -171,13 +171,16 @@ def run_csv(run: Path) -> Path | None:
     return csvs[0] if len(csvs) == 1 else None
 
 
-def latest_run(feature: str, root: Path = RESULTS_DIR, device: str = "cpu") -> Path | None:
+def latest_run(feature: str, root: Path = RESULTS_DIR, device: str = "cpu",
+               variant: str | None = None) -> Path | None:
     """Run de referencia para `device`: más muestras por motor, luego más motores.
 
     El filtro de device evita que una corrida GPU más reciente oculte la
     comparativa CPU de referencia. Los empates se resuelven por nombre de run.
+    Con `variant` (p. ej. `vl`) la serie vive **bajo** la feature
+    (`results/<feature>/<variant>/`), sin tocar la serie normal.
     """
-    base = root / feature
+    base = root / feature / variant if variant else root / feature
     runs = sorted((p for p in base.glob("*") if any(p.glob("*.csv"))), reverse=True) if base.is_dir() else []
     if not runs:
         return None
@@ -810,6 +813,18 @@ def _provenance_notes(feature: str, report: dict[str, dict[str, Any]]) -> list[s
     ]
 
 
+def _run_rel(run: Path) -> str:
+    """Ruta de la run relativa a `benchmarks/` (declara `.../vl/<ts>` y `_gpu/...`).
+
+    El informe antes la reconstruia a mano (`results/<feature>/<run>`), lo que
+    ocultaba la subcarpeta de variante y la jerarquia GPU.
+    """
+    try:
+        return run.resolve().relative_to(BENCHMARKS_ROOT.resolve()).as_posix()
+    except ValueError:
+        return run.as_posix()
+
+
 def render_md(feature: str, report: dict[str, dict[str, Any]], summary: dict, run: Path,
               gpu: tuple[dict, dict] | None = None) -> str:
     """Markdown del reporte por feature (provenance + comparativa + skipped)."""
@@ -870,7 +885,7 @@ def render_md(feature: str, report: dict[str, dict[str, Any]], summary: dict, ru
             "maquina; los bytes se verifican contra `benchmarks/datasets_manifest.json`")
     lines += [
         f"- **seed**: no aplica (banco determinista, sin aleatoriedad)",
-        f"- **run**: `benchmarks/results/{feature}/{run.name}` · **fecha**: `{summary.get('timestamp', run.name)}`",
+        f"- **run**: `benchmarks/{_run_rel(run)}` · **fecha**: `{summary.get('timestamp', run.name)}`",
         f"- **runtime**: {summary.get('runtime', {})}",
         "",
         "## Comparativa (media por motor)",
@@ -1174,11 +1189,14 @@ def plot_feature(feature: str, report: dict, summary: dict, out: Path,
 GPU_PROVIDERS = frozenset({"cuda", "directml", "tensorrt", "coreml", "openvino", "webgpu", "rocm", "mps"})
 
 
-def load_gpu(feature: str, n_samples: int | None = None) -> tuple[dict, dict] | None:
+def load_gpu(feature: str, n_samples: int | None = None,
+             variant: str | None = None) -> tuple[dict, dict] | None:
     """Agrega la última run GPU real de cada motor, no una sola run global.
 
     Escanea la jerarquía designada (`results/_gpu/<feature>/`) y también la ruta
     CPU (`results/<feature>/`): hay runs GPU escritas sin `--output-dir`.
+    Con `variant`, ambas jerarquías se restringen a la subcarpeta de variante
+    (`results[/_gpu]/<feature>/<variant>/`).
 
     Con `n_samples` solo se consideran runs GPU del **mismo tamaño de muestra**
     que la run CPU de referencia: al cambiar la muestra (p. ej. la estratificada
@@ -1186,7 +1204,8 @@ def load_gpu(feature: str, n_samples: int | None = None) -> tuple[dict, dict] | 
     y su calidad no sería comparable — mezclarlas rompería el «misma calidad CPU
     vs GPU» de la tabla consolidada.
     """
-    roots = (GPU_RESULTS_DIR / feature, RESULTS_DIR / feature)
+    roots = tuple(r / feature / variant if variant else r / feature
+                  for r in (GPU_RESULTS_DIR, RESULTS_DIR))
     runs = sorted({p for root in roots if root.is_dir() for p in root.iterdir()
                    if p.is_dir() and any(p.glob("*.csv"))},
                   key=lambda p: (p.name, p.as_posix()), reverse=True)
@@ -1274,28 +1293,38 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--feature", choices=sorted(FEATURE_COLUMNS))
     parser.add_argument("--all", action="store_true")
     parser.add_argument("--run", type=Path, default=None, help="carpeta de la run")
+    parser.add_argument("--variant", default=None,
+                        help="subcarpeta de variante bajo la feature (p. ej. `vl`): lee "
+                             "results/<feature>/<variant>/ y escribe los informes en "
+                             "reports|figures/<feature>/<variant>/, sin tocar la serie normal")
     parser.add_argument("--no-md", action="store_true",
                         help="no reescribir REPORT.md (solo la gráfica REPORT.png/.svg)")
     parser.add_argument("--no-gpu", action="store_true",
                         help="no anexar la sección CPU vs GPU (ignora results/_gpu/)")
     args = parser.parse_args(argv)
+    if args.variant and (args.all or not args.feature):
+        parser.error("--variant exige --feature <feature> (una variante es de UNA feature)")
+    variant = args.variant
     features = sorted(FEATURE_COLUMNS) if args.all or not args.feature else [args.feature]
     rc = 0
     for feature in features:
-        run = args.run or latest_run(feature)
+        run = args.run or latest_run(feature, variant=variant)
         if run is None:
             print(f"[report] {feature}: sin runs en results/{feature}/ (nada que reportar)")
             rc = 1
             continue
+        # La variante escribe en su propia subcarpeta: la serie normal no se toca.
+        rep_dir = REPORTS_DIR / feature / variant if variant else REPORTS_DIR / feature
+        fig_dir = FIGURES_DIR / feature / variant if variant else FIGURES_DIR / feature
         report, summary = analyze(feature, run)
-        gpu = None if args.no_gpu else load_gpu(feature, summary.get("n_samples"))
+        gpu = None if args.no_gpu else load_gpu(feature, summary.get("n_samples"), variant=variant)
         md = render_md(feature, report, summary, run, gpu=gpu)
         print(md)
         if not args.no_md:
-            out = REPORTS_DIR / feature / "REPORT.md"
+            out = rep_dir / "REPORT.md"
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(md + "\n", encoding="utf-8")
-            (REPORTS_DIR / feature / "REPORT.en.md").write_text(
+            (rep_dir / "REPORT.en.md").write_text(
                 english_markdown(md) + "\n", encoding="utf-8"
             )
             # Tabla publicable MD/TeX desde el MISMO agregado que el REPORT: una
@@ -1304,14 +1333,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             # manda: no se pisa desde aquí.
             if feature != "layout":
                 table_md, table_tex = render_table(feature, report, summary)
-                (REPORTS_DIR / feature / "benchmark_table.md").write_text(table_md, encoding="utf-8")
-                (REPORTS_DIR / feature / "benchmark_table.en.md").write_text(
+                (rep_dir / "benchmark_table.md").write_text(table_md, encoding="utf-8")
+                (rep_dir / "benchmark_table.en.md").write_text(
                     english_markdown(table_md), encoding="utf-8"
                 )
-                (REPORTS_DIR / feature / "benchmark_table.tex").write_text(table_tex, encoding="utf-8")
+                (rep_dir / "benchmark_table.tex").write_text(table_tex, encoding="utf-8")
             print(f"\n[report] {feature} -> {out} (+ .en.md)")
         if feature in TITULAR_METRIC:
-            out = FIGURES_DIR / feature / "REPORT"
+            out = fig_dir / "REPORT"
             out.parent.mkdir(parents=True, exist_ok=True)
             plot_feature(feature, report, summary, out, gpu_report=(gpu[0] if gpu else None))
             print(f"[report] {feature} -> {out}.png (+ .svg)")
