@@ -1,6 +1,6 @@
 # Reporte por feature: `orientation`
 
-> **Por qué gana o pierde aquí:** modelo vs motor vs medida — ver [`../ANALISIS_MOTOR_VS_MODELO.md`](../../ANALISIS_MOTOR_VS_MODELO.md).
+> **Por qué gana o pierde aquí:** modelo vs motor vs medida — ver [`ANALISIS_MOTOR_VS_MODELO.md`](../../ANALISIS_MOTOR_VS_MODELO.md).
 
 > **Origen: `medido`** — ejecutado por nosotros en este repo. No hay filas de `referencia` (externas) en esta tabla.
 

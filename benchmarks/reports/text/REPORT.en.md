@@ -1,6 +1,6 @@
 # Feature report: `text`
 
-> **Why it wins or loses here:** model vs engine vs measurement — see [`../ANALISIS_MOTOR_VS_MODELO.en.md`](../../ANALISIS_MOTOR_VS_MODELO.en.md).
+> **Why it wins or loses here:** model vs. engine vs. measurement — see [`ANALISIS_MOTOR_VS_MODELO.md`](../../ANALISIS_MOTOR_VS_MODELO.md).
 
 > **Source: `measured`** — run by us in this repository. This table contains no external `reference` rows.
 

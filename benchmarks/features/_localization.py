@@ -15,6 +15,7 @@ _REPLACEMENTS = {
     "# Calidad vs tiempo por feature — tabla unificada CPU/GPU": "# Quality vs. time by feature — unified CPU/GPU table",
     "# CPU vs GPU por feature — misma calidad, distinto tiempo": "# CPU vs. GPU by feature — same quality, different runtime",
     "**Origen: `medido`** — ejecutado por nosotros en este repo. No hay filas de `referencia` (externas) en esta tabla.": "**Source: `measured`** — run by us in this repository. This table contains no external `reference` rows.",
+    "**Por qué gana o pierde aquí:** modelo vs motor vs medida — ver": "**Why it wins or loses here:** model vs. engine vs. measurement — see",
     "## Comparativa (media por motor)": "## Comparison (mean by engine)",
     "## Saltados (`skipped`) — no cuentan como ejecutados": "## Skipped — not counted as executed",
     "## Nota de honestidad": "## Reporting notes",

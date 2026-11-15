@@ -867,6 +867,12 @@ def render_md(feature: str, report: dict[str, dict[str, Any]], summary: dict, ru
     lines = [
         f"# Reporte por feature: `{feature}`",
         "",
+        # Nota estable: la escribe el GENERADOR (una edicion a mano sobre el informe
+        # se pierde en la siguiente regeneracion -> guard de mtime rojo + enlace
+        # perdido). Ver la tarjeta del analisis por feature.
+        "> **Por qué gana o pierde aquí:** modelo vs motor vs medida — ver "
+        "[`ANALISIS_MOTOR_VS_MODELO.md`](../../ANALISIS_MOTOR_VS_MODELO.md).",
+        "",
         "> **Origen: `medido`** — ejecutado por nosotros en este repo. No hay filas de "
         "`referencia` (externas) en esta tabla.",
         "",
