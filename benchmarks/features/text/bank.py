@@ -67,8 +67,11 @@ EXTRA_MODELS = {name: (name, "default") for name in EXTRA_FACTORIES}
 
 # Orden por defecto: solo motores con adaptador real que producen filas. Las
 # alternativas anunciadas sin fabrica (surya/python-doctr) se piden de forma
-# explicita y salen como `skipped` con su motivo, no en el default.
-DEFAULT_BACKENDS = "pyocrust,rapidocr,easyocr,tesseract,paddleocr"
+# explicita y salen como `skipped` con su motivo, no en el default. Las tres
+# tallas de pyocrust (PP-OCRv6 tiny/small/medium) y PaddleOCR (PP-OCRv6 medium
+# externo) comparan el mismo motor por distintas vias/tamanos.
+DEFAULT_BACKENDS = ("pyocrust,pyocrust_text_small,pyocrust_text_medium,"
+                    "rapidocr,easyocr,tesseract,paddleocr")
 
 
 def main(argv: Sequence[str] | None = None) -> int:

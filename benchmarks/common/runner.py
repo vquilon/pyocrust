@@ -2113,6 +2113,10 @@ def _paddleocr_text_backend(device: str = "cpu") -> Callable[[Image.Image], OcrO
 # `pyocrust` reciben el `device` resuelto (`cpu`/`auto`); el resto lo ignoran.
 PROVIDERS: dict[str, Callable[..., Callable[[Image.Image], OcrOutput]]] = {
     "pyocrust": lambda device="cpu": _pyocrust_backend("pp_ocrv6", device=device),
+    # Mismo envoltorio, otros tamanos del preset PP-OCRv6 (`speed`/`balanced`/
+    # `accuracy`): el banco `text` compara las tres tallas de pyocrust entre si.
+    "pyocrust_text_small": lambda device="cpu": _pyocrust_backend("pp_ocrv6_small", device=device),
+    "pyocrust_text_medium": lambda device="cpu": _pyocrust_backend("pp_ocrv6_medium", device=device),
     "pyocrust_structure": lambda device="cpu": _pyocrust_backend("pp_structurev3", device=device),
     "pyocrust_formula": lambda device="cpu": _pyocrust_backend("pp_structurev3", formula_only=True, device=device),
     "pyocrust_formulanet": lambda device="cpu": _pyocrust_formula_variant_backend("pp-formulanet-s.onnx", device=device),
@@ -2211,7 +2215,8 @@ def _describe_runtime() -> dict:
     }
 
 
-TASK_TYPES = {"pyocrust_structure": "structure", "pyocrust_formula": "formula", "pyocrust_formulanet": "formula",
+TASK_TYPES = {"pyocrust": "text", "pyocrust_text_small": "text", "pyocrust_text_medium": "text",
+              "pyocrust_structure": "structure", "pyocrust_formula": "formula", "pyocrust_formulanet": "formula",
               "pyocrust_formulanet_l": "formula", "pyocrust_formulanet_pluss": "formula",
               "pyocrust_formulanet_plusm": "formula", "pyocrust_formulanet_plusl": "formula",
               "pyocrust_indra": "full_page",
@@ -2241,7 +2246,10 @@ TASK_TYPES = {"pyocrust_structure": "structure", "pyocrust_formula": "formula", 
               # VLMs documentales SOTA: su tarea nativa es la página completa.
               "lightonocr": "full_page", "glm_ocr": "full_page", "paddleocr_vl": "full_page",
               "lightonocr3_08b": "full_page", "lightonocr3_4b": "full_page"}
-MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"), "pyocrust_structure": ("pp_structurev3", "default"),
+MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"),
+               "pyocrust_text_small": ("pp_ocrv6", "small"),
+               "pyocrust_text_medium": ("pp_ocrv6", "medium"),
+               "pyocrust_structure": ("pp_structurev3", "default"),
                "pyocrust_formula": ("pp_structurev3", "pp-formulanet-s"), "pyocrust_formulanet": ("pp-formulanet-s", "direct"),
                "pyocrust_formulanet_l": ("pp-formulanet-l", "direct"),
                "pyocrust_formulanet_pluss": ("pp-formulanet_plus-s", "direct"),
@@ -2308,7 +2316,8 @@ MODEL_NAMES.update({
 })
 TASK_TYPES.update({backend: "layout" for backend in YOLO_LAYOUT_MODELS})
 # Banco de feature al que pertenece cada backend conocido (columna `feature`).
-FEATURE_TYPES = {"pyocrust_structure": "full_page", "pyocrust_indra": "full_page",
+FEATURE_TYPES = {"pyocrust": "text", "pyocrust_text_small": "text", "pyocrust_text_medium": "text",
+                 "pyocrust_structure": "full_page", "pyocrust_indra": "full_page",
                  "pyocrust_formula": "formula", "pyocrust_formulanet": "formula",
                  "pyocrust_formulanet_l": "formula", "pyocrust_formulanet_pluss": "formula",
                  "pyocrust_formulanet_plusm": "formula", "pyocrust_formulanet_plusl": "formula",
