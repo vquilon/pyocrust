@@ -81,5 +81,15 @@ def test_cpu_declara_cpu_y_pasa_device_y_prompt_al_hijo(monkeypatch):
         assert run.provider_effective == "cpu", backend
         assert run.emits == frozenset(), backend
         assert run(Image.new("RGB", (4, 4))).text == "# ok", backend
-        assert calls["cmd"][-1] == "cpu", backend
-        assert calls["cmd"][-4] == (runner.HF_VLM_MODELS[backend][1] or ""), backend
+        # argv: ... prompt, class, path, device, max_side
+        assert calls["cmd"][-2] == "cpu", backend
+        assert calls["cmd"][-1] == str(runner.HF_VLM_MAX_SIDE.get(backend, 0)), backend
+        assert calls["cmd"][-5] == (runner.HF_VLM_MODELS[backend][1] or ""), backend
+
+
+def test_cota_de_resolucion_solo_en_lightonocr3(monkeypatch):
+    """La cota de 2048 px es solo para `lightonocr3_*`; el resto corre nativa."""
+    assert runner.HF_VLM_MAX_SIDE.get("lightonocr3_08b") == 2048
+    assert runner.HF_VLM_MAX_SIDE.get("lightonocr3_4b") == 2048
+    for backend in ("lightonocr", "glm_ocr", "paddleocr_vl"):
+        assert runner.HF_VLM_MAX_SIDE.get(backend, 0) == 0, backend

@@ -111,6 +111,15 @@ timeout**, **un modelo a la vez** (ver `common/runner.py::_hf_vlm_backend`).
 | `lightonocr` | [`lightonai/LightOnOCR-2-1B`](https://huggingface.co/lightonai/LightOnOCR-2-1B) | Apache-2.0 | 1B | `frozenset()` |
 | `glm_ocr` | [`zai-org/GLM-OCR`](https://huggingface.co/zai-org/GLM-OCR) | MIT | 0.9B | `frozenset()` |
 | `paddleocr_vl` | [`PaddlePaddle/PaddleOCR-VL`](https://huggingface.co/PaddlePaddle/PaddleOCR-VL) | Apache-2.0 | 0.9B | `frozenset()` |
+| `lightonocr3_08b` | [`lightonai/LightOnOCR-3-0.8B`](https://huggingface.co/lightonai/LightOnOCR-3-0.8B) | Apache-2.0 | 0.8B | `frozenset()` |
+| `lightonocr3_4b` | [`lightonai/LightOnOCR-3-4B`](https://huggingface.co/lightonai/LightOnOCR-3-4B) | Apache-2.0 | 4B | `frozenset()` |
+
+- **Cota de resolución (`HF_VLM_MAX_SIDE`)**: `lightonocr3_*` se mide con el lado
+  mayor reescalado a **2048 px** antes del processor (su resolución dinámica sin
+  cota daba >24 min/página en GPU en las páginas densas; 2048 es lo que usa el
+  cliente oficial). El resto de VLMs corre a resolución nativa (`0` = sin tocar).
+  **El `markdown_f1` de `lightonocr3_*` es por tanto sobre la imagen reescalada**,
+  no comparable pixel a pixel con una corrida sin cota.
 
 - **Solo Markdown ⇒ sin filas `0.0` falsas.** Los tres declaran `emits=frozenset()`
   (como `docling`): sus columnas de estructura (`block_f1`, `layout mAP`, `TEDS`,

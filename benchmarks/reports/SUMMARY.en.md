@@ -73,16 +73,18 @@
 
 | Engine | Value | n | Source | license |
 | :--- | ---: | ---: | :--- | :--- |
-| **slanet_plus** | 0.914 | 8 | measured | Apache-2.0 |
+| **slanext_wired (367M)** | 0.914 | 8 | measured | Apache-2.0 |
 | tableformer (docling) | 0.905 | 8 | measured | MIT |
+| **slanet_plus (7.8M)** | 0.868 | 8 | measured | Apache-2.0 |
 | table-transformer-structure-recognition | 0.790 | 8 | measured | MIT |
-| **pp_structurev3** | 0.753 | 8 | measured | Apache-2.0 |
 
 ## full_page — OmniDocBench (EN) — `measured` · **measured dataset**: `omnidocbench_full_page_en`
 
 | Engine | Value | n | Source | license |
 | :--- | ---: | ---: | :--- | :--- |
+| LightOnOCR-3 (0.8B) | 0.625 | 6 | measured | Apache-2.0 |
 | PaddleOCR-VL (0.9B) | 0.597 | 6 | measured | Apache-2.0 |
+| LightOnOCR-3 (4B) | 0.590 | 6 | measured | Apache-2.0 |
 | LightOnOCR-2-1B (1B) | 0.588 | 6 | measured | Apache-2.0 |
 | GLM-OCR (0.9B) | 0.559 | 6 | measured | MIT |
 | **indra (math)** | 0.556 | 6 | measured | OpenRAIL-M-Mod |

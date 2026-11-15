@@ -13,6 +13,8 @@
 | `formula` | unimernet (tiny) | 0.260 | 17493 | N/A | n/a (no corre en GPU) |
 | `full_page` | GLM-OCR (0.9B) | 0.559 | N/A | 30716 | cuda |
 | `full_page` | LightOnOCR-2-1B (1B) | 0.588 | N/A | 44737 | cuda |
+| `full_page` | LightOnOCR-3 (0.8B) | 0.625 | N/A | 320707 | cuda |
+| `full_page` | LightOnOCR-3 (4B) | 0.590 | N/A | 72249 | cuda |
 | `full_page` | PP-StructureV3 (paddleocr) | 0.427 | 180058 | 68269 | cuda |
 | `full_page` | PaddleOCR-VL (0.9B) | 0.597 | N/A | 60907 | cuda |
 | `full_page` | docling-default (pipeline) | 0.512 | 26739 | 22740 | cuda |
@@ -68,11 +70,13 @@
 | `rectification` | uvdoc (onnxruntime) | 0.604 | 78 | N/A | n/a (no corre en GPU) |
 | `seal` | pp-ocrv4_mobile_seal_det (4.8M) | 0.750 | 643 | 178 | cuda |
 | `seal` | pp-ocrv4_mobile_seal_det (onnxruntime) | 0.750 | 217 | N/A | n/a (no corre en GPU) |
-| `table` | SLANet_plus (paddleocr) | 0.889 | 72 | N/A | n/a (no corre en GPU) |
-| `table` | pp_structurev3 (default) | 0.753 | 3530 | 1479 | cuda |
-| `table` | slanet_plus (default) | 0.914 | 1103 | 172 | cuda |
-| `table` | table-transformer-structure-recognition (default) | 0.790 | 131 | N/A | n/a (no corre en GPU) |
-| `table` | tableformer (docling) | 0.905 | 28609 | N/A | n/a (no corre en GPU) |
+| `table` | SLANeXt_wired (paddleocr) | 0.882 | 126 | N/A | n/a (no corre en GPU) |
+| `table` | SLANet_plus (paddleocr) | 0.889 | 83 | N/A | n/a (no corre en GPU) |
+| `table` | pp_structurev3 (default) | 0.753 | N/A | 1479 | cuda |
+| `table` | slanet_plus (7.8M) | 0.868 | 47 | 474 | cuda |
+| `table` | slanext_wired (367M) | 0.914 | 500 | 190 | cuda |
+| `table` | table-transformer-structure-recognition (default) | 0.790 | 703 | N/A | n/a (no corre en GPU) |
+| `table` | tableformer (docling) | 0.905 | 20362 | N/A | n/a (no corre en GPU) |
 | `text` | PP-OCRv6 (medium) | 0.796 | 19163 | N/A | n/a (no corre en GPU) |
 | `text` | easyocr (default) | 0.401 | 3167 | 1263 | cuda |
 | `text` | pp_ocrv6 (medium) | 0.800 | 2223 | N/A | n/a (no corre en GPU) |

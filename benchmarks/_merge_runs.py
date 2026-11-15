@@ -21,7 +21,9 @@ def main(argv: list[str]) -> int:
     feature, dest, *sources = argv
     dest = Path(dest)
     dest.mkdir(parents=True, exist_ok=True)
-    merged_ts = None
+    merged_ts: str | None = None
+    header: str | None = None
+    rows: list[str] = []
     for src in sources:
         src = Path(src)
         csvs = sorted(src.glob("*.csv"))
@@ -29,12 +31,21 @@ def main(argv: list[str]) -> int:
             print(f"[warn] {src} sin CSV")
             continue
         for csv_path in csvs:
-            shutil.copy2(csv_path, dest / csv_path.name)
-        latest = csvs[-1]
-        merged_ts = latest.stem
+            lines = csv_path.read_text(encoding="utf-8").splitlines()
+            if not lines:
+                continue
+            if header is None:
+                header = lines[0]
+            rows.extend(ln for ln in lines[1:] if ln.strip())
+            merged_ts = csv_path.stem
         # Copia los meta por backend y sus outputs (si los hay).
         for extra in list(src.glob("*.meta.json")) + list(src.glob("*.outputs.json")):
             shutil.copy2(extra, dest / extra.name)
+    # UN solo CSV: `run_csv`/`validez_medicion` exigen exactamente uno; con varios
+    # de nombres distintos ninguno casa con el timestamp y la run no se publica
+    # (y validez solo veria los motores de uno).
+    if header is not None and merged_ts:
+        (dest / f"{merged_ts}.csv").write_text("\n".join([header, *rows]) + "\n", encoding="utf-8")
     # summary.json propio: hereda la provenance de nivel superior de la primera
     # fuente (dataset, command, warmup, repeats, device…) y combina los backends
     # de todas. Sin esto el REPORT sale con `dataset: ?` (provenance perdida).
@@ -50,7 +61,7 @@ def main(argv: list[str]) -> int:
     merged = {**base, "timestamp": merged_ts, "feature": feature, "backends": backends}
     (dest / "summary.json").write_text(json.dumps(merged, indent=2), encoding="utf-8")
     total = sum(1 for _ in dest.glob("*.csv"))
-    print(f"[merge] {feature}: {total} CSV en {dest}")
+    print(f"[merge] {feature}: {len(rows)} filas en {total} CSV -> {dest}")
     return 0
 
 

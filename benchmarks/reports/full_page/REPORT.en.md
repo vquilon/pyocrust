@@ -47,6 +47,8 @@
 | :--- | ---: | ---: | ---: | ---: | :--- |
 | GLM-OCR (0.9B) | N/A | 0.559 | N/A | 30716 | cuda |
 | LightOnOCR-2-1B (1B) | N/A | 0.588 | N/A | 44737 | cuda |
+| LightOnOCR-3 (0.8B) | N/A | 0.625 | N/A | 320707 | cuda |
+| LightOnOCR-3 (4B) | N/A | 0.590 | N/A | 72249 | cuda |
 | PP-StructureV3 (paddleocr) | 0.427 | 0.496 | 180058 | 68269 | cuda |
 | PaddleOCR-VL (0.9B) | N/A | 0.597 | N/A | 60907 | cuda |
 | docling-default (pipeline) | 0.512 | 0.512 | 26739 | 22740 | cuda |

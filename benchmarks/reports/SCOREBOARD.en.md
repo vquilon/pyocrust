@@ -53,12 +53,12 @@
 | text_line | pp-lcnet_x1_0_textline_ori (6.8M) | Apache-2.0 | text_line | gpu | 20 | 1.000 | 152 | cuda | synthetic_text_line |
 | seal | pp-ocrv4_mobile_seal_det (4.8M) | Apache-2.0 | seal | cpu | 20 | 0.750 | 643 | cpu | synthetic_seal |
 | seal | pp-ocrv4_mobile_seal_det (4.8M) | Apache-2.0 | seal | gpu | 20 | 0.750 | 178 | cuda | synthetic_seal |
-| table | pp_structurev3 | Apache-2.0 | table | cpu | 8 | 0.753 | 3530 | cpu | omnidocbench_table |
-| table | pp_structurev3 | Apache-2.0 | table | gpu | 8 | 0.753 | 1479 | cuda | omnidocbench_table |
-| table | table-transformer-structure-recognition | MIT | table | cpu | 8 | 0.790 | 131 | cpu | omnidocbench_table |
-| table | tableformer (docling) | MIT | table | cpu | 8 | 0.905 | 28609 | cpu | omnidocbench_table |
-| table | slanet_plus | Apache-2.0 | table | cpu | 8 | 0.914 | 1103 | cpu | omnidocbench_table |
-| table | slanet_plus | Apache-2.0 | table | gpu | 8 | 0.914 | 172 | cuda | omnidocbench_table |
+| table | table-transformer-structure-recognition | MIT | table | cpu | 8 | 0.790 | 703 | cpu | omnidocbench_table |
+| table | slanet_plus (7.8M) | Apache-2.0 | table | cpu | 8 | 0.868 | 47 | cpu | omnidocbench_table |
+| table | slanet_plus (7.8M) | Apache-2.0 | table | gpu | 8 | 0.868 | 474 | cuda | omnidocbench_table |
+| table | tableformer (docling) | MIT | table | cpu | 8 | 0.905 | 20362 | cpu | omnidocbench_table |
+| table | slanext_wired (367M) | Apache-2.0 | table | cpu | 8 | 0.914 | 500 | cpu | omnidocbench_table |
+| table | slanext_wired (367M) | Apache-2.0 | table | gpu | 8 | 0.914 | 190 | cuda | omnidocbench_table |
 | full_page | PP-StructureV3 (paddleocr) | Apache-2.0 | full_page | cpu | 6 | 0.427 | 180058 | cpu | omnidocbench_full_page_en |
 | full_page | PP-StructureV3 (paddleocr) | Apache-2.0 | full_page | gpu | 6 | 0.496 | 68269 | cuda | omnidocbench_full_page_en |
 | full_page | docling-default (pipeline) | MIT | full_page | cpu | 6 | 0.512 | 26739 | cpu | omnidocbench_full_page_en |
@@ -69,4 +69,6 @@
 | full_page | indra (math) | OpenRAIL-M-Mod | full_page | gpu | 6 | 0.556 | 1793 | cuda | omnidocbench_full_page_en |
 | full_page | GLM-OCR (0.9B) | MIT | full_page | gpu | 6 | 0.559 | 30716 | cuda | omnidocbench_full_page_en |
 | full_page | LightOnOCR-2-1B (1B) | Apache-2.0 | full_page | gpu | 6 | 0.588 | 44737 | cuda | omnidocbench_full_page_en |
+| full_page | LightOnOCR-3 (4B) | Apache-2.0 | full_page | gpu | 6 | 0.590 | 72249 | cuda | omnidocbench_full_page_en |
 | full_page | PaddleOCR-VL (0.9B) | Apache-2.0 | full_page | gpu | 6 | 0.597 | 60907 | cuda | omnidocbench_full_page_en |
+| full_page | LightOnOCR-3 (0.8B) | Apache-2.0 | full_page | gpu | 6 | 0.625 | 320707 | cuda | omnidocbench_full_page_en |

@@ -108,11 +108,12 @@
 
 | Motor | Device | ms/tabla ↓ | calidad ↑ | license |
 | :--- | :--- | ---: | ---: | :--- |
-| table-transformer-structure-recognition (default) | cpu | 131 | 0.790 | MIT |
-| **slanet_plus (default)** | cpu | 1103 | 0.914 | Apache-2.0 |
-| **pp_structurev3 (default)** | cpu | 3530 | 0.753 | Apache-2.0 |
-| tableformer (docling) | cpu | 28609 | 0.905 | MIT |
-| **slanet_plus (default)** | gpu | 172 | 0.914 | Apache-2.0 |
+| **slanet_plus (7.8M)** | cpu | 47 | 0.868 | Apache-2.0 |
+| **slanext_wired (367M)** | cpu | 500 | 0.914 | Apache-2.0 |
+| table-transformer-structure-recognition (default) | cpu | 703 | 0.790 | MIT |
+| tableformer (docling) | cpu | 20362 | 0.905 | MIT |
+| **slanext_wired (367M)** | gpu | 190 | 0.914 | Apache-2.0 |
+| **slanet_plus (7.8M)** | gpu | 474 | 0.868 | Apache-2.0 |
 | **pp_structurev3 (default)** | gpu | 1479 | 0.753 | Apache-2.0 |
 
 ## full_page — OmniDocBench (EN) — device `cpu+gpu` · motores medidos
@@ -130,3 +131,5 @@
 | LightOnOCR-2-1B (1B) | gpu | 44737 | 0.588 | Apache-2.0 |
 | PaddleOCR-VL (0.9B) | gpu | 60907 | 0.597 | Apache-2.0 |
 | PP-StructureV3 (paddleocr) | gpu | 68269 | 0.496 | Apache-2.0 |
+| LightOnOCR-3 (4B) | gpu | 72249 | 0.590 | Apache-2.0 |
+| LightOnOCR-3 (0.8B) | gpu | 320707 | 0.625 | Apache-2.0 |
