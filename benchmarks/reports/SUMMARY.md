@@ -10,7 +10,9 @@
 
 | Motor | Valor | n | Origen | license |
 | :--- | ---: | ---: | :--- | :--- |
+| **pp_ocrv6 (medium)** | 0.800 | 20 | medido | Apache-2.0 |
 | PP-OCRv6 (medium) | 0.796 | 20 | medido | Apache-2.0 |
+| **pp_ocrv6 (small)** | 0.784 | 20 | medido | Apache-2.0 |
 | **pp_ocrv6 (tiny)** | 0.717 | 20 | medido | Apache-2.0 |
 | rapidocr | 0.585 | 20 | medido | Apache-2.0 |
 | easyocr | 0.401 | 20 | medido | Apache-2.0 |
