@@ -70,6 +70,7 @@ precarga el `import torch` posterior revienta con `WinError 127` en
 
 > Tabla **pre-campaña** (antes de la pata GPU en DirectML). Estado vigente al pie de la sección.
 > Un motor CPU-only —el que `common.runner.device_outcome(..., "gpu")` marca con motivo— **no** cuenta como desemparejamiento: no puede tener fila GPU.
+> Simetricamente, un motor **GPU-only** (`common.runner.GPU_ONLY_BACKENDS`: los **VLM documentales** de `full_page` — LightOnOCR/GLM-OCR/PaddleOCR-VL/LightOnOCR-3) **no** cuenta como desemparejamiento si falta en CPU: en CPU son impracticables (>1200 s/pagina en las densas; ~150 s/pagina en las que acaban), asi que su pata es solo GPU y en `CPU_VS_GPU` quedan `N/A` en CPU — nunca un valor de CPU con `n` recortado. Es una decision de politica (motores pesados -> GPU), no una capacidad: por eso `.venv_docling` los deja correr en GPU.
 
 Comprobar con:
 

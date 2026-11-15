@@ -4,24 +4,21 @@
 
 ## Provenance
 
-- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe benchmarks/features/full_page/bank.py --dataset omnidocbench_full_page_en --limit 6 --device cpu --backends pyocrust_structure,pyocrust_indra,docling,pp_structurev3_api,lightonocr,glm_ocr,paddleocr_vl --output-dir benchmarks/results`
+- **comando**: `D:\workspace\Plaiground\ac_documentalia\rust-bindings\pyocrust\.venv\Scripts\python.exe features/full_page/bank.py --dataset omnidocbench_full_page_en --limit 6 --device cpu --output-dir results`
 - **dataset**: `omnidocbench_full_page_en` · **n** (por motor): `6` · **warmup**: `1` · **repeats**: `1` · **device**: `cpu`
 - **revision HF (fijada)**: `aa1ee96d106dbe53d0ae59474d75c6e6d9b53fec` — misma revision en cualquier maquina; los bytes se verifican contra `benchmarks/datasets_manifest.json`
 - **seed**: no aplica (banco determinista, sin aleatoriedad)
-- **run**: `benchmarks/results/full_page/2026-11-14_18-38-10` · **fecha**: `2026-11-14_18-38-10`
+- **run**: `benchmarks/results/full_page/2026-11-15_12-50-54` · **fecha**: `2026-11-15_12-50-54`
 - **runtime**: {'python': '3.12.11', 'platform': 'Windows-11-10.0.26200-SP0', 'machine': 'AMD64', 'processor': 'Intel64 Family 6 Model 198 Stepping 2, GenuineIntel', 'pyocrust': '0.1.0', 'available_providers': ['cuda']}
 
 ## Comparativa (media por motor)
 
 | Motor (variante) | n | Markdown F1 ↑ | F1 bloques ↑ | layout mAP ↑ | TEDS tabla ↑ | LaTeX sim ↑ | títulos recall ↑ | títulos prec. ↑ | F1 texto títulos ↑ | secuencia títulos τ ↑ | orden lectura τ ↑ | figuras recall ↑ | figuras prec. ↑ | captions recall ↑ | captions prec. ↑ | asoc. fig↔caption ↑ | F1 texto captions ↑ | CER ↓ | ms/página ↓ |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| GLM-OCR (0.9B) | 6 | 0.559 | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | 0.850 | 151850 |
-| LightOnOCR-2-1B (1B) | 6 | 0.590 | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | 1.241 | 151454 |
-| PP-StructureV3 (paddleocr) | 6 | 0.427 | N/A | N/A | **1.000** | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | 1.443 | 176264 |
-| PaddleOCR-VL (0.9B) | 4 | **0.669** | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | 0.514 | 430548 |
-| docling-default (pipeline) | 6 | 0.512 | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | **0.509** | 26023 |
-| indra (math) | 6 | 0.556 | N/A | N/A | 0.840 | N/A | N/A | N/A | N/A | N/A | **0.628** | N/A | N/A | N/A | N/A | N/A | N/A | 0.784 | **1253** |
-| pp_structurev3 (default) | 6 | 0.530 | 0.725 | 0.762 | 0.735 | 0.401 | 0.875 | 0.875 | 0.942 | N/A | 0.512 | 0.500 | 0.500 | 1.000 | 1.000 | 0.000 | 0.827 | 1.344 | 3527 |
+| PP-StructureV3 (paddleocr) | 6 | 0.427 | N/A | N/A | **1.000** | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | 1.443 | 180058 |
+| docling-default (pipeline) | 6 | 0.512 | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | **0.509** | 26739 |
+| indra (math) | 6 | **0.556** | N/A | N/A | 0.840 | N/A | N/A | N/A | N/A | N/A | **0.628** | N/A | N/A | N/A | N/A | N/A | N/A | 0.784 | **1251** |
+| pp_structurev3 (default) | 6 | 0.530 | 0.725 | 0.762 | 0.735 | 0.401 | 0.875 | 0.875 | 0.942 | N/A | 0.512 | 0.500 | 0.500 | 1.000 | 1.000 | 0.000 | 0.827 | 1.344 | 3652 |
 
 > En negrita, el mejor de cada métrica entre los motores **medidos** de `full_page`. `N/A` = no evaluada (sin GT de esa columna **o** el motor no emite esa estructura), nunca un `0.0` inventado.
 
@@ -31,10 +28,7 @@
 
 ## Procedencia de las alternativas
 
-- `GLM-OCR (0.9B)` — modelo **independiente** (otro proyecto/checkpoint)
-- `LightOnOCR-2-1B (1B)` — modelo **independiente** (otro proyecto/checkpoint)
 - `PP-StructureV3 (paddleocr)` — modelo **independiente** (otro proyecto/checkpoint)
-- `PaddleOCR-VL (0.9B)` — modelo **independiente** (otro proyecto/checkpoint)
 - `docling-default (pipeline)` — modelo **independiente** (otro proyecto/checkpoint)
 
 > El motor de referencia (`pyocrust`) no se lista: es el que define el resultado base. Una alternativa con **mismo peso, distinta vía** mide el mismo modelo con otro runtime; **no** aporta un competidor independiente y así queda declarado.
@@ -51,13 +45,13 @@
 
 | Motor (variante) | Markdown F1 ↑ (CPU) | Markdown F1 ↑ (GPU) | ms CPU | ms GPU | provider GPU |
 | :--- | ---: | ---: | ---: | ---: | :--- |
-| GLM-OCR (0.9B) | 0.559 | 0.559 | 151850 | 30716 | cuda |
-| LightOnOCR-2-1B (1B) | 0.590 | 0.588 | 151454 | 44737 | cuda |
-| PP-StructureV3 (paddleocr) | 0.427 | 0.496 | 176264 | 68269 | cuda |
-| PaddleOCR-VL (0.9B) | 0.669 | 0.597 | 430548 | 60907 | cuda |
-| docling-default (pipeline) | 0.512 | 0.512 | 26023 | 22740 | cuda |
-| indra (math) | 0.556 | 0.556 | 1253 | 1793 | cuda |
-| pp_structurev3 (default) | 0.530 | 0.528 | 3527 | 4350 | cuda |
+| GLM-OCR (0.9B) | N/A | 0.559 | N/A | 30716 | cuda |
+| LightOnOCR-2-1B (1B) | N/A | 0.588 | N/A | 44737 | cuda |
+| PP-StructureV3 (paddleocr) | 0.427 | 0.496 | 180058 | 68269 | cuda |
+| PaddleOCR-VL (0.9B) | N/A | 0.597 | N/A | 60907 | cuda |
+| docling-default (pipeline) | 0.512 | 0.512 | 26739 | 22740 | cuda |
+| indra (math) | 0.556 | 0.556 | 1251 | 1793 | cuda |
+| pp_structurev3 (default) | 0.530 | 0.528 | 3652 | 4350 | cuda |
 
 > El `provider GPU` sale del `provider_effective` real del `summary.json` GPU (`n/a` = el motor no expone ejecución GPU en este banco). No hay filas GPU inventadas: lo que no corrió en acelerador se ve como `N/A`.
 
@@ -75,7 +69,7 @@
 
 ## Por estrato (`data_source × layout`)
 
-> Markdown F1 **por motor y estrato** de la página (muestra estratificada, `page_info.page_attribute`). Motores medidos: 7 · estratos cubiertos: 4. `—` = ese motor no tiene medición en ese estrato.
+> Markdown F1 **por motor y estrato** de la página (muestra estratificada, `page_info.page_attribute`). Motores medidos: 4 · estratos cubiertos: 4. `—` = ese motor no tiene medición en ese estrato.
 
 > **Estratos (n de páginas en la muestra)**: `PPT2PDF×1andmore_column` (1), `PPT2PDF×other_layout` (2), `PPT2PDF×single_column` (1), `academic_literature×1andmore_column` (2).
 
@@ -83,17 +77,14 @@
 
 | Motor (variante) | PPT2PDF×1andmore_column | PPT2PDF×other_layout | PPT2PDF×single_column | academic_literature×1andmore_column |
 | :--- | ---: | ---: | ---: | ---: |
-| GLM-OCR (0.9B) | 0.829 | 0.714 | 0.080 | 0.508 |
-| LightOnOCR-2-1B (1B) | 0.604 | 0.744 | 0.338 | 0.554 |
 | PP-StructureV3 (paddleocr) | 0.525 | 0.511 | 0.080 | 0.468 |
-| PaddleOCR-VL (0.9B) | 0.667 | 0.783 | 0.444 | — |
 | docling-default (pipeline) | 0.633 | 0.633 | 0.087 | 0.544 |
 | indra (math) | 0.628 | 0.698 | 0.207 | 0.554 |
 | pp_structurev3 (default) | 0.613 | 0.677 | 0.231 | 0.490 |
 
 ## Por tipología de página (`digital` / `escaneada` / `manuscrita`)
 
-> Markdown F1 **por motor y tipología de página**. La tipología se deriva de `page_info.page_attribute` de OmniDocBench: `manuscrita` = `handwriting` en `special_issue` o `data_source=note`; `escaneada` = `fuzzy_scan` en `special_issue` o `data_source=historical_document`; `digital` = el resto. OmniDocBench **no** anota un tipo de adquisición explícito: la clasificación es una derivación declarada, no una etiqueta original. Motores medidos: 7. `N/A` = sin páginas medidas de esa tipología (nunca `0.0`); `—` = el motor no tiene medición sobre esas páginas.
+> Markdown F1 **por motor y tipología de página**. La tipología se deriva de `page_info.page_attribute` de OmniDocBench: `manuscrita` = `handwriting` en `special_issue` o `data_source=note`; `escaneada` = `fuzzy_scan` en `special_issue` o `data_source=historical_document`; `digital` = el resto. OmniDocBench **no** anota un tipo de adquisición explícito: la clasificación es una derivación declarada, no una etiqueta original. Motores medidos: 4. `N/A` = sin páginas medidas de esa tipología (nunca `0.0`); `—` = el motor no tiene medición sobre esas páginas.
 
 > **Páginas por tipología en la muestra**: `digital` (6), `escaneada` (0), `manuscrita` (0).
 
@@ -101,10 +92,7 @@
 
 | Motor (variante) | digital | escaneada | manuscrita |
 | :--- | ---: | ---: | ---: |
-| GLM-OCR (0.9B) | 0.559 (n=6) | N/A | N/A |
-| LightOnOCR-2-1B (1B) | 0.590 (n=6) | N/A | N/A |
 | PP-StructureV3 (paddleocr) | 0.427 (n=6) | N/A | N/A |
-| PaddleOCR-VL (0.9B) | 0.669 (n=4) | N/A | N/A |
 | docling-default (pipeline) | 0.512 (n=6) | N/A | N/A |
 | indra (math) | 0.556 (n=6) | N/A | N/A |
 | pp_structurev3 (default) | 0.530 (n=6) | N/A | N/A |
@@ -117,10 +105,7 @@
 
 | Motor (variante) | páginas medidas | páginas con GT de títulos | cobertura títulos |
 | :--- | ---: | ---: | ---: |
-| GLM-OCR (0.9B) | 6 | 4 | 67% |
-| LightOnOCR-2-1B (1B) | 6 | 4 | 67% |
 | PP-StructureV3 (paddleocr) | 6 | 4 | 67% |
-| PaddleOCR-VL (0.9B) | 4 | 3 | 75% |
 | docling-default (pipeline) | 6 | 4 | 67% |
 | indra (math) | 6 | 4 | 67% |
 | pp_structurev3 (default) | 6 | 4 | 67% |
@@ -135,10 +120,7 @@
 
 | Motor (variante) | páginas medidas | páginas con GT de figuras | cobertura figuras |
 | :--- | ---: | ---: | ---: |
-| GLM-OCR (0.9B) | 6 | 2 | 33% |
-| LightOnOCR-2-1B (1B) | 6 | 2 | 33% |
 | PP-StructureV3 (paddleocr) | 6 | 2 | 33% |
-| PaddleOCR-VL (0.9B) | 4 | 1 | 25% |
 | docling-default (pipeline) | 6 | 2 | 33% |
 | indra (math) | 6 | 2 | 33% |
 | pp_structurev3 (default) | 6 | 2 | 33% |

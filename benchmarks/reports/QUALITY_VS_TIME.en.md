@@ -119,13 +119,10 @@
 
 | Engine | Device | ms/page ↓ | Quality ↑ | license |
 | :--- | :--- | ---: | ---: | :--- |
-| **indra (math)** | cpu | 1253 | 0.556 | OpenRAIL-M-Mod |
-| **pp_structurev3 (default)** | cpu | 3527 | 0.530 | Apache-2.0 |
-| docling-default (pipeline) | cpu | 26023 | 0.512 | MIT |
-| LightOnOCR-2-1B (1B) | cpu | 151454 | 0.590 | Apache-2.0 |
-| GLM-OCR (0.9B) | cpu | 151850 | 0.559 | MIT |
-| PP-StructureV3 (paddleocr) | cpu | 176264 | 0.427 | Apache-2.0 |
-| PaddleOCR-VL (0.9B) | cpu | 430548 | 0.669 | Apache-2.0 |
+| **indra (math)** | cpu | 1251 | 0.556 | OpenRAIL-M-Mod |
+| **pp_structurev3 (default)** | cpu | 3652 | 0.530 | Apache-2.0 |
+| docling-default (pipeline) | cpu | 26739 | 0.512 | MIT |
+| PP-StructureV3 (paddleocr) | cpu | 180058 | 0.427 | Apache-2.0 |
 | **indra (math)** | gpu | 1793 | 0.556 | OpenRAIL-M-Mod |
 | **pp_structurev3 (default)** | gpu | 4350 | 0.528 | Apache-2.0 |
 | docling-default (pipeline) | gpu | 22740 | 0.512 | MIT |

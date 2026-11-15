@@ -59,17 +59,14 @@
 | table | tableformer (docling) | MIT | table | cpu | 8 | 0.905 | 28609 | cpu | omnidocbench_table |
 | table | slanet_plus | Apache-2.0 | table | cpu | 8 | 0.914 | 1103 | cpu | omnidocbench_table |
 | table | slanet_plus | Apache-2.0 | table | gpu | 8 | 0.914 | 172 | cuda | omnidocbench_table |
-| full_page | PP-StructureV3 (paddleocr) | Apache-2.0 | full_page | cpu | 6 | 0.427 | 176264 | cpu | omnidocbench_full_page_en |
+| full_page | PP-StructureV3 (paddleocr) | Apache-2.0 | full_page | cpu | 6 | 0.427 | 180058 | cpu | omnidocbench_full_page_en |
 | full_page | PP-StructureV3 (paddleocr) | Apache-2.0 | full_page | gpu | 6 | 0.496 | 68269 | cuda | omnidocbench_full_page_en |
-| full_page | docling-default (pipeline) | MIT | full_page | cpu | 6 | 0.512 | 26023 | cpu | omnidocbench_full_page_en |
+| full_page | docling-default (pipeline) | MIT | full_page | cpu | 6 | 0.512 | 26739 | cpu | omnidocbench_full_page_en |
 | full_page | docling-default (pipeline) | MIT | full_page | gpu | 6 | 0.512 | 22740 | cuda | omnidocbench_full_page_en |
 | full_page | pp_structurev3 | Apache-2.0 | structure | gpu | 6 | 0.528 | 4350 | cuda | omnidocbench_full_page_en |
-| full_page | pp_structurev3 | Apache-2.0 | structure | cpu | 6 | 0.530 | 3527 | cpu | omnidocbench_full_page_en |
-| full_page | indra (math) | OpenRAIL-M-Mod | full_page | cpu | 6 | 0.556 | 1253 | cpu | omnidocbench_full_page_en |
+| full_page | pp_structurev3 | Apache-2.0 | structure | cpu | 6 | 0.530 | 3652 | cpu | omnidocbench_full_page_en |
+| full_page | indra (math) | OpenRAIL-M-Mod | full_page | cpu | 6 | 0.556 | 1251 | cpu | omnidocbench_full_page_en |
 | full_page | indra (math) | OpenRAIL-M-Mod | full_page | gpu | 6 | 0.556 | 1793 | cuda | omnidocbench_full_page_en |
-| full_page | GLM-OCR (0.9B) | MIT | full_page | cpu | 6 | 0.559 | 151850 | cpu | omnidocbench_full_page_en |
 | full_page | GLM-OCR (0.9B) | MIT | full_page | gpu | 6 | 0.559 | 30716 | cuda | omnidocbench_full_page_en |
 | full_page | LightOnOCR-2-1B (1B) | Apache-2.0 | full_page | gpu | 6 | 0.588 | 44737 | cuda | omnidocbench_full_page_en |
-| full_page | LightOnOCR-2-1B (1B) | Apache-2.0 | full_page | cpu | 6 | 0.590 | 151454 | cpu | omnidocbench_full_page_en |
 | full_page | PaddleOCR-VL (0.9B) | Apache-2.0 | full_page | gpu | 6 | 0.597 | 60907 | cuda | omnidocbench_full_page_en |
-| full_page | PaddleOCR-VL (0.9B) | Apache-2.0 | full_page | cpu | 4 | 0.669 | 430548 | cpu | omnidocbench_full_page_en |

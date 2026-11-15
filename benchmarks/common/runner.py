@@ -211,6 +211,14 @@ VLM_VARIANT = "vl"
 VLM_BACKENDS = ("lightonocr", "glm_ocr", "paddleocr_vl", "pyocrust_vl",
                 "lightonocr3_08b", "lightonocr3_4b")
 
+# Motores **sin pata CPU** en este banco: los VLM documentales de `full_page`. En
+# CPU son impracticables (PaddleOCR-VL: >1200 s/página en las densas; LightOnOCR y
+# GLM-OCR ~150 s/página), asi que su pata es **solo GPU** (decision del usuario:
+# "motores pesados -> GPU"). `validez_medicion` no los cuenta como desemparejamiento
+# CPU/GPU y `CPU_VS_GPU` los deja `N/A` en CPU — nunca un valor de CPU con `n`
+# recortado. Simetrico a la regla CPU-only de las features clasicas.
+GPU_ONLY_BACKENDS = frozenset(VLM_BACKENDS)
+
 
 def emitted_channels(backend: str) -> frozenset[str]:
     """Canales de estructura que `backend` declara emitir (por defecto, todos)."""

@@ -15,7 +15,7 @@ from pathlib import Path
 
 BENCH = Path(__file__).resolve().parent
 sys.path.insert(0, str(BENCH))
-from common.runner import device_outcome  # noqa: E402
+from common.runner import GPU_ONLY_BACKENDS, device_outcome  # noqa: E402
 from features.report import latest_run, run_csv  # noqa: E402
 from features.summary import FEATURES  # noqa: E402
 
@@ -33,9 +33,27 @@ def probe(feature: str, device: str) -> dict | None:
     motors: Counter = Counter()
     with open(csv_path, encoding="utf-8") as fh:
         for row in csv.DictReader(fh):
-            if row.get("status") == "ok" and (row.get("device_requested") or device) == device:
-                motors[row["backend"]] += 1
+            if row.get("status") != "ok" or (row.get("device_requested") or device) != device:
+                continue
+            # Un motor GPU-only (VLM documental) NO tiene pata CPU: si una run
+            # vieja le dejo filas CPU parciales, se ignoran en vez de romper el `n`.
+            if device == "cpu" and row["backend"] in GPU_ONLY_BACKENDS:
+                continue
+            motors[row["backend"]] += 1
     return {"run": run.name, "csv": csv_path.name, "n": set(motors.values()), "motors": dict(motors)}
+
+
+def faltan_sobran(cpu_motors, gpu_motors) -> tuple[list[str], list[str]]:
+    """Motores que faltan en GPU y motores GPU sobrantes respecto a la run CPU.
+
+    Un motor CPU-only —el que `device_outcome(..., "gpu")` marca con motivo— no
+    puede tener fila GPU. Simetricamente, un motor **GPU-only**
+    (`GPU_ONLY_BACKENDS`: los VLM documentales) puede faltar en CPU sin ser un
+    desemparejamiento.
+    """
+    esperados = {m for m in cpu_motors if device_outcome(m, "gpu")[1] is None}
+    return (sorted(esperados - set(gpu_motors)),
+            sorted(m for m in set(gpu_motors) - set(cpu_motors) if m not in GPU_ONLY_BACKENDS))
 
 
 def main() -> int:
@@ -56,12 +74,9 @@ def main() -> int:
             estado = "REHACER: n dispar dentro del device"
         else:
             # Un motor CPU-only —el que `device_outcome(..., "gpu")` marca con motivo—
-            # NO puede tener fila GPU: su ausencia no es un desemparejamiento. Solo
-            # cuentan los motores que el propio banco declara capaces de correr en GPU.
-            esperados = {m for m in cpu["motors"] if device_outcome(m, "gpu")[1] is None}
-            gpu_ok = set(gpu["motors"])
-            faltan = sorted(esperados - gpu_ok)
-            sobran = sorted(gpu_ok - set(cpu["motors"]))
+            # NO puede tener fila GPU: su ausencia no es un desemparejamiento. Y un
+            # motor GPU-only (VLM documental) puede faltar en CPU. Ver `faltan_sobran`.
+            faltan, sobran = faltan_sobran(cpu["motors"], gpu["motors"])
             if faltan:
                 estado = f"REHACER: sin fila GPU {', '.join(faltan[:2])}"
             elif sobran:

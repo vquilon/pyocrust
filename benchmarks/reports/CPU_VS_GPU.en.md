@@ -11,13 +11,13 @@
 | `formula` | pp_structurev3 (default) | 0.398 | 2774 | 2553 | cuda |
 | `formula` | pp_structurev3 (pp-formulanet-s) | 0.497 | 2474 | 2221 | cuda |
 | `formula` | unimernet (tiny) | 0.260 | 17493 | N/A | n/a (does not run on GPU) |
-| `full_page` | GLM-OCR (0.9B) | 0.559 | 151850 | 30716 | cuda |
-| `full_page` | LightOnOCR-2-1B (1B) | 0.590 | 151454 | 44737 | cuda |
-| `full_page` | PP-StructureV3 (paddleocr) | 0.427 | 176264 | 68269 | cuda |
-| `full_page` | PaddleOCR-VL (0.9B) | 0.669 | 430548 | 60907 | cuda |
-| `full_page` | docling-default (pipeline) | 0.512 | 26023 | 22740 | cuda |
-| `full_page` | indra (math) | 0.556 | 1253 | 1793 | cuda |
-| `full_page` | pp_structurev3 (default) | 0.530 | 3527 | 4350 | cuda |
+| `full_page` | GLM-OCR (0.9B) | 0.559 | N/A | 30716 | cuda |
+| `full_page` | LightOnOCR-2-1B (1B) | 0.588 | N/A | 44737 | cuda |
+| `full_page` | PP-StructureV3 (paddleocr) | 0.427 | 180058 | 68269 | cuda |
+| `full_page` | PaddleOCR-VL (0.9B) | 0.597 | N/A | 60907 | cuda |
+| `full_page` | docling-default (pipeline) | 0.512 | 26739 | 22740 | cuda |
+| `full_page` | indra (math) | 0.556 | 1251 | 1793 | cuda |
+| `full_page` | pp_structurev3 (default) | 0.530 | 3652 | 4350 | cuda |
 | `layout` | armaggheddon/y11-m | 0.542 | 365 | 42 | cuda |
 | `layout` | armaggheddon/y11-n | 0.522 | 65 | 30 | cuda |
 | `layout` | armaggheddon/y11-s | 0.516 | 167 | 29 | cuda |

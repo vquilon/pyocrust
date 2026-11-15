@@ -82,8 +82,8 @@
 
 | Motor | Valor | n | Origen | license |
 | :--- | ---: | ---: | :--- | :--- |
-| PaddleOCR-VL (0.9B) | 0.669 | 4 | medido | Apache-2.0 |
-| LightOnOCR-2-1B (1B) | 0.590 | 6 | medido | Apache-2.0 |
+| PaddleOCR-VL (0.9B) | 0.597 | 6 | medido | Apache-2.0 |
+| LightOnOCR-2-1B (1B) | 0.588 | 6 | medido | Apache-2.0 |
 | GLM-OCR (0.9B) | 0.559 | 6 | medido | MIT |
 | **indra (math)** | 0.556 | 6 | medido | OpenRAIL-M-Mod |
 | **pp_structurev3** | 0.530 | 6 | medido | Apache-2.0 |
