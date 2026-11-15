@@ -164,6 +164,10 @@ def test_nuevas_alternativas_de_table_registradas():
     for backend, model_name, license_name in [
         ("paddleocr_slanet", "SLANet_plus", "Apache-2.0"),
         ("docling_tableformer", "tableformer", "MIT"),
+        # La pareja cruzada motor x tamano: el chico por el motor propio y el
+        # grande por la API de PaddleOCR (y cada uno por la otra via).
+        ("pyocrust_table_slanet", "slanet_plus", "Apache-2.0"),
+        ("paddleocr_slanext_wired", "SLANeXt_wired", "Apache-2.0"),
     ]:
         assert backend in PROVIDERS, backend
         assert TASK_TYPES[backend] == FEATURE_TYPES[backend] == "table", backend
@@ -177,6 +181,31 @@ def test_nuevas_alternativas_de_table_registradas():
     th = OcrOutput("<html><body><table><tr><th>a</th><th>b</th></tr></table></body></html>")
     assert _table_html(th.text).count("<td") == 2
     assert score_table(sample, th) == {"table_teds": 1.0}
+
+
+def test_mismo_peso_otra_via_exige_el_mismo_modelo():
+    """Un `mismo_peso_otra_via` tiene que cargar el MISMO modelo que su pareja propia.
+
+    El fallo real que blinda: `pyocrust_table` corria `slanext_wired` (367 MB)
+    mientras el rival marcado "mismo peso, otra via" corria `slanet_plus` (7,8 MB).
+    48x mas pesos escondidos bajo una etiqueta que afirmaba lo contrario, y ademas
+    el deduplicador borraba del resumen la fila del rival por "duplicada".
+    """
+    from common.runner import ALTERNATIVE_PROVENANCE, FEATURE_TYPES, MODEL_NAMES
+
+    def key(name: str) -> str:
+        return "".join(ch for ch in name.lower() if ch.isalnum())
+
+    for backend, provenance in ALTERNATIVE_PROVENANCE.items():
+        if provenance != "mismo_peso_otra_via":
+            continue
+        model = key(MODEL_NAMES[backend][0])
+        peers = [b for b, (m, _v) in MODEL_NAMES.items()
+                 if b.startswith("pyocrust")
+                 and FEATURE_TYPES.get(b) == FEATURE_TYPES.get(backend)
+                 and key(m) == model]
+        assert peers, (f"{backend} dice mismo_peso_otra_via pero ningun motor propio "
+                       f"de {FEATURE_TYPES.get(backend)} corre {MODEL_NAMES[backend][0]}")
 
 
 def test_default_backends_solo_nombres_que_producen_filas():

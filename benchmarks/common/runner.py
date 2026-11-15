@@ -954,6 +954,10 @@ LICENSES = {
     "lightonocr3_4b": "Apache-2.0",
     # Alternativas externas del banco `table` (además de TATR, MIT).
     "paddleocr_slanet": "Apache-2.0",
+    # La pareja cruzada de `table`: SLANet_plus y SLANeXt_wired, cada uno por los
+    # dos motores (el propio de pyocrust y la API de PaddleOCR).
+    "paddleocr_slanext_wired": "Apache-2.0",
+    "pyocrust_table_slanet": "Apache-2.0",
     "docling_tableformer": "MIT",
     # Alternativas independientes de `orientation`/`text_line` (proyecto distinto).
     "rapidocr_mobile_cls": "Apache-2.0",
@@ -984,6 +988,8 @@ ALTERNATIVE_PROVENANCE: dict[str, str] = {
     "opencv_perspective": "baseline_clasico",
     "tatr": "independiente",
     "paddleocr_slanet": "mismo_peso_otra_via",
+    # Mismo SLANeXt_wired que `pyocrust_table` (el default del registro).
+    "paddleocr_slanext_wired": "mismo_peso_otra_via",
     "docling_tableformer": "independiente",
     "docling_heron_101": "independiente",
     "deformable_detr": "independiente",
@@ -1342,6 +1348,24 @@ def _pp_structurev3_api_backend(device: str = "cpu") -> Callable[[Image.Image], 
 #   HTML con texto de celda, así que se puntúa con el MISMO TEDS-S que el resto
 #   (la secuencia de etiquetas), no el TEDS de árbol.
 PADDLEOCR_TABLE_MODELS = frozenset({"SLANet_plus", "SLANeXt_wired"})
+
+
+def _pyocrust_slanet_plus_backend(device: str = "cpu") -> Callable[[Image.Image], OcrOutput]:
+    """Estructura de tabla con **SLANet_plus** en el motor propio de `pyocrust`.
+
+    `TaskPredictor("table_structure_recognition")` **sin** `models` carga
+    `slanext_wired.onnx` (367 MB): `src/storage/registry.rs` lo pone primero
+    ("Wired by default"). Para medir el modelo pequeno (7,8 MB, el mismo que corre
+    el rival de PaddleOCR) hay que pasarle el `.onnx` explicito; con `models=`
+    explicito no hay autodescarga ni preflight, solo el fichero que ya esta.
+    """
+    import pyocrust  # noqa: PLC0415 - import tardio (carga el nativo)
+    models_dir = Path(pyocrust.resolve_models_dir())
+    model_path = models_dir / "slanet_plus.onnx"
+    if not model_path.is_file():
+        raise ProviderUnavailable(f"falta slanet_plus.onnx en {models_dir} (no descargado)")
+    return _task_predictor_backend("table_structure_recognition", device=device,
+                                   models=str(model_path), model_name="slanet_plus")
 
 
 def _paddleocr_slanet_backend(model_name: str = "SLANet_plus",
@@ -2194,6 +2218,11 @@ PROVIDERS: dict[str, Callable[..., Callable[[Image.Image], OcrOutput]]] = {
     # Alternativas externas al `table_structure_recognition` de `pyocrust` (además
     # de TATR): SLANet oficial de PaddleOCR y TableFormer de docling. Solo CPU.
     "paddleocr_slanet": lambda device="cpu": _paddleocr_slanet_backend(device=device),
+    # La pareja cruzada de `table` (motor x tamano): el chico por el motor propio
+    # y el grande por la API de PaddleOCR. Sin esto, `pyocrust_table` corre
+    # SLANeXt_wired contra el SLANet_plus del rival y los tiempos no se comparan.
+    "pyocrust_table_slanet": lambda device="cpu": _pyocrust_slanet_plus_backend(device=device),
+    "paddleocr_slanext_wired": lambda device="cpu": _paddleocr_slanet_backend(model_name="SLANeXt_wired", device=device),
     "docling_tableformer": lambda device="cpu": _docling_tableformer_backend(device=device),
 }
 
@@ -2230,6 +2259,7 @@ TASK_TYPES = {"pyocrust": "text", "pyocrust_text_small": "text", "pyocrust_text_
               "pyocrust_indra": "full_page",
               # Tareas sueltas: su `task_type` es el nombre de su banco de feature.
               "pyocrust_layout": "layout", "pyocrust_table": "table",
+              "pyocrust_table_slanet": "table",
               # Alternativas reales de `layout` (transformers): mismo task_type.
               "docling_heron_101": "layout", "deformable_detr": "layout",
               "pyocrust_orientation": "orientation", "pyocrust_textline": "text_line",
@@ -2249,6 +2279,7 @@ TASK_TYPES = {"pyocrust": "text", "pyocrust_text_small": "text", "pyocrust_text_
               # Otras alternativas reales de `table`: SLANet (PaddleOCR) y
               # TableFormer (docling), misma GT que el especialista.
               "paddleocr_slanet": "table", "docling_tableformer": "table",
+              "paddleocr_slanext_wired": "table",
               # Pipelines documentales completos: mismo task_type que el banco.
               "pp_structurev3_api": "full_page", "docling": "full_page",
               # VLMs documentales SOTA: su tarea nativa es la página completa.
@@ -2268,7 +2299,10 @@ MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"),
                # Alternativas reales de `layout` (transformers, DocLayNet/RT-DETR).
                "docling_heron_101": ("docling-layout-heron-101", "default"),
                "deformable_detr": ("deformable-detr-DocLayNet", "default"),
-               "pyocrust_table": ("slanet_plus", "default"),
+               # El default del registro para `table_structure_recognition` es
+               # `slanext_wired` (367 MB), NO SLANet_plus: se etiqueta lo que corre.
+               "pyocrust_table": ("slanext_wired", "367M"),
+               "pyocrust_table_slanet": ("slanet_plus", "7.8M"),
                "pyocrust_orientation": ("pp-lcnet_x1_0_doc_ori", "6.8M"),
                "pyocrust_textline": ("pp-lcnet_x1_0_textline_ori", "6.8M"),
                "pyocrust_rectify": ("uvdoc", "31.7M"),
@@ -2291,6 +2325,7 @@ MODEL_NAMES = {"pyocrust": ("pp_ocrv6", "tiny"),
                # Otras alternativas de `table`: SLANet (PaddleOCR, Apache-2.0) y
                # TableFormer (docling, MIT).
                "paddleocr_slanet": ("SLANet_plus", "paddleocr"),
+               "paddleocr_slanext_wired": ("SLANeXt_wired", "paddleocr"),
                "docling_tableformer": ("tableformer", "docling"),
                "pp_structurev3_api": ("PP-StructureV3", "paddleocr"),
                "docling": ("docling-default", "pipeline"),
@@ -2330,6 +2365,8 @@ FEATURE_TYPES = {"pyocrust": "text", "pyocrust_text_small": "text", "pyocrust_te
                  "pyocrust_formulanet_l": "formula", "pyocrust_formulanet_pluss": "formula",
                  "pyocrust_formulanet_plusm": "formula", "pyocrust_formulanet_plusl": "formula",
                  "pyocrust_layout": "layout", "pyocrust_table": "table",
+              "pyocrust_table_slanet": "table",
+                 "pyocrust_table_slanet": "table",
                  # Alternativas reales de `layout` (transformers): mismo banco.
                  "docling_heron_101": "layout", "deformable_detr": "layout",
               "pyocrust_orientation": "orientation", "pyocrust_textline": "text_line",
@@ -2348,6 +2385,7 @@ FEATURE_TYPES = {"pyocrust": "text", "pyocrust_text_small": "text", "pyocrust_te
                  "paddleocr": "text",
                  # Otras alternativas reales de `table` (SLANet / TableFormer).
                  "paddleocr_slanet": "table", "docling_tableformer": "table",
+                 "paddleocr_slanext_wired": "table",
                  # Pipelines documentales completos: mismo banco.
                  "pp_structurev3_api": "full_page", "docling": "full_page",
                  # VLMs documentales SOTA: banco `full_page`.

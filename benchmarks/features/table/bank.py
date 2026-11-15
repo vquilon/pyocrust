@@ -57,7 +57,8 @@ SPEC = FeatureSpec(
 # adicional, el **pipeline completo** (`pyocrust_structure`, `pp_structurev3`),
 # cuya tabla va embebida en su Markdown — la compara cruzada contra el
 # especialista con el MISMO GT de tabla. Ver `t_8b618f13`.
-DEFAULT_BACKENDS = "pyocrust_table,tatr,paddleocr_slanet,docling_tableformer,pyocrust_structure"
+DEFAULT_BACKENDS = ("pyocrust_table,pyocrust_table_slanet,paddleocr_slanext_wired,"
+                    "paddleocr_slanet,tatr,docling_tableformer,pyocrust_structure")
 
 
 def _table_html(text: str) -> str:
