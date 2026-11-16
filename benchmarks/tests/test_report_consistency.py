@@ -219,6 +219,62 @@ def test_quality_vs_time_incluye_gpu_real(tmp_path, monkeypatch):
     assert ("pyocrust_layout (default)", 30.0, 0.8, "gpu") in points
 
 
+def test_quality_vs_time_suma_la_serie_vl_sin_duplicar(tmp_path, monkeypatch):
+    """La calidad-vs-tiempo lee también la serie `vl` (VLM) y no duplica lo ya medido.
+
+    Los VLM de `table`/`formula` solo se miden en `reports/<feature>/vl/REPORT.md`.
+    Un informe de provenance `gpu` (esa serie es GPU-only) publica sus VLM como
+    puntos **gpu**; su columna CPU es el run de referencia mal etiquetado y **no**
+    debe entrar como un punto cpu que nadie midió.
+    """
+    reports = tmp_path / "reports"
+    norm = reports / "table"
+    norm.mkdir(parents=True)
+    (norm / "REPORT.md").write_text("""# Reporte por feature: `table`
+
+- **dataset**: `omnidocbench_table` · **device**: `cpu`
+
+## Comparativa (media por motor)
+
+| Motor (variante) | n | TEDS estrut. ↑ | ms/tabla ↓ |
+| :--- | ---: | ---: | ---: |
+| pp_structurev3 (default) | 8 | 0.753 | 1128 |
+""", encoding="utf-8")
+    vl = norm / "vl"
+    vl.mkdir()
+    (vl / "REPORT.md").write_text("""# Reporte por feature: `table`
+
+- **dataset**: `omnidocbench_table` · **device**: `gpu`
+
+## Comparativa (media por motor)
+
+| Motor (variante) | n | TEDS estrut. ↑ | ms/tabla ↓ |
+| :--- | ---: | ---: | ---: |
+| GLM-OCR (0.9B) | 8 | 0.919 | 34191 |
+| PaddleOCR-VL (0.9B) | 8 | 0.933 | 35839 |
+
+## CPU vs GPU (`device_requested` vs `provider_effective`)
+
+| Motor (variante) | Structural TEDS ↑ (CPU) | Structural TEDS ↑ (GPU) | ms CPU | ms GPU | provider GPU |
+| :--- | ---: | ---: | ---: | ---: | :--- |
+| GLM-OCR (0.9B) | 0.919 | 0.919 | 34191 | 34191 | n/a |
+""", encoding="utf-8")
+    monkeypatch.setattr(quality_vs_time, "REPORTS", reports)
+
+    points, device, unit = quality_vs_time.parse_quality_time("table", "TEDS")
+    keys = {(name, point_device) for name, _ms, _q, point_device in points}
+
+    # El VLM de la serie `vl` entra como punto GPU (acelerador real de su informe)…
+    # …sin inventar un punto cpu (la columna CPU del informe `vl` es la referencia).
+    for vlm in ("GLM-OCR (0.9B)", "PaddleOCR-VL (0.9B)"):
+        assert (vlm, "gpu") in keys
+        assert (vlm, "cpu") not in keys
+    # La serie normal no se pierde al sumar la variante.
+    assert ("pp_structurev3 (default)", "cpu") in keys
+    assert device == "cpu+gpu"
+    assert unit == "ms/tabla ↓"
+
+
 def test_render_cpu_gpu_incluye_todos_los_medidos():
     lines = report.render_cpu_gpu(
         "layout",

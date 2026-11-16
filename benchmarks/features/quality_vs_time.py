@@ -38,7 +38,7 @@ if str(HERE) not in sys.path:
 # Reutiliza el parser de tablas y la lista de features de `summary.py`: una sola
 # fuente de verdad para "qué features hay y cuál es su métrica titular".
 from summary import (
-    FEATURES, MODEL_NAMES, YOLO_LAYOUT_MODELS, _LEGACY_YOLO_LAYOUT_BACKENDS,
+    FEATURES, MODEL_NAMES, VLM_VARIANT, YOLO_LAYOUT_MODELS, _LEGACY_YOLO_LAYOUT_BACKENDS,
     _clean, _is_pyocrust, _license_for, _model_key, _num, _rows_from, feature_title,
     summary_yolo_layout_backends,
 )
@@ -57,29 +57,28 @@ def _device(lines: list[str]) -> str:
     return "?"
 
 
-def parse_quality_time(feature: str, titular: str | None) -> tuple[list[tuple[str, float, float, str]], str, str]:
-    """Puntos `(motor, ms, calidad, device)` desde Comparativa y CPU vs GPU.
+def _points_from_report(p: Path, titular: str | None) -> tuple[dict[tuple[str, str], tuple[str, float, float, str]], str, str]:
+    """Puntos `(motor, ms, calidad, device)` desde Comparativa y CPU vs GPU de UN informe.
 
-    La tabla `Comparativa` aporta el device de provenance; `CPU vs GPU` añade
+    La tabla `Comparativa` aporta el device de provenance; `CPU vs GPU` anade
     solo las filas GPU cuyo provider fue un acelerador real. Nunca rellena celdas
-    vacías.
+    vacias.
     """
-    p = REPORTS / feature / "REPORT.md"
     if titular is None or not p.exists():
-        return [], "?", ""
+        return {}, "?", ""
     lines = p.read_text(encoding="utf-8").splitlines()
     default_device = _device(lines)
     start = next((i for i, ln in enumerate(lines)
                   if ln.strip().lower().startswith("## comparativa")), None)
     if start is None:
-        return [], default_device, ""
+        return {}, default_device, ""
     header, rows = _rows_from(lines, start + 1)
     if not header:
-        return [], default_device, ""
+        return {}, default_device, ""
     qkey = next((k for k in header if k.startswith(titular)), None)
     mkey = next((k for k in header if k.lower().startswith("ms/")), None)
     if qkey is None or mkey is None:
-        return [], default_device, ""
+        return {}, default_device, ""
     qi, mi = header.index(qkey), header.index(mkey)
     points: dict[tuple[str, str], tuple[str, float, float, str]] = {}
     for cells in rows:
@@ -132,7 +131,13 @@ def parse_quality_time(feature: str, titular: str | None) -> tuple[list[tuple[st
                 if not cells:
                     continue
                 name = _clean(cells[0])
-                if cpu_qi is not None and cpu_mi is not None and max(cpu_qi, cpu_mi) < len(cells):
+                # La columna CPU es el run de referencia del informe: solo aporta
+                # un punto propio cuando la referencia ES cpu. En un informe de
+                # provenance `gpu` (la serie `vl` GPU-only de table/formula) esas
+                # celdas son el MISMO run de la `Comparativa` mal etiquetado:
+                # publicarlo como cpu inventaría un punto que nadie midió.
+                if (default_device != "gpu" and cpu_qi is not None and cpu_mi is not None
+                        and max(cpu_qi, cpu_mi) < len(cells)):
                     q, ms = _num(cells[cpu_qi]), _num(cells[cpu_mi])
                     if q is not None and ms is not None:
                         points[(name, "cpu")] = (name, ms, q, "cpu")
@@ -141,6 +146,29 @@ def parse_quality_time(feature: str, titular: str | None) -> tuple[list[tuple[st
                     q, ms = _num(cells[gpu_qi]), _num(cells[gpu_mi])
                     if provider in {"cuda", "directml", "tensorrt", "coreml", "openvino", "webgpu", "rocm", "mps"} and q is not None and ms is not None:
                         points[(name, "gpu")] = (name, ms, q, "gpu")
+    return points, default_device, mkey
+
+
+def parse_quality_time(feature: str, titular: str | None) -> tuple[list[tuple[str, float, float, str]], str, str]:
+    """Puntos de la serie **normal** + su variante `vl` (VLM), sin duplicar motores.
+
+    Los VLM de `table`/`formula` solo se miden en la serie `vl`
+    (`reports/<feature>/vl/REPORT.md`): sin leerla, esos paneles perdian el
+    competidor SOTA. La serie normal manda — un motor que ya mide la normal no se
+    re-publica desde la variante (`setdefault`).
+    """
+    points: dict[tuple[str, str], tuple[str, float, float, str]] = {}
+    default_device, mkey = "?", ""
+    for p in (REPORTS / feature / "REPORT.md", REPORTS / feature / VLM_VARIANT / "REPORT.md"):
+        pts, dev, mk = _points_from_report(p, titular)
+        for key, val in pts.items():
+            points.setdefault(key, val)
+        if not mkey:
+            mkey = mk
+        if default_device == "?":
+            default_device = dev
+    if not points:
+        return [], default_device, ""
     if feature == "layout":
         selected = summary_yolo_layout_backends()
         all_labels, selected_labels = set(), set()

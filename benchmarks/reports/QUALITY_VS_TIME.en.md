@@ -55,6 +55,11 @@
 | **pp_structurev3 (pp-formulanet-s)** | gpu | 2031 | 0.497 | Apache-2.0 |
 | **pp_structurev3 (default)** | gpu | 2095 | 0.398 | Apache-2.0 |
 | paddle_latex_ocr (default) | gpu | 3322 | 0.653 | Apache-2.0 |
+| PaddleOCR-VL (0.9B) | gpu | 17524 | 0.614 | Apache-2.0 |
+| GLM-OCR (0.9B) | gpu | 18719 | 0.748 | MIT |
+| LightOnOCR-2-1B (1B) | gpu | 20186 | 0.597 | Apache-2.0 |
+| LightOnOCR-3 (0.8B) | gpu | 24073 | 0.550 | Apache-2.0 |
+| LightOnOCR-3 (4B) | gpu | 30950 | 0.612 | Apache-2.0 |
 
 ## layout — OmniDocBench — device `cpu+gpu` · measured engines
 
@@ -126,6 +131,11 @@
 | **slanet_plus (7.8M)** | gpu | 484 | 0.868 | Apache-2.0 |
 | **pp_structurev3 (default)** | gpu | 2214 | 0.753 | Apache-2.0 |
 | tableformer (docling) | gpu | 19140 | 0.905 | MIT |
+| GLM-OCR (0.9B) | gpu | 34191 | 0.919 | MIT |
+| PaddleOCR-VL (0.9B) | gpu | 35839 | 0.933 | Apache-2.0 |
+| LightOnOCR-2-1B (1B) | gpu | 58834 | 0.858 | Apache-2.0 |
+| LightOnOCR-3 (4B) | gpu | 76940 | 0.847 | Apache-2.0 |
+| LightOnOCR-3 (0.8B) | gpu | 162056 | 0.926 | Apache-2.0 |
 
 ## full_page — OmniDocBench (EN) — device `cpu+gpu` · measured engines
 
@@ -134,6 +144,7 @@
 | **indra (math)** | cpu | 1251 | 0.556 | OpenRAIL-M-Mod |
 | **pp_structurev3 (default)** | cpu | 3652 | 0.530 | Apache-2.0 |
 | docling-default (pipeline) | cpu | 26739 | 0.512 | MIT |
+| **pyocrust (vl)** | cpu | 141693 | 0.534 | Apache-2.0 |
 | PP-StructureV3 (paddleocr) | cpu | 180058 | 0.427 | Apache-2.0 |
 | **indra (math)** | gpu | 1793 | 0.556 | OpenRAIL-M-Mod |
 | **pp_structurev3 (default)** | gpu | 4350 | 0.528 | Apache-2.0 |
