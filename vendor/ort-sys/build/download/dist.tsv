@@ -13,4 +13,4 @@ x86_64-pc-windows-msvc	cuda13,tensorrt,nvrtx,directml	https://cdn.pyke.io/0/pyke
 x86_64-unknown-linux-gnu	none	https://cdn.pyke.io/0/pyke:ort-rs/ms@1.28.0/x86_64-unknown-linux-gnu.tar.lzma2	e454f710f8a49f53aa5b4ff51e3454ae1835777e431c6c35c5255ce6f205fd68
 x86_64-unknown-linux-gnu	webgpu	https://cdn.pyke.io/0/pyke:ort-rs/ms@1.28.0/x86_64-unknown-linux-gnu+webgpu.tar.lzma2	68406bc32de516ee8baeaa4c5f2de2bb0031269f19ce8b76d64988c0498b93be
 x86_64-unknown-linux-gnu	nvrtx	https://cdn.pyke.io/0/pyke:ort-rs/ms@1.28.0/x86_64-unknown-linux-gnu+nvrtx.tar.lzma2	3d8072623fc48719a388399bf1c1c0125205db6fb0b9f46fb6d61224bacfa409
-x86_64-unknown-linux-gnu	cuda13,tensorrt,nvrtx	https://cdn.pyke.io/0/pyke:ort-rs/ms@1.28.0/x86_64-unknown-linux-gnu+cuda13,tensorrt,nvrtx.tar.lzma2	b89451babb9d4ec77c3f381e8ef92b640e125021b59f9cc7747e73c9fe8d549b
+x86_64-unknown-linux-gnu	cuda13,tensorrt,nvrtx	https://cdn.pyke.io/0/pyke:ort-rs/ms@1.31.0/x86_64-unknown-linux-gnu+cuda13,tensorrt,nvrtx.tar.lzma2	535872087d5a5921aad090fdb46c65bb11c4c50b900dfcf6657ad3d5c465986f

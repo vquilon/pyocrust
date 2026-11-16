@@ -12,7 +12,14 @@ name: Publish pyocrust-gpu to PyPI
 #   - proyecto PyPI:  pyocrust-gpu
 #   - environment:    pypi-gpu
 on:
+  # Solo manual. Por defecto SOLO construye (prueba completa del pipeline, sin
+  # subir a PyPI); marca `publish` para subir de verdad.
   workflow_dispatch:
+    inputs:
+      publish:
+        description: "Subir a PyPI (si no se marca, solo construye)"
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -110,6 +117,7 @@ jobs:
 
   publish-to-pypi:
     name: Publish Python 🐍 distribution 📦 to PyPI
+    if: inputs.publish
     needs: build
     runs-on: ubuntu-latest
     environment:

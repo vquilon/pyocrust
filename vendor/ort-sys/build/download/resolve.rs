@@ -23,9 +23,13 @@ fn parse_dist_table(target: &str) -> impl Iterator<Item = Distribution> + '_ {
 		.map(|c| c.split('\t').collect::<Vec<_>>())
 		.filter(move |c| c[0] == target)
 		.map(|c| Distribution {
-			features: if c[1] == "none" { HashSet::new() } else { c[1].split(',').collect() },
-			url: c[2],
-			hash: c[3]
+			// `dist.tsv` va con `include_str!` y se parte por '\n': en un checkout
+			// con `core.autocrlf=true` (runner de Windows) cada línea acaba en '\r',
+			// y el hash con '\r' revienta `hex_str_to_bytes` (panic en verify.rs:11).
+			// `trim` hace la tabla inmune al fin de línea con que la dejó el checkout.
+			features: if c[1].trim() == "none" { HashSet::new() } else { c[1].trim().split(',').collect() },
+			url: c[2].trim(),
+			hash: c[3].trim()
 		})
 }
 

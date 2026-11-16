@@ -22,6 +22,15 @@ pub fn copy_dylibs(lib_dir: &Path, out_dir: &Path) {
 		#[cfg(not(windows))]
 		let copy_fallback = false;
 
+		// `cargo` solo crea `examples`/`deps` cuando compila esos targets. Si el
+		// directorio destino no existe, no hay nada junto a lo que dejar las
+		// dylibs y el symlink/copy de abajo revienta con ENOENT (panic del build
+		// script visto en CI: con el OUT_DIR de 4 niveles del contenedor,
+		// `ancestors().nth(3)` cae en `.../release/build`, que no tiene `examples`).
+		if !out_dir.is_dir() {
+			continue;
+		}
+
 		let lib_files = fs::read_dir(lib_dir).unwrap_or_else(|_| panic!("Failed to read contents of `{}` (does it exist?)", lib_dir.display()));
 		for lib_file in lib_files.filter(|e| {
 			e.as_ref().ok().is_some_and(|e| {

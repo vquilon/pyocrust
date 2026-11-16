@@ -3,8 +3,15 @@ name: Publish pyocrust to TestPyPI
 on:
   release:
     types: [published]
-  # 1. AÑADE ESTO: Permite ejecutar el workflow manualmente con un botón
+  # Permite ejecutar el workflow manualmente con un botón. Por defecto SOLO
+  # construye (prueba completa del pipeline, sin subir nada); marca `publish`
+  # para subir a TestPyPI sin tener que crear una release.
   workflow_dispatch:
+    inputs:
+      publish:
+        description: "Subir a TestPyPI (si no se marca, solo construye)"
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -86,6 +93,8 @@ jobs:
 
   publish-to-testpypi:
     name: Publish Python 🐍 distribution 📦 to TestPyPI
+    # Una release publicada sube siempre; un run manual, solo si marcas `publish`.
+    if: github.event_name == 'release' || inputs.publish
     needs:
     - build
     runs-on: ubuntu-latest
