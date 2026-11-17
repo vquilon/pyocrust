@@ -38,6 +38,7 @@ from common.datasets import (  # noqa: F401
     load_omnidocbench_full_page,
     load_omnidocbench_layout,
     load_omnidocbench_tables,
+    load_schematics,
     load_synthetic_orientation,
     load_synthetic_rectification,
     load_synthetic_text_line,
@@ -109,6 +110,7 @@ __all__ = [
     "DatasetOffline", "DatasetUnavailable", "Sample", "load_dataset",
     "load_funsd", "load_local", "load_omnidocbench", "load_omnidocbench_formulas",
     "load_omnidocbench_full_page", "load_omnidocbench_layout", "load_omnidocbench_tables",
+    "load_schematics",
     "load_synthetic_orientation", "load_synthetic_rectification", "load_synthetic_text_line",
     # metrics
     "block_f1", "box_metrics", "cer", "cer_ord", "detection_map", "html_tags",

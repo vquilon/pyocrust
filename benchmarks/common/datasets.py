@@ -1291,6 +1291,44 @@ def load_synthetic_seal(limit: int | None = None, cache_dir: Path | None = None)
 
 
 # ---------------------------------------------------------------------------
+# Fixture de **esquematicos** (dominio OCR de diagramas electronicos)
+# ---------------------------------------------------------------------------
+# `bshada/open-schematics` (317 GB) es la referencia del dominio: PNG renderizado
+# (`schematic_image`) + fuente `.kicad_sch`. El dataset entero no cabe en un test,
+# asi que el banco consume una muestra **versionada** (`fixtures/schematics_mini/`,
+# N<=10): el GT de texto **visible** se extrae del `.kicad_sch` (ver
+# `build_schematics_fixture.py`) y viaja en el `manifest.json`. No hay camino
+# "dataset real": el origen es SIEMPRE la fixture y el provenance lo declara.
+
+SCHEMATICS_FIXTURE = FIXTURES / "schematics_mini"
+
+
+def load_schematics(limit: int | None = None) -> list[Sample]:
+    """Paginas de esquematico (PNG + texto visible esperado) desde la fixture.
+
+    Falla **claro** si falta la fixture (checkout limpio sin commitear): nombra
+    el fichero y el comando que la reconstruye, en vez de 0 muestras silenciosas.
+    """
+    manifest = SCHEMATICS_FIXTURE / "manifest.json"
+    if not manifest.is_file():
+        raise DatasetUnavailable(
+            f"falta la fixture de esquematicos {manifest} (debe estar versionada en git).\n"
+            f"  -> reconstruyela con: python benchmarks/build_schematics_fixture.py")
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    samples: list[Sample] = []
+    for row in data["pages"][:limit]:
+        samples.append(Sample(
+            image_id=str(row["id"]),
+            image=Image.open(SCHEMATICS_FIXTURE / "images" / row["image"]).convert("RGB"),
+            gt_text=str(row["text"]),
+        ))
+    _set_provenance(
+        PROVENANCE_FIXTURE,
+        f"schematics_mini ({data.get('dataset')}@{str(data.get('revision'))[:12]})")
+    return samples
+
+
+# ---------------------------------------------------------------------------
 # Paso explicito de preparacion (`--fetch`): poblar el cache UNA vez, con un
 # unico error claro si no hay red y el cache no esta.
 # ---------------------------------------------------------------------------
@@ -1376,6 +1414,9 @@ DATASETS = {
     "synthetic_rectification": lambda limit, split, cache: load_synthetic_rectification(limit=limit, cache_dir=cache),
     # Sello sintetico determinista (tampon pegado en documento blanco; GT = caja).
     "synthetic_seal": lambda limit, split, cache: load_synthetic_seal(limit=limit, cache_dir=cache),
+    # Esquematicos (dominio OCR de diagramas): SIEMPRE la fixture versionada
+    # (open-schematics es 317 GB; no cabe un camino "dataset real").
+    "schematics": lambda limit, split, cache: load_schematics(limit=limit),
 }
 
 
