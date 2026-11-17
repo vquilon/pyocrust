@@ -32,7 +32,7 @@ import pytest
 import pyocrust
 from pyocrust import OcrResult, PyOcrRuntimeError, VeloceOCR
 
-from conftest import PP_OCRV6_TINY, fuente_modelos
+from conftest import PP_OCRV6_TINY, copiar_pipeline_ocrv6, fuente_modelos
 
 IMAGEN = Path(__file__).parent / "data" / "sample_text.png"
 
@@ -199,8 +199,7 @@ def test_arranque_en_caliente_offline_funciona_sin_red(fuente_modelos, tmp_path,
     """Caché poblada + `PYOCRUST_OFFLINE=1`: funciona sin tocar la red."""
     cache = tmp_path / "oar_home"
     cache.mkdir()
-    for nombre in PP_OCRV6_TINY:
-        shutil.copy2(fuente_modelos / nombre, cache / nombre)
+    copiar_pipeline_ocrv6(cache, fuente_modelos)
 
     monkeypatch.setenv("OAR_HOME", str(cache))
     monkeypatch.setenv("PYOCRUST_OFFLINE", "1")
@@ -246,8 +245,7 @@ def test_un_artefacto_con_tamano_incorrecto_se_redescarga(fuente_modelos, tmp_pa
     _modelscope_alcanzable()
     cache = tmp_path / "oar_home"
     cache.mkdir()
-    for nombre in PP_OCRV6_TINY:
-        shutil.copy2(fuente_modelos / nombre, cache / nombre)
+    copiar_pipeline_ocrv6(cache, fuente_modelos)
     # Corromper el detector: mismo nombre, 1 byte.
     (cache / "pp-ocrv6_tiny_det.onnx").write_bytes(b"x")
     monkeypatch.setenv("OAR_HOME", str(cache))

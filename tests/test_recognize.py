@@ -21,7 +21,6 @@ Ejecución: `python -m pytest tests/test_recognize.py -q`
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
 import pytest
@@ -36,8 +35,8 @@ from pyocrust import (
 )
 
 from conftest import (
-    PP_OCRV6_TINY,
     PP_STRUCTUREV3,
+    copiar_pipeline_ocrv6,
     directorios_candidatos,
     fuente_modelos,
 )
@@ -96,8 +95,7 @@ def test_reconocer_con_la_cache_por_defecto(tmp_path, monkeypatch, fuente_modelo
     """Escenario 3: sin `custom_path` ni entorno, la caché es `<home>/.oar`."""
     cache = tmp_path / ".oar"
     cache.mkdir()
-    for nombre in PP_OCRV6_TINY:
-        shutil.copy2(fuente_modelos / nombre, cache / nombre)
+    copiar_pipeline_ocrv6(cache, fuente_modelos)
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
     monkeypatch.setenv("HOME", str(tmp_path))
 
@@ -348,3 +346,40 @@ def test_indra_devuelve_markdown_bloques_y_regiones():
         "Indra debe conservar delimitadores LaTeX inline en las líneas"
     )
     assert "$" in resultado_math.to_markdown()
+
+
+def test_use_doc_orientation_endereza_una_pagina_girada_180(modelos_tiny, tmp_path):
+    """La composición por defecto (t_17009adc) corrige una página girada 180°.
+
+    Con los dos defaults (`use_doc_orientation` y `use_textline_orientation`)
+    encendidos el enderezado deja el texto legible. Apagando ambos el mismo
+    180° sale invertido: eso prueba que los flags llegan a la composición de
+    `oar-ocr` y no se ignoran.
+    """
+    from PIL import Image
+
+    girada = tmp_path / "girada180.png"
+    Image.open(IMAGEN).rotate(180).save(girada)
+
+    con_composicion = VeloceOCR("pp_ocrv6", custom_path=str(modelos_tiny))
+    texto_ok = con_composicion.recognize(str(girada)).text
+    for linea in LINEAS_ESPERADAS:
+        assert linea in texto_ok
+
+    sin_composicion = VeloceOCR(
+        "pp_ocrv6",
+        custom_path=str(modelos_tiny),
+        use_doc_orientation=False,
+        use_doc_unwarping=False,
+        use_textline_orientation=False,
+    )
+    texto_girado = sin_composicion.recognize(str(girada)).text
+    assert all(linea not in texto_girado for linea in LINEAS_ESPERADAS)
+
+
+def test_text_type_invalido_falla_antes_de_tocar_disco(tmp_path, monkeypatch):
+    """`text_type` fuera de `general|table|seal` es `PyOcrValueError`."""
+    monkeypatch.setenv("PYOCRUST_OFFLINE", "1")
+    monkeypatch.setenv("OAR_HOME", str(tmp_path))
+    with pytest.raises(PyOcrValueError, match="text_type"):
+        VeloceOCR("pp_ocrv6", text_type="bogus")
