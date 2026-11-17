@@ -81,11 +81,11 @@ def test_task_predictor_result_schema(task: str, artifacts: tuple[str, ...], key
 @pytest.mark.parametrize(("task", "option"), [
     (task, option)
     for task, supported in {
-        "document_orientation": {"score_threshold", "topk"},
+        "document_orientation": {"score_threshold", "topk", "input_shape"},
         "text_line_orientation": {"score_threshold", "topk", "input_shape"},
         "seal_text_detection": {"score_threshold"},
         "document_rectification": set(),
-        "formula_recognition": set(),
+        "formula_recognition": {"score_threshold"},
     }.items()
     for option in ("unknown_option", "score_threshold", "topk", "input_shape")
     if option not in supported
@@ -94,6 +94,23 @@ def test_unsupported_options_precede_model_loading(task, option, monkeypatch):
     monkeypatch.setenv("PYOCRUST_OFFLINE", "1")
     with pytest.raises(pyocrust.PyOcrValueError, match=f"unsupported option '{option}'"):
         pyocrust.TaskPredictor(task, models="nonexistent-task-model.onnx", **{option: 1})
+
+
+@pytest.mark.parametrize(("task", "option", "value"), [
+    # Knobs que amplía t_17009adc: pasan la validación y fallan por el modelo,
+    # no por la opción (antes se rechazaban con "unsupported option").
+    ("table_structure_recognition", "score_threshold", 0.5),
+    ("document_orientation", "input_shape", (224, 224)),
+    ("formula_recognition", "score_threshold", 0.5),
+])
+def test_widened_options_are_accepted_and_fail_on_the_model(
+    task, option, value, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("PYOCRUST_OFFLINE", "1")
+    monkeypatch.setenv("OAR_HOME", str(tmp_path))
+    with pytest.raises(pyocrust.PyOcrRuntimeError) as fallo:
+        pyocrust.TaskPredictor(task, models="no-existe.onnx", **{option: value})
+    assert "unsupported option" not in str(fallo.value)
 
 
 NEW_TASKS = {
@@ -207,12 +224,18 @@ def test_dict_path_overrides_invalid_models_dict(invalid_dict, fuente_modelos, m
     assert isinstance(result["score"], float)
 
 
-def test_table_structure_score_threshold_precedes_model_loading(tmp_path, monkeypatch):
+def test_table_structure_unsupported_option_precedes_model_loading(tmp_path, monkeypatch):
+    """Un `**option` fuera de la whitelist se rechaza antes de tocar disco.
+
+    `topk` no es un knob de `table_structure_recognition` (su builder de
+    `oar-ocr` no lo tiene); `score_threshold` sí lo es desde t_17009adc, así que
+    este caso usa el que sigue sin existir.
+    """
     monkeypatch.setenv("PYOCRUST_OFFLINE", "1")
     monkeypatch.setenv("OAR_HOME", str(tmp_path))
-    with pytest.raises(pyocrust.PyOcrValueError, match="unsupported option 'score_threshold'"):
+    with pytest.raises(pyocrust.PyOcrValueError, match="unsupported option 'topk'"):
         pyocrust.TaskPredictor(
-            "table_structure_recognition", models="slanext_wired.onnx", score_threshold=0.5
+            "table_structure_recognition", models="slanext_wired.onnx", topk=1
         )
     assert list(tmp_path.iterdir()) == []
 

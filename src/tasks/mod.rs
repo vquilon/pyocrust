@@ -73,14 +73,24 @@ impl TaskPredictor {
         if let Some(options) = options {
             for key in options.keys() {
                 let name: String = key.extract()?;
+                // Whitelist = lo que el builder de `oar-ocr` acepta DE VERDAD por
+                // tarea Y este wrapper consume. Lo que se acepta aquí se pasa al
+                // builder: una opción aceptada y no cableada quedaría ignorada en
+                // silencio, que es peor que rechazarla.
                 let supported = match task {
-                    "document_orientation" => matches!(name.as_str(), "score_threshold" | "topk"),
+                    "document_orientation" => matches!(name.as_str(), "score_threshold" | "topk" | "input_shape"),
                     "text_line_orientation" | "table_classification" => matches!(name.as_str(), "score_threshold" | "topk" | "input_shape"),
                     "seal_text_detection" => name == "score_threshold",
                     "text_recognition" => matches!(name.as_str(), "score_threshold" | "dict_path"),
                     "text_detection" => matches!(name.as_str(), "score_threshold" | "box_threshold" | "unclip_ratio" | "max_candidates"),
-                    "layout_detection" | "table_cell_detection" => matches!(name.as_str(), "score_threshold" | "model_name"),
-                    "table_structure_recognition" => matches!(name.as_str(), "dict_path" | "model_name" | "input_shape"),
+                    "layout_detection" => matches!(name.as_str(), "score_threshold" | "model_name"),
+                    // `model_name` elige la variante RT-DETR; el builder solo
+                    // expone `model_variant`, así que este es su único nombre.
+                    "table_cell_detection" => matches!(name.as_str(), "score_threshold" | "model_name"),
+                    "table_structure_recognition" => matches!(name.as_str(), "score_threshold" | "dict_path" | "model_name" | "input_shape"),
+                    // El predictor fija checkpoint (S) y tokenizer: solo el
+                    // umbral es un knob de la tarea, no del modelo.
+                    "formula_recognition" => name == "score_threshold",
                     _ => false,
                 };
                 if !supported {
@@ -142,6 +152,7 @@ impl TaskPredictor {
                     .with_ort_config(session.clone()).build(ModelSource::from(model_path.clone())).map_err(|error| model_error(&model_path, error))?),
             "table_structure_recognition" => {
                 let mut builder = oar_ocr::predictors::TableStructureRecognitionPredictor::builder()
+                    .score_threshold(score_threshold)
                     .dict_path(dictionary_path(options, models, &model_path, artifacts[1].name)?);
                 if let Some(value) = options.and_then(|dict| dict.get_item("model_name").ok().flatten()) {
                     builder = builder.model_name(value.extract::<String>()?);
@@ -161,10 +172,17 @@ impl TaskPredictor {
                     .score_threshold(score_threshold).model_variant(variant)
                     .with_ort_config(session.clone()).build(ModelSource::from(model_path.clone())).map_err(|error| model_error(&model_path, error))?)
             }
-            "document_orientation" => Predictor::DocumentOrientation(
-                oar_ocr::predictors::DocumentOrientationPredictor::builder()
-                    .score_threshold(score_threshold).topk(topk).with_ort_config(session.clone()).build(ModelSource::from(model_path.clone()))
-                    .map_err(|error| model_error(&model_path, error))?),
+            "document_orientation" => {
+                let mut builder = oar_ocr::predictors::DocumentOrientationPredictor::builder()
+                    .score_threshold(score_threshold).topk(topk);
+                // El builder de oar-ocr arranca en (224,224) para este modelo;
+                // solo se pisa si el llamante lo pide.
+                if options.is_some_and(|dict| dict.contains("input_shape").unwrap_or(false)) {
+                    builder = builder.input_shape(input_shape);
+                }
+                Predictor::DocumentOrientation(builder.with_ort_config(session.clone()).build(ModelSource::from(model_path.clone()))
+                    .map_err(|error| model_error(&model_path, error))?)
+            }
             "document_rectification" => Predictor::DocumentRectification(
                 oar_ocr::predictors::DocumentRectificationPredictor::builder().with_ort_config(session.clone()).build(ModelSource::from(model_path.clone()))
                     .map_err(|error| model_error(&model_path, error))?),
@@ -181,11 +199,16 @@ impl TaskPredictor {
             "formula_recognition" => {
                 let tokenizer = tokenizer_path.unwrap_or_else(|| model_path.with_file_name("pp-formulanet-tokenizer.json"));
                 let tokenizer = existing_asset(&tokenizer)?;
-                Predictor::FormulaRecognition(oar_ocr::predictors::FormulaRecognitionPredictor::builder()
+                let mut builder = oar_ocr::predictors::FormulaRecognitionPredictor::builder()
                     .model_name("PP-FormulaNet-S")
                     .model_kind(oar_ocr::predictors::FormulaModelKind::PPFormulaNet)
-                    .tokenizer_path(tokenizer)
-                    .with_ort_config(session.clone()).build(ModelSource::from(model_path.clone())).map_err(|error| model_error(&model_path, error))?)
+                    .tokenizer_path(tokenizer);
+                // El default del builder es 0.0 (no el 0.5 de las demás tareas):
+                // solo se pisa si el llamante lo pide.
+                if options.is_some_and(|dict| dict.contains("score_threshold").unwrap_or(false)) {
+                    builder = builder.score_threshold(score_threshold);
+                }
+                Predictor::FormulaRecognition(builder.with_ort_config(session.clone()).build(ModelSource::from(model_path.clone())).map_err(|error| model_error(&model_path, error))?)
             }
             _ => unreachable!("validated task name"),
         };
