@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+from typing import Sequence
 
 from .hardware import HardwareProfile, detect_hardware
 from ._pyocrust_core import pipeline_profiles, resolve_models_dir
@@ -115,3 +116,94 @@ def resolve_pipeline(task: TaskSpec, hardware: HardwareProfile | None = None) ->
         preset="pp_structurev3" if structure else "pp_ocrv6", size=size,
         tasks=tuple(tasks), models_dir=resolve_models_dir(), offline=offline,
     )
+
+
+# --------------------------------------------------------------------------
+# Router automático de estructura (RAUTO, DESIGN.md §12)
+# --------------------------------------------------------------------------
+
+#: Defaults de política del router (§12.3). No son umbrales medidos: son el
+#: mando de calibración del barrido pendiente (§12.6).
+GEOM_MIN_SIDE_PX = 64
+ROUTE_MIN_REGIONS = 24
+ROUTE_MIN_DENSITY = 0.12
+
+
+@dataclass(frozen=True)
+class RouteDecision:
+    """Qué feature(s) ejecutar y por qué; **fuera** de la salida OCR (§12.4).
+
+    Un consumidor ve el mismo ``OcrResult``/``StructureResult`` con router o
+    sin él: la explicabilidad viaja aquí, no dentro del resultado. ``artifacts``
+    son los de ``pipeline_profiles()`` del perfil recomendado. No lleva tiempos
+    (envejecerían; viven en la tabla de §12.5 del documento).
+    """
+
+    preset: str | None
+    size: str | None
+    features: tuple[str, ...]
+    reason: str
+    artifacts: tuple[str, ...]
+
+
+def _artifacts(feature_ids: Sequence[str]) -> tuple[str, ...]:
+    """Artefactos de ``pipeline_profiles()`` de las features, sin repetir."""
+    profiles = pipeline_profiles()
+    names: list[str] = []
+    for feature_id in feature_ids:
+        for name in profiles[feature_id]["artifacts"]:
+            if name not in names:
+                names.append(name)
+    return tuple(names)
+
+
+def _text_decision(reason: str) -> RouteDecision:
+    """Texto del tamaño que elija ``resolve_pipeline(TaskSpec())`` (tiny)."""
+    choice = resolve_pipeline(TaskSpec())
+    return RouteDecision(
+        preset=choice.preset, size=choice.size, features=(choice.id,),
+        reason=reason, artifacts=_artifacts((choice.id,)),
+    )
+
+
+def route(declared=None, signals=None) -> RouteDecision:
+    """Decide si hace falta estructura, sin inferencia (§12.3).
+
+    Función **pura**: no mira la imagen ni carga modelos; solo lee lo que le
+    llega. ``declared`` es lo que pidió el llamante (``None``, un ``TaskSpec`` o
+    una secuencia de features) y ``signals`` las señales ya medidas de la imagen
+    (``width``/``height`` o ``W``/``H``; ``n_regions``/``ink_ratio`` de la
+    sonda; un ``signals`` sin ellas = sonda apagada). Primera regla que casa,
+    gana: R0 declarado → R1 geometría → R2/R2' sonda → R3 texto por defecto.
+
+    El router **no** decide tabla/fórmula — eso lo gatea ``OARStructure`` aguas
+    arriba (§12.1) — ni fija los flags de composición (orientación, unwarping,
+    línea, ``text_type``): esos son del constructor de ``VeloceOCR`` (§12.2).
+    """
+    if declared is not None:
+        if isinstance(declared, TaskSpec):
+            choice = resolve_pipeline(declared)
+            feature_ids, preset, size = (choice.id,), choice.preset, choice.size
+        else:
+            from .multifeature import _resolve  # perezoso: evita el ciclo de imports
+            _, feature_ids = _resolve(declared)
+            preset = size = None
+        return RouteDecision(preset, size, tuple(feature_ids), "declared", _artifacts(feature_ids))
+
+    signals = {} if signals is None else signals
+    width = signals.get("width", signals.get("W"))
+    height = signals.get("height", signals.get("H"))
+    if width is not None and height is not None and min(width, height) < GEOM_MIN_SIDE_PX:
+        return _text_decision("geometry")
+
+    if "n_regions" in signals or "ink_ratio" in signals:
+        regions = signals.get("n_regions") or 0
+        density = signals.get("ink_ratio") or 0.0
+        if regions >= ROUTE_MIN_REGIONS or density >= ROUTE_MIN_DENSITY:
+            return RouteDecision(
+                "pp_structurev3", None, ("pp_structurev3",), "probe",
+                _artifacts(("pp_structurev3",)),
+            )
+        return _text_decision("probe")
+
+    return _text_decision("default-text")
