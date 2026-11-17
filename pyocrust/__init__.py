@@ -19,14 +19,20 @@ try:
         BoundingBox,
         LayoutRegion,
         OcrResult,
+        PageInfo,
         PyOcrError,
         PyOcrRuntimeError,
         PyOcrValueError,
+        IncompatibleImageError,
+        IncompatiblePdfError,
+        ResolutionError,
         StructureResult,
         TaskPredictor,
         TextRegion,
         VeloceOCR,
         native_version as _native_version,
+        parse_document,
+        render_page,
         resolve_models_dir,
         models_status,
     )
@@ -41,8 +47,21 @@ __version__: Final[str] = _native_version()
 from pyocrust._pyocrust_core import model_catalog, pipeline_profiles
 from pyocrust.gpu import enable_cuda
 from pyocrust.hardware import GpuInfo, HardwareProfile, detect_hardware
-from pyocrust.multifeature import FEATURE_ALIASES, recognize
-from pyocrust.resolver import TaskSpec, PipelineChoice, resolve_pipeline
+from pyocrust.multifeature import FEATURE_ALIASES, auto_recognize, recognize
+from pyocrust.entries import (
+    DocumentResult, ImageOutput, PageRun, Resolution, Session, available_features,
+    recognize_document, recognize_image,
+)
+from pyocrust.resolver import (
+    GEOM_MIN_SIDE_PX,
+    ROUTE_MIN_DENSITY,
+    ROUTE_MIN_REGIONS,
+    PipelineChoice,
+    RouteDecision,
+    TaskSpec,
+    resolve_pipeline,
+    route,
+)
 from pyocrust._pyocrust_core import available_providers
 
 __all__: Final[list[str]] = [
@@ -50,13 +69,19 @@ __all__: Final[list[str]] = [
     "BoundingBox",
     "LayoutRegion",
     "OcrResult",
+    "PageInfo",
     "PyOcrError",
     "PyOcrRuntimeError",
     "PyOcrValueError",
+    "IncompatibleImageError",
+    "IncompatiblePdfError",
+    "ResolutionError",
     "StructureResult",
     "TaskPredictor",
     "TextRegion",
     "VeloceOCR",
+    "parse_document",
+    "render_page",
     "resolve_models_dir",
     "models_status",
     "model_catalog",
@@ -69,6 +94,20 @@ __all__: Final[list[str]] = [
     "TaskSpec",
     "PipelineChoice",
     "resolve_pipeline",
+    "RouteDecision",
+    "route",
+    "auto_recognize",
+    "GEOM_MIN_SIDE_PX",
+    "ROUTE_MIN_REGIONS",
+    "ROUTE_MIN_DENSITY",
     "FEATURE_ALIASES",
     "recognize",
+    "recognize_image",
+    "recognize_document",
+    "PageRun",
+    "DocumentResult",
+    "ImageOutput",
+    "Resolution",
+    "Session",
+    "available_features",
 ]

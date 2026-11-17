@@ -44,15 +44,35 @@ flattened). Unknown/duplicate/empty features, or a bare ``str`` instead of a
 sequence, raise ``PyOcrValueError`` before any model loads. Sequential by
 default (ADR-008); ``parallel=True`` runs the features in threads, overlapping
 the native GIL-free inferences.
+
+RAUTO (``DESIGN.md`` §12): ``route(declared=None, signals=None) -> RouteDecision``
+is the pure structure router — R0 declared (delegate to resolve_pipeline / the
+given features), R1 ``min(W,H) < GEOM_MIN_SIDE_PX``, R2/R2' probe signals
+(``n_regions``/``ink_ratio``) and R3 default text. It decides only whether to
+turn on ``pp_structurev3`` (never table/formula flags, which layout gates
+upstream) and carries ``preset``, ``size``, ``features``, ``reason`` and
+``artifacts`` — never times, never new keys in the OCR result.
+``auto_recognize(image, *, declared=None, probe=False, ...) -> (output, RouteDecision)``
+runs the optional detection probe, routes, and executes through
+``recognize`` (the single executor); the output is exactly ``recognize``'s.
 """
 
 from __future__ import annotations
 
 from os import PathLike
-from typing import Sequence
+from typing import Iterator, Literal, Mapping, Sequence
 from .hardware import GpuInfo as GpuInfo, HardwareProfile as HardwareProfile, detect_hardware as detect_hardware
-from .multifeature import FEATURE_ALIASES as FEATURE_ALIASES, recognize as recognize
-from .resolver import TaskSpec as TaskSpec, PipelineChoice as PipelineChoice, resolve_pipeline as resolve_pipeline
+from .multifeature import FEATURE_ALIASES as FEATURE_ALIASES, auto_recognize as auto_recognize, recognize as recognize
+from .resolver import (
+    GEOM_MIN_SIDE_PX as GEOM_MIN_SIDE_PX,
+    ROUTE_MIN_DENSITY as ROUTE_MIN_DENSITY,
+    ROUTE_MIN_REGIONS as ROUTE_MIN_REGIONS,
+    PipelineChoice as PipelineChoice,
+    RouteDecision as RouteDecision,
+    TaskSpec as TaskSpec,
+    resolve_pipeline as resolve_pipeline,
+    route as route,
+)
 
 def model_catalog() -> dict[str, dict]:
     """Metadata by artifact name, without filesystem scan, network or inference.
@@ -136,9 +156,29 @@ class StructureResult:
     formulas: Sequence[str]
     def __len__(self) -> int: ...
 
+class PageInfo:
+    """Metadatos de una página del API de documentos (DESIGN.md §13).
+
+    ``text_regions`` reutiliza ``TextRegion``: ``box`` es el AABB del segmento en
+    puntos PDF con origen arriba-izquierda e ``y`` hacia abajo, y ``confidence``
+    es siempre ``1.0`` porque es extracción exacta del text-layer, no una
+    puntuación de modelo. ``has_text_layer`` es ``page.text().len() >=
+    text_min_chars`` y ``needs_ocr == not has_text_layer``.
+    """
+
+    index: int
+    has_text_layer: bool
+    needs_ocr: bool
+    width_px: int
+    height_px: int
+    text_regions: Sequence[TextRegion]
+
 class PyOcrError(Exception): ...
 class PyOcrValueError(PyOcrError): ...
 class PyOcrRuntimeError(PyOcrError): ...
+class IncompatibleImageError(PyOcrValueError): ...
+class IncompatiblePdfError(PyOcrValueError): ...
+class ResolutionError(PyOcrRuntimeError): ...
 
 class TaskPredictor:
     """Eleven standalone tasks; schemas list every returned key (S2.4).
@@ -191,6 +231,20 @@ class TaskPredictor:
     path/cause, without implicit upstream downloads. Registered model filenames
     are documented in DESIGN.md section 3.1.2, sourced from storage/registry.rs.
 
+    ``**options`` are accepted only when that task's oar-ocr builder really has
+    them *and* this wrapper wires them; anything else raises PyOcrValueError
+    (accepted-but-unwired would be silently ignored). Per task:
+    ``text_detection`` score_threshold/box_threshold/unclip_ratio/max_candidates;
+    ``text_recognition`` score_threshold/dict_path; ``layout_detection``
+    score_threshold/model_name; ``table_classification``
+    score_threshold/topk/input_shape; ``table_structure_recognition``
+    score_threshold/dict_path/model_name/input_shape; ``table_cell_detection``
+    score_threshold/model_name (RT-DETR variant); ``document_orientation``
+    score_threshold/topk/input_shape; ``text_line_orientation``
+    score_threshold/topk/input_shape; ``seal_text_detection`` score_threshold;
+    ``formula_recognition`` score_threshold (checkpoint and tokenizer are
+    pinned); ``document_rectification`` none.
+
     predict_batch preserves input order and returns [] for empty input.
     Inference releases the GIL; decoding and Python mapping retain it.
 
@@ -221,6 +275,42 @@ def available_providers() -> list[str]:
 
 def resolve_models_dir(custom_path: str | None = None) -> str: ...
 
+def parse_document(
+    path: str | PathLike[str],
+    pages: Sequence[int] | None = None,
+    dpi: int = 200,
+    *,
+    text_min_chars: int = 64,
+) -> list[PageInfo]:
+    """Metadatos por página: text-layer (texto + cajas) o marca de ``needs_ocr``.
+
+    ``pages=None`` devuelve todas; si no, una secuencia de índices
+    **1-indexados**. ``dpi`` sólo fija ``width_px``/``height_px``
+    (``round(pt * dpi / 72)``): las cajas no cambian con el ``dpi``, así que
+    re-renderizar a otro ``dpi`` no obliga a re-parsear. Una página con
+    ``needs_ocr=True`` no trae regiones: se rasteriza con :func:`render_page` y
+    entra al OCR como cualquier imagen.
+
+    ``dpi < 1``, ``text_min_chars < 1``, o ``pages`` con índices no enteros,
+    duplicados, fuera de rango o 0-based lanzan ``PyOcrValueError`` antes de abrir
+    el documento. Requiere la librería nativa PDFium: se resuelve desde
+    ``PYOCRUST_PDFIUM_LIB`` (fichero o directorio) o desde el directorio del
+    módulo nativo; si no carga, ``PyOcrRuntimeError`` (nunca una lista vacía).
+    """
+    ...
+
+def render_page(
+    path: str | PathLike[str],
+    index: int,
+    dpi: int = 200,
+) -> bytes:
+    """Rasteriza UNA página (índice 1-indexado) a PNG, listo para ``recognize``.
+
+    Las dimensiones son ``round(pt * dpi / 72)``, las mismas que ``PageInfo``.
+    Índice fuera de rango o ``dpi < 1`` lanzan ``PyOcrValueError``.
+    """
+    ...
+
 def models_status(
     custom_path: str | None = None,
 ) -> dict[str, object]:
@@ -231,7 +321,74 @@ def models_status(
     """
 
 class VeloceOCR:
-    def __init__(self, preset: str = "pp_ocrv6", custom_path: str | None = None, device: str = "cpu", license_commercial_use: bool = True, license_acknowledge: bool = False) -> None: ...
+    """Clase de alto nivel: un preset, un pipeline residente.
+
+    ``text_det_*`` ajustan el detector DB (solo los presets ``pp_ocrv6*``; los
+    demás presets los ignoran). Sin ellos el comportamiento es el histórico: el
+    adaptador de oar-ocr reescala a ``limit_side_len=960, limit_type="max"`` con
+    tope ``max_side_len=4000``, y los umbrales son 0.2 / 0.45 (0.4 en tiny) /
+    1.4 / 3000. En una página grande (7000x5000) con texto fino eso reescala a
+    ~960 px de lado mayor y pierde texto; ``text_det_limit_type="min",
+    text_det_limit_side_len=64`` desactiva el reescalado, pero el tope de 4000
+    sigue recortando **incondicionalmente** el lado largo, así que a resolución
+    nativa hay que subir también ``text_det_max_side_len`` (p. ej. 7000).
+
+    Un valor inválido (``text_det_limit_type`` fuera de ``"min"``/``"max"``,
+    umbral fuera de rango, lado <= 0) lanza ``PyOcrValueError`` en el
+    constructor; nunca cae en silencio al default.
+
+    ``use_doc_orientation``, ``use_doc_unwarping`` y ``use_textline_orientation``
+    (los tres ``True`` por defecto, como en PaddleOCR) encienden los componentes
+    de composición de ``oar-ocr`` que hasta ahora pyocrust no cableaba: una
+    página girada 90/180/270 grados se endereza antes de detectar, una página
+    curvada se rectifica (UVDoc) y un recorte de línea boca abajo se gira antes
+    de reconocer. Cada uno exige sus pesos (``pp-lcnet_x1_0_doc_ori.onnx``,
+    ``uvdoc.onnx``, ``pp-lcnet_x1_0_textline_ori.onnx``, ~45 MB en total), que se
+    resuelven en el mismo directorio de modelos y se descargan si faltan
+    (``PYOCRUST_OFFLINE=1`` los convierte en error tipado en vez de red).
+    ``text_type`` ("general"|"table"|"seal") es el ``text_type`` del pipeline:
+    cambia el preprocesado del detector y el tipo de caja (``"seal"`` = polígono,
+    reescalado 736/min). Ojo: el ``text_det_*`` explícito que este wrapper fija
+    con los umbrales oficiales de PP-OCRv6 gana sobre los presets de umbral de
+    ``table``/``seal`` — lo que cambia con ``text_type`` es el preprocesado y el
+    tipo de caja, no los umbrales; para estos pasa ``text_det_thresh`` /
+    ``text_det_box_thresh`` / ``text_det_unclip_ratio`` explícitos.
+
+    Los cuatro se ignoran en los presets que no son ``pp_ocrv6*``.
+
+    Ejemplo (página grande / PDF vectorial a alta resolución; copiar y ejecutar)::
+
+        from pyocrust import VeloceOCR, render_page
+
+        # render_page necesita PDFium (DESIGN.md §13).
+        png = render_page("plano.pdf", index=1, dpi=600)   # raster grande
+
+        RECETA = dict(text_det_limit_type="min", text_det_limit_side_len=64,
+                      text_det_max_side_len=7000)          # los TRES knobs
+        engine = VeloceOCR("pp_ocrv6_medium", **RECETA)
+        boxes = engine.detect_regions(png, **RECETA)       # list[BoundingBox]
+        result = engine.recognize_regions(png, boxes)      # OcrResult, 1:1 por caja
+    """
+
+    def __init__(
+        self,
+        preset: str = "pp_ocrv6",
+        custom_path: str | None = None,
+        device: str = "cpu",
+        license_commercial_use: bool = True,
+        license_acknowledge: bool = False,
+        text_det_limit_side_len: int | None = None,
+        text_det_limit_type: str | None = None,
+        text_det_max_side_len: int | None = None,
+        text_det_thresh: float | None = None,
+        text_det_box_thresh: float | None = None,
+        text_det_unclip_ratio: float | None = None,
+        text_det_max_candidates: int | None = None,
+        use_doc_orientation: bool = True,
+        use_doc_unwarping: bool = True,
+        use_textline_orientation: bool = True,
+        text_type: str = "general",
+    ) -> None: ...
     @property
     def models_dir(self) -> str: ...
     @property
@@ -249,6 +406,141 @@ class VeloceOCR:
     def recognize(
         self, image: str | bytes | PathLike[str]
     ) -> OcrResult | StructureResult: ...
+    def detect_regions(
+        self,
+        image: str | bytes | PathLike[str],
+        *,
+        text_det_limit_side_len: int | None = None,
+        text_det_limit_type: str | None = None,
+        text_det_max_side_len: int | None = None,
+        text_det_thresh: float | None = None,
+        text_det_box_thresh: float | None = None,
+        text_det_unclip_ratio: float | None = None,
+        text_det_max_candidates: int | None = None,
+    ) -> list[BoundingBox]:
+        """Cajas AABB de las regiones de texto (`DESIGN.md` §11.2, `RDET`).
+
+        Usa el modelo de detección **del preset** (no el `tiny` fijo de
+        ``TaskPredictor("text_detection")``) a la resolución que fijen los
+        ``text_det_*``: los del constructor se heredan y los de aquí los pisan
+        (``None`` = heredado; con el constructor por defecto eso es 960/Max/4000
+        más los umbrales de hoy). Para una página grande a resolución nativa
+        hacen falta los **tres** (el tope del lado largo recorta
+        incondicionalmente): ``text_det_limit_type="min"``,
+        ``text_det_limit_side_len=64`` y ``text_det_max_side_len>=7000``.
+
+        La caja es el AABB del cuadrilátero detectado: se pierde la rotación de
+        líneas inclinadas (para texto rotado, ``recognize``). Presets sin par
+        det+rec propio (``indra``, VLM) y valores fuera de rango lanzan
+        ``PyOcrValueError`` antes de cargar modelos.
+        """
+        ...
+    def recognize_regions(
+        self,
+        image: str | bytes | PathLike[str],
+        boxes: Sequence[BoundingBox],
+        *,
+        rec_score_threshold: float | None = None,
+        region_batch_size: int | None = None,
+    ) -> OcrResult:
+        """OCR de las cajas dadas, recortando la imagen nativa (§11.2).
+
+        Una ``TextRegion`` por caja de entrada, en el mismo orden: ``box`` es la
+        caja dada, ``text`` el texto reconocido o ``""`` y ``confidence`` su
+        score o ``0.0``. Recorta con ``image::imageops::crop_imm`` sin reescalar
+        la página y pasa los recortes al reconocedor del preset en lotes de
+        ``region_batch_size`` (por defecto 16 en ``tiny`` y 4 en el resto); el
+        nº de pasadas de rec es ``ceil(N / region_batch_size)``. Regiones sin
+        área dentro de la página producen ``text=""``. ``rec_score_threshold``
+        (``None`` = ``0.0``, sin filtro) fuera de ``[0, 1]`` o
+        ``region_batch_size < 1`` lanzan ``PyOcrValueError``.
+        """
+        ...
+    def recognize_tiled(
+        self,
+        image: str | bytes | PathLike[str],
+        *,
+        tile_size: int = 2048,
+        tile_overlap: int = 256,
+        text_det_limit_side_len: int | None = None,
+        text_det_limit_type: Literal["min", "max"] | None = None,
+        text_det_max_side_len: int | None = None,
+        text_det_thresh: float | None = None,
+        text_det_box_thresh: float | None = None,
+        text_det_unclip_ratio: float | None = None,
+        text_det_max_candidates: int | None = None,
+    ) -> OcrResult: ...
+
+ImageOutput = OcrResult | StructureResult
+Resolution = Literal["default", "balanced", "native", "tiled"]
+
+class PageRun:
+    index: int
+    source: Literal["text_layer", "ocr"]
+    output: OcrResult | StructureResult
+    route_decision: RouteDecision | None
+    warnings: tuple[str, ...]
+
+class DocumentResult:
+    pages: tuple[PageRun, ...]
+
+class Session:
+    def __init__(
+        self, *, device: str = "cpu", custom_path: str | None = None,
+        resolution: Resolution = "balanced", tile_size: int | None = None,
+        tile_overlap: int | None = None, text_det_limit_side_len: int | None = None,
+        text_det_limit_type: Literal["min", "max"] | None = None,
+        text_det_max_side_len: int | None = None, text_det_thresh: float | None = None,
+        text_det_box_thresh: float | None = None, text_det_unclip_ratio: float | None = None,
+        text_det_max_candidates: int | None = None,
+        license_commercial_use: bool = True, license_acknowledge: bool = False,
+    ) -> None: ...
+    def __enter__(self) -> Session: ...
+    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None: ...
+    def recognize_image(self, image: str | bytes | PathLike[str], *,
+                        task: TaskSpec | None = None) -> ImageOutput: ...
+    def iter_document_pages(
+        self, path: str | PathLike[str], pages: Sequence[int] | None = None, *,
+        task: TaskSpec | None = None, page_tasks: Mapping[int, TaskSpec] | None = None,
+        auto_route: bool = False, probe: bool = False, dpi: int = 600,
+        text_min_chars: int = 64,
+    ) -> Iterator[PageRun]: ...
+    def purge(self) -> None: ...
+
+
+def available_features(*, license_commercial_use: bool = True,
+                       license_acknowledge: bool = False) -> list[str]: ...
+
+def recognize_image(
+    image: str | bytes | PathLike[str], *, task: TaskSpec | None = None,
+    resolution: Literal["default", "balanced", "native", "tiled"] = "balanced",
+    tile_size: int | None = None, tile_overlap: int | None = None,
+    text_det_limit_side_len: int | None = None,
+    text_det_limit_type: Literal["min", "max"] | None = None,
+    text_det_max_side_len: int | None = None,
+    text_det_thresh: float | None = None, text_det_box_thresh: float | None = None,
+    text_det_unclip_ratio: float | None = None, text_det_max_candidates: int | None = None,
+    device: str = "cpu", custom_path: str | None = None,
+    license_commercial_use: bool | None = None,
+    license_acknowledge: bool | None = None,
+) -> OcrResult | StructureResult: ...
+
+def recognize_document(
+    path: str | PathLike[str], pages: Sequence[int] | None = None, *,
+    task: TaskSpec | None = None, page_tasks: Mapping[int, TaskSpec] | None = None,
+    auto_route: bool = False, probe: bool = False, dpi: int = 600,
+    text_min_chars: int = 64,
+    resolution: Literal["default", "balanced", "native", "tiled"] = "balanced",
+    tile_size: int | None = None, tile_overlap: int | None = None,
+    text_det_limit_side_len: int | None = None,
+    text_det_limit_type: Literal["min", "max"] | None = None,
+    text_det_max_side_len: int | None = None,
+    text_det_thresh: float | None = None, text_det_box_thresh: float | None = None,
+    text_det_unclip_ratio: float | None = None, text_det_max_candidates: int | None = None,
+    device: str = "cpu", custom_path: str | None = None,
+    license_commercial_use: bool | None = None,
+    license_acknowledge: bool | None = None,
+) -> DocumentResult: ...
 
 __all__: list[str] = [
     "__version__",
@@ -258,10 +550,16 @@ __all__: list[str] = [
     "PyOcrError",
     "PyOcrRuntimeError",
     "PyOcrValueError",
+    "IncompatibleImageError",
+    "IncompatiblePdfError",
+    "ResolutionError",
     "StructureResult",
     "TaskPredictor",
     "TextRegion",
     "VeloceOCR",
+    "PageInfo",
+    "parse_document",
+    "render_page",
     "resolve_models_dir",
     "models_status",
     "model_catalog",
@@ -273,6 +571,20 @@ __all__: list[str] = [
     "TaskSpec",
     "PipelineChoice",
     "resolve_pipeline",
+    "RouteDecision",
+    "route",
+    "auto_recognize",
+    "GEOM_MIN_SIDE_PX",
+    "ROUTE_MIN_REGIONS",
+    "ROUTE_MIN_DENSITY",
     "FEATURE_ALIASES",
     "recognize",
+    "recognize_image",
+    "recognize_document",
+    "PageRun",
+    "DocumentResult",
+    "Session",
+    "ImageOutput",
+    "Resolution",
+    "available_features",
 ]
