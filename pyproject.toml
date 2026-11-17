@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "pyocrust"
-version = "0.1.0"
+version = "0.1.1"
 description = "Unified native OCR and document-structure wrapper over oar-ocr (PyO3 + Maturin)."
 readme = "README.md"
 license = "Apache-2.0"
