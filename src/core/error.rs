@@ -182,6 +182,9 @@ impl From<image::ImageError> for OcrError {
 create_exception!(_pyocrust_core, PyOcrError, PyException);
 create_exception!(_pyocrust_core, PyOcrValueError, PyOcrError);
 create_exception!(_pyocrust_core, PyOcrRuntimeError, PyOcrError);
+create_exception!(_pyocrust_core, IncompatibleImageError, PyOcrValueError);
+create_exception!(_pyocrust_core, IncompatiblePdfError, PyOcrValueError);
+create_exception!(_pyocrust_core, ResolutionError, PyOcrRuntimeError);
 
 /// Traduce `OcrError` a `PyErr` con la excepción tipada correspondiente.
 impl From<OcrError> for PyErr {
@@ -213,5 +216,8 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("PyOcrError", m.py().get_type::<PyOcrError>())?;
     m.add("PyOcrValueError", m.py().get_type::<PyOcrValueError>())?;
     m.add("PyOcrRuntimeError", m.py().get_type::<PyOcrRuntimeError>())?;
+    m.add("IncompatibleImageError", m.py().get_type::<IncompatibleImageError>())?;
+    m.add("IncompatiblePdfError", m.py().get_type::<IncompatiblePdfError>())?;
+    m.add("ResolutionError", m.py().get_type::<ResolutionError>())?;
     Ok(())
 }

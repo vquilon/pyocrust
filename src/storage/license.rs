@@ -64,6 +64,22 @@ const UNKNOWN: License = License {
     url: None,
 };
 
+/// Binario nativo que **no** es un peso: la librería PDFium que usa la API de
+/// documentos (`DESIGN.md` §13). `pdfium-render` (MIT/Apache-2.0) la enlaza en
+/// runtime, así que hace falta declararla en el gate en vez de dejarla fuera de
+/// la contabilidad (§13.7). Dual Apache-2.0 / BSD-3-Clause, ambas permisivas:
+/// uso comercial sí, sin atribución obligatoria.
+const PDFIUM: License = License {
+    spdx: "Apache-2.0 OR BSD-3-Clause",
+    commercial_use: true,
+    acknowledge: false,
+    notes: "PDFium dynamic library (pdfium.dll) used by the document API (DESIGN.md §13) to read \
+            PDF text layers and rasterise pages. Not a model weight: it is the Chromium/Google PDF \
+            library, dual-licensed Apache-2.0 / BSD-3-Clause (both permissive). pdfium-render \
+            (MIT OR Apache-2.0) is the Rust binding; it does not bundle PDFium.",
+    url: Some("https://pdfium.googlesource.com/pdfium/+/refs/heads/main/LICENSE"),
+};
+
 /// Restrictividad: `Unknown` > `OpenRAIL-M-Mod` > resto.
 fn rank(license: &License) -> u8 {
     match license.spdx {
@@ -88,11 +104,24 @@ impl License {
         UNKNOWN
     }
 
+    /// Licencia del binario nativo PDFium que usa la API de documentos (§13.7).
+    ///
+    /// No es un artefacto del registro de pesos, así que ningún preset la
+    /// agrega: se expone para que la superficie de documentos pueda declararla.
+    pub fn pdfium() -> Self {
+        PDFIUM
+    }
+
     /// License for a registered artifact; unknown names are denied by default.
     pub fn for_artifact(name: &str) -> Self {
         let name = name.to_ascii_lowercase();
         if is_indra(&name) {
             return INDRA;
+        }
+        // Binario nativo del API de documentos (§13.7): no es un peso, pero se
+        // clasifica aquí para que no caiga en el `Unknown` de default-deny.
+        if name.contains("pdfium") {
+            return PDFIUM;
         }
         // VLM (`oar-ocr-vl`): se clasifica por el repo del checkpoint, no por un
         // fichero del registro del wrapper (allí no hay ninguno).
@@ -218,6 +247,16 @@ mod tests {
         assert_eq!(License::for_artifact("arabic_pp-ocrv3_mobile_rec.onnx").spdx, "Apache-2.0");
         assert_eq!(License::for_artifact("det.onnx").spdx, "OpenRAIL-M-Mod");
         assert_eq!(License::for_artifact("unrecognized.onnx").spdx, "Unknown");
+    }
+
+    #[test]
+    fn pdfium_native_library_is_declared_permissive_not_unknown() {
+        let license = License::for_artifact("pdfium.dll");
+        assert_eq!(license.spdx, "Apache-2.0 OR BSD-3-Clause");
+        assert!(license.commercial_use);
+        assert!(!license.restricted());
+        assert!(license.allows(true, false));
+        assert_eq!(License::pdfium().spdx, license.spdx);
     }
 
     #[test]

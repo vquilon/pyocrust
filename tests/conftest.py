@@ -61,7 +61,7 @@ def png_factory():
 
 
 # --------------------------------------------------------------------------
-# Modelos reales de PP-OCRv6 Tiny (los 3 artefactos del preset)
+# Modelos reales del pipeline PP-OCRv6 (los 3 de Tiny + la composición)
 # --------------------------------------------------------------------------
 
 # Nombres del registro de `oar-ocr` 0.10.1 (`src/core/types.rs::OcrSize`).
@@ -69,6 +69,16 @@ PP_OCRV6_TINY = (
     "pp-ocrv6_tiny_det.onnx",
     "pp-ocrv6_tiny_rec.onnx",
     "ppocrv6_tiny_dict.txt",
+)
+
+# Componentes que el pipeline `pp_ocrv6` enciende por defecto
+# (`use_doc_orientation` / `use_doc_unwarping` / `use_textline_orientation`).
+# `VeloceOCR("pp_ocrv6")` los exige antes de construir, igual que los 3 de Tiny:
+# un directorio con solo el detector y el reconocedor no basta para el pipeline.
+PP_OCR_COMPONENTES = (
+    "pp-lcnet_x1_0_doc_ori.onnx",
+    "uvdoc.onnx",
+    "pp-lcnet_x1_0_textline_ori.onnx",
 )
 
 # Los 11 artefactos de PP-StructureV3 (`src/core/types.rs::ModelPaths::new`).
@@ -85,6 +95,12 @@ PP_STRUCTUREV3 = (
     "pp-formulanet-s.onnx",
     "pp-formulanet-tokenizer.json",
 )
+
+
+def copiar_pipeline_ocrv6(destino: Path, fuente: Path) -> None:
+    """Copia los 6 artefactos que el pipeline `pp_ocrv6` por defecto necesita."""
+    for nombre in PP_OCRV6_TINY + PP_OCR_COMPONENTES:
+        shutil.copy2(fuente / nombre, destino / nombre)
 
 
 def directorios_candidatos() -> list[Path]:
@@ -120,20 +136,26 @@ def _motivo_faltantes(nombres: tuple[str, ...]) -> str:
 
 @pytest.fixture
 def fuente_modelos() -> Path:
-    """Directorio del host que contiene los 3 artefactos de PP-OCRv6 Tiny."""
+    """Directorio del host con los artefactos del pipeline `pp_ocrv6` por defecto.
+
+    Son los 3 de Tiny más los 3 componentes de composición que el pipeline
+    enciende por defecto: sin los segundos, `VeloceOCR("pp_ocrv6")` los
+    descargaría (o fallaría en offline), que es justo lo que estos tests no
+    quieren.
+    """
+    requeridos = PP_OCRV6_TINY + PP_OCR_COMPONENTES
     for directorio in directorios_candidatos():
-        if all((directorio / nombre).is_file() for nombre in PP_OCRV6_TINY):
+        if all((directorio / nombre).is_file() for nombre in requeridos):
             return directorio
-    pytest.skip(_motivo_faltantes(PP_OCRV6_TINY))
+    pytest.skip(_motivo_faltantes(requeridos))
 
 
 @pytest.fixture
 def modelos_tiny(tmp_path: Path, fuente_modelos: Path) -> Path:
-    """Copia local de los 3 artefactos, para no tocar la caché del host."""
+    """Copia local del pipeline por defecto, para no tocar la caché del host."""
     destino = tmp_path / "modelos"
     destino.mkdir()
-    for nombre in PP_OCRV6_TINY:
-        shutil.copy2(fuente_modelos / nombre, destino / nombre)
+    copiar_pipeline_ocrv6(destino, fuente_modelos)
     return destino
 
 

@@ -28,6 +28,26 @@ oar-ocr-vl = { version = "0.10.2", optional = true }
 # Tipos de imagen compartidos con el preprocesamiento nativo (ADR-009, tarjeta I2).
 image = "0.25"
 
+# API de alto nivel de documentos PDF (DESIGN.md §13, tarjeta t_a7f78bfa):
+# `pdfium-render` es un binding de alto nivel a PDFium y **no** incluye PDFium;
+# enlaza la libreria nativa en runtime (`libloading`), asi que el `pdfium.dll`
+# hay que aportarlo.
+#
+# La version de API se fija a `pdfium_7881`, **no** al default `pdfium_latest`
+# (= `pdfium_8125`): el `pdfium.dll` del entorno (el que trae `pypdfium2_raw`)
+# es el build **8076** de pdfium-binaries, y los bindings de 8125 piden algun
+# simbolo que 8076 aun no exporta -> `GetProcAddress` falla con `source: 127`.
+# Los simbolos de la API C de PDFium son aditivos, asi que un build 8076
+# satisface todos los de 7881. `image_025` = la version de `image` de este
+# crate, de modo que `PdfBitmap::as_image()` devuelve un `DynamicImage` sin
+# duplicar el crate. `thread_safe` es el default del crate (un mutex por
+# llamada al binding; irrelevante aqui).
+pdfium-render = { version = "0.9.5", default-features = false, features = [
+    "pdfium_7881",
+    "image_025",
+    "thread_safe",
+] }
+
 # Paralelismo solo para preprocesamiento intensivo de CPU (ADR-008).
 rayon = "1.8"
 

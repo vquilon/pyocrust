@@ -20,7 +20,7 @@ mod oar_indra;
 mod vlm;
 
 pub use oar_structure::{create_oar_structure_engine, OarStructureEngine};
-pub use oar_text::{create_oar_text_engine, OarTextEngine};
+pub use oar_text::{create_oar_text_engine, OarTextEngine, PipelineOptions, TextDetectionOptions};
 pub use vlm::{ensure_vlm_models, vlm_provider_effective, VlmEngine};
 
 /// Nombres que acepta `create_backend`.
@@ -61,14 +61,26 @@ pub fn create_backend(name: &str) -> Result<Box<dyn OcrEngineBackend>, OcrError>
 /// `device` es el nombre pedido por el usuario (`cpu`, `cuda`, ...): los presets
 /// ONNX lo ignoran (ya viene resuelto en `ort_session`) y el VLM lo usa para
 /// elegir su dispositivo de Candle (no enlaza ONNX Runtime).
+///
+/// `detection` son los overrides del detector DB; solo los consume
+/// `PpOcrV6` (`OarTextEngine`), los demás presets lo ignoran. `composition` es la
+/// composicion del pipeline (orientacion, unwarping, orientacion de linea,
+/// `text_type`) y se ignora igual en los presets que no son `PpOcrV6`.
 pub fn create_engine(
     spec: &ModelSpec,
     paths: &ModelPaths,
     ort_session: &OrtSessionConfig,
     device: &str,
+    detection: TextDetectionOptions,
+    composition: PipelineOptions,
 ) -> Result<Box<dyn OcrEngineBackend>, OcrError> {
     match spec {
-        ModelSpec::PpOcrV6(_) => Ok(Box::new(create_oar_text_engine(paths, ort_session.clone())?)),
+        ModelSpec::PpOcrV6(_) => Ok(Box::new(create_oar_text_engine(
+            paths,
+            ort_session.clone(),
+            detection,
+            composition,
+        )?)),
         ModelSpec::PpStructureV3 => Ok(Box::new(create_oar_structure_engine(
             paths,
             ort_session.clone(),
@@ -109,7 +121,7 @@ mod tests {
         use crate::core::OcrSize;
         let spec = ModelSpec::PpOcrV6(OcrSize::Tiny);
         let paths = ModelPaths::new(std::path::Path::new("/nonexistent/models"), &spec);
-        let engine = create_engine(&spec, &paths, &OrtSessionConfig::new(), "cpu");
+        let engine = create_engine(&spec, &paths, &OrtSessionConfig::new(), "cpu", TextDetectionOptions::default(), PipelineOptions::default());
         assert!(matches!(engine, Err(OcrError::ModelLoad { .. })));
     }
 
@@ -117,7 +129,7 @@ mod tests {
     fn create_engine_with_model_spec_for_pp_structurev3() {
         let spec = ModelSpec::PpStructureV3;
         let paths = ModelPaths::new(std::path::Path::new("/nonexistent/models"), &spec);
-        let engine = create_engine(&spec, &paths, &OrtSessionConfig::new(), "cpu");
+        let engine = create_engine(&spec, &paths, &OrtSessionConfig::new(), "cpu", TextDetectionOptions::default(), PipelineOptions::default());
         assert!(matches!(engine, Err(OcrError::ModelLoad { .. })));
     }
 
@@ -128,7 +140,7 @@ mod tests {
         let paths = ModelPaths::new(std::path::Path::new("/nonexistent/models"), &spec);
         // Con `vl` los checkpoints no están en disco (`ModelLoad`); sin `vl` el
         // preset no existe en este build (`InvalidInput`). Nunca un pánico.
-        let err = create_engine(&spec, &paths, &OrtSessionConfig::new(), "cpu")
+        let err = create_engine(&spec, &paths, &OrtSessionConfig::new(), "cpu", TextDetectionOptions::default(), PipelineOptions::default())
             .err()
             .expect("the VLM preset must fail with a typed error");
         match err {
