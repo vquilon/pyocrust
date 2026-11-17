@@ -161,6 +161,75 @@ lists the nine effective requirements (`required=true`).
 In Indra, block confidence `0.0` means score not available; `formulas=[]`
 does not imply absence of math: inline LaTeX is preserved in Markdown/regions.
 
+## Detection options and region mode (`RDET`)
+
+`VeloceOCR` exposes the DB detector's rescale knobs and a two-call region SDK
+(`DESIGN.md` §11; implemented state in §14). **Every default keeps today's
+behaviour** — passing nothing is a no-op.
+
+Constructor: `VeloceOCR(preset, ..., **text_det_*)`. All seven default to `None`,
+which means *today's value*, not a new one:
+
+| kwarg | default (`None` →) | range |
+| :--- | :--- | :--- |
+| `text_det_limit_side_len` | `960` | int ≥ 1 |
+| `text_det_limit_type` | `"max"` | `"min"` \| `"max"` |
+| `text_det_max_side_len` | `4000` | int ≥ 1 |
+| `text_det_thresh` | `0.2` | `[0, 1]` |
+| `text_det_box_thresh` | `0.45` (`0.4` on `tiny`) | `[0, 1]` |
+| `text_det_unclip_ratio` | `1.4` | ≥ 0 |
+| `text_det_max_candidates` | `3000` | int ≥ 1 |
+
+Two methods, both on `VeloceOCR`:
+
+```python
+# same seven text_det_* kwargs as the constructor
+def detect_regions(self, image, **text_det) -> list[BoundingBox]: ...   # boxes, AABB
+def recognize_regions(self, image, boxes, *, rec_score_threshold=None,  # None = 0.0
+                      region_batch_size=None) -> OcrResult: ...        # None = 16 (tiny) / 4
+```
+
+`detect_regions` takes the same seven kwargs: `None` inherits the constructor's
+value (with the default constructor that is again 960/Max/4000 + today's
+thresholds). `recognize_regions` returns **one `TextRegion` per input box, in the
+same order** (`box` = the box you gave, `text`/`confidence` = the crop's result,
+`""`/`0.0` when there is none).
+
+A value out of range, an unknown `text_det_limit_type`, `rec_score_threshold`
+outside `[0, 1]` or `region_batch_size < 1` raises **`PyOcrValueError`** — never a
+silent fallback. `indra` and the VLM have no detection+recognition pair, so the
+region SDK raises `PyOcrValueError` there too; it is defined for `pp_ocrv6*` and
+`pp_structurev3`. On the constructor/`recognize` path the detection knobs and the
+composition flags (`use_doc_orientation` / `use_doc_unwarping` /
+`use_textline_orientation`, all `True` by default, and `text_type`) only take
+effect on the `pp_ocrv6*` presets; `detect_regions` applies its `text_det_*` to
+the preset's own detection model, `pp_structurev3` included.
+
+**Large page / vector PDF at high resolution.** The default rescales the long
+side to ~960 px and loses fine text; a vector PDF (schematics) rendered at high
+`dpi` is exactly that case. To see the page at native resolution you need **all
+three** rescale knobs — `text_det_max_side_len` caps the long side
+unconditionally, so `min/64` alone is not enough:
+
+```python
+from pyocrust import VeloceOCR, render_page
+
+# Vector (or scanned) PDF -> big raster. render_page needs PDFium: either a
+# pdfium.dll next to the native module, or PYOCRUST_PDFIUM_LIB (DESIGN.md §13).
+png = render_page("plano.pdf", index=1, dpi=600)      # ~5000x7000 px for an A4
+
+RECETA = dict(text_det_limit_type="min", text_det_limit_side_len=64,
+              text_det_max_side_len=7000)             # the three, native resolution
+engine = VeloceOCR("pp_ocrv6_medium", **RECETA)
+
+boxes = engine.detect_regions(png, **RECETA)          # native-resolution AABB boxes
+result = engine.recognize_regions(png, boxes)         # one TextRegion per box
+print(len(boxes), [r.text for r in result.regions[:3]])
+```
+
+If you do not need the boxes, one call does the same end to end:
+`VeloceOCR("pp_ocrv6_medium", **RECETA).recognize(png)`.
+
 ## Individual tasks (`TaskPredictor`)
 
 Eleven tasks available; names, schemas and options in `DESIGN.md` §3.1.2.

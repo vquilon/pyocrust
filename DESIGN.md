@@ -1150,3 +1150,1102 @@ Lo que **no** se trata como vigente aquí: las **filas GPU publicadas** de `form
 (`2026-11-09_16-22-29`), que son del binario defectuoso y están a la espera de la
 re-medición `t_5c3b7dfe`. El auditor de citas es re-ejecutable: basta recitar
 `src/**` y `benchmarks/**` y recalcular el sha256 del `.pyd`.
+
+## 11. SDK de regiones de detección + OCR por recorte (`RDET`, 2026-11-17)
+
+> **Bloque nuevo; no reescribe §1-§10.** Fija la forma que implementa la tarjeta
+> `t_3664c9a8` y resuelve cómo se relaciona con `TaskPredictor("text_detection")` y con
+> el modo «no reescalar» de la tarjeta hermana `t_ad3760e5`.
+>
+> **Nota de procedencia de citas (corrige §1.2).** Las citas de `oar-ocr` de esta
+> sección **sí** son de primera mano: el crate está en el host en
+> `C:\Users\vquilon\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\oar-ocr-0.10.1\`
+> y `oar-ocr-core-0.10.1\`, y se leyeron allí. Las rutas `oar-ocr*/src/...` de §11 son
+> internas a esos crates; las rutas `src/...` y `tests/...` son del repo.
+
+### 11.1 Hechos verificados hoy (leídos en el crate, no inferidos)
+
+1. **El pipeline `OAROCR` ya recorta por región y hace rec por recorte a resolución
+   nativa.** `OAROCR::predict` ejecuta: detección → `sort_detection_boxes` →
+   `crop_text_regions` → `recognize_global` (`oar-ocr-0.10.1/src/oarocr/ocr.rs:720-784`).
+   Los recortes salen de `preprocess.image` (imagen a resolución completa, ya
+   orientada/rectificada) usando las cajas mapeadas de vuelta a coordenadas originales
+   por `ImageScaleInfo` (`oar-ocr-core-0.10.1/src/processors/resize_detection.rs:190`,
+   `text_detection_adapter.rs:36-79`). Conclusión: **el recorte nativo y el rec por
+   región ya existen**; lo que no existe es exponer las cajas ni rec sobre cajas ajenas.
+2. **El crate de det sí acepta los tres knobs de reescalado, aunque el builder no tenga
+   setters dedicados.** `TextDetectionConfig` incluye `limit_side_len`, `limit_type` y
+   `max_side_len` (`oar-ocr-core-0.10.1/src/domain/tasks/text_detection.rs:48-52`) y
+   `TextDetectionPredictorBuilder` recibe el config completo vía el `with_config(...)`
+   que genera `#[derive(TaskPredictorBuilder)]`
+   (`oar-ocr-derive-0.10.1/src/lib.rs:307-313`;
+   `oar-ocr-core-0.10.1/src/predictors/builder.rs:60-63`). La tarjeta hermana describe
+   esto como «su builder no expone `limit_side_len/limit_type/max_side_len`»: es cierto
+   sólo para los *setters* individuales (`text_detection.rs:54-92`), no para la
+   capacidad — se fijan con `.with_config(TextDetectionConfig{ .. })`.
+3. **`max_side_len` recorta el lado largo INCONDICIONALMENTE**, con independencia de
+   `limit_type`. En `resize_image_type0` el ratio de `Min`/`Max` se calcula primero y
+   **después**, siempre, `if resize_h.max(resize_w) > max_side_limit { ... }` reescala a
+   la baja (`oar-ocr-core-0.10.1/src/processors/resize_detection.rs:287-296`). El
+   adaptador de det arranca de `db_preprocess_for_text_type(None)` = `limit_side_len 960,
+   limit_type Max, max_side_limit 4000` (`.../adapters/preprocessing.rs:81-89`) y sólo
+   lo sobrescribe si el config trae el valor (`text_detection_adapter.rs:147-155`); el
+   pipeline hace lo mismo (`oar-ocr-0.10.1/src/oarocr/ocr.rs:394-410`). Constantes:
+   `DEFAULT_LIMIT_SIDE_LEN = 960`, `DEFAULT_MAX_SIDE_LIMIT = 4000`
+   (`oar-ocr-core-0.10.1/src/core/constants.rs:11,15`).
+   **Corolario (defecto de premisa de la tarjeta hermana `t_ad3760e5`):** «no reescalar»
+   **no** se logra con `limit_type="min"` solo. Una página 7000x5000 con
+   `limit_type=min, limit_side_len=64` **sigue** recortada a 4000x2848 por `max_side_len`
+   (por defecto 4000). Para ver la página a resolución nativa hay que subir **también**
+   `max_side_len` (p. ej. `>=7000`). El criterio de esa tarjeta («más regiones con
+   min/64») probablemente pasa (4000 > 960) pero **no prueba** «no reescalar».
+4. **El `rect` batch size agrupa los recortes.** `region_batch_size` por defecto en CPU:
+   16 para `tiny`, 4 para el resto; con acelerador, el default del adaptador o
+   `clamp(12g-28,4,64)` si se da presupuesto (`oar-ocr-0.10.1/src/oarocr/builder_utils.rs:87-114,160-174`;
+   `ocr.rs:291-301`). El nº de pasadas de rec es `ceil(N / batch)`, no `N`.
+
+### 11.2 Forma exacta del API
+
+**Python (superficie 1, `VeloceOCR`).** Dos métodos nuevos, ambos con `self` y `image`
+en la misma forma que `recognize` (`str`/`bytes`/`PathLike`), liberando el GIL en la
+inferencia:
+
+```python
+class VeloceOCR:
+    def detect_regions(
+        self,
+        image: str | bytes | PathLike[str],
+        *,
+        text_det_limit_side_len: int | None = None,      # None = default actual (960)
+        text_det_limit_type: str | None = None,          # "min" | "max" | None
+        text_det_max_side_len: int | None = None,        # None = default actual (4000)
+        text_det_thresh: float | None = None,            # score_threshold (hoy 0.2)
+        text_det_box_thresh: float | None = None,        # box_threshold (hoy 0.45/0.4)
+        text_det_unclip_ratio: float | None = None,      # hoy 1.4
+        text_det_max_candidates: int | None = None,      # hoy 3000
+    ) -> list[BoundingBox]: ...
+
+    def recognize_regions(
+        self,
+        image: str | bytes | PathLike[str],
+        boxes: Sequence[BoundingBox],
+        *,
+        rec_score_threshold: float | None = None,        # filtro de confianza del rec
+        region_batch_size: int | None = None,            # recortes por pasada de rec
+    ) -> OcrResult: ...
+```
+
+Reglas fijas (contrato, no implementación):
+
+* **Tipos reutilizados, ninguno nuevo.** `detect_regions` devuelve `list[BoundingBox]`
+  (la `#[pyclass]` existente, AABB `x1,y1,x2,y2`, `src/core/types.rs:312-350`);
+  `recognize_regions` devuelve `OcrResult` con **una `TextRegion` por caja de entrada**
+  (`box` = la caja dada, `text` = texto reconocido o `""`, `confidence` = score o `0.0`).
+* **Caja = AABB.** La salida de detección del crate es un cuadrilátero; se colapsa a su
+  `aabb()` igual que ya hace el backend de texto (`src/engines/oar_text.rs:179`) y que
+  `TaskPredictor("text_detection")` (`src/tasks/mod.rs:377`). *Trade-off*: se pierde la
+  rotación de líneas inclinadas. Alternativa rechazada: una `#[pyclass]` nueva de
+  polígono de 4 puntos — duplicaría `BoundingBox` y rompería la regla de una sola
+  representación de caja; para texto rotado se usa `recognize` (que conserva el
+  cuadrilátero internamente vía `TextCroppingProcessor`, `ocr.rs:868-903`).
+* **`detect_regions` usa el modelo de detección del preset**, no el `tiny` fijo de
+  `TaskPredictor`. En `VeloceOCR("pp_ocrv6_medium")` corre `pp-ocrv6_medium_det.onnx`
+  (`src/core/types.rs:64-70`); en `pp_structurev3`, el `tiny` que embebe
+  (`src/core/types.rs:260`).
+* **Defaults = comportamiento actual** (`None` → 960 / Max / 4000 y umbrales de hoy):
+  cero cambio para quien no pasa nada, y **idénticos** a los de la tarjeta hermana
+  `t_ad3760e5` sobre `recognize`. Receta para 7000x5000 a resolución nativa:
+  `limit_type="min", limit_side_len=64, max_side_len>=7000` (los tres, por 11.1.3).
+* **Validación tipada, sin fallback silencioso.** `limit_type` fuera de `{min,max}`,
+  umbrales fuera de rango o `region_batch_size==0` → `PyOcrValueError` antes de cargar
+  modelos (misma política que la whitelist de `src/tasks/mod.rs:73-90`).
+* **Presets sin par det+rec propio** (`indra`, VLM) → `PyOcrValueError`; el SDK se
+  define para los presets de texto (`pp_ocrv6*`) y `pp_structurev3`.
+* **Una sola fuente de verdad de los knobs.** El mapeo `opts → TextDetectionConfig`
+  debe ser **un** helper de Rust compartido por `detect_regions` y, si se añaden allí,
+  por `TaskPredictor("text_detection")`; el significado de `text_det_*` no puede diferir
+  entre `recognize` (tarjeta hermana) y `detect_regions`.
+
+**Rust (forma interna, `VeloceOCR` en `src/lib.rs`).** Dos métodos sobre el struct que ya
+tiene `engine`/`config`/`provider_effective` (`src/lib.rs:39-46`):
+
+```rust
+fn detect_regions(&self, py: Python<'_>, image: &Bound<'_, PyAny>, opts: &Bound<'_, PyDict>)
+    -> PyResult<Vec<BoundingBox>>;
+fn recognize_regions(&self, py: Python<'_>, image: &Bound<'_, PyAny>, boxes: &Bound<'_, PyAny>, opts: &Bound<'_, PyDict>)
+    -> PyResult<OcrResult>;
+```
+
+* `detect_regions` construye (una vez, residente) un `TextDetectionPredictor` sobre el
+  modelo de detección del preset con `.with_config(TextDetectionConfig{ .. })`
+  (`oar-ocr-core-0.10.1/src/predictors/text_detection.rs:95-112`) y devuelve
+  `det.bbox.aabb()` por detección.
+* `recognize_regions` recorta con `image::imageops::crop_imm` sobre la imagen RGB nativa
+  (sin reescalar la página) y pasa los recortes en lotes de `region_batch_size` al
+  `TextRecognitionPredictor` del preset; mapea un resultado por caja.
+
+### 11.3 Decisión de reutilización (y alternativa rechazada)
+
+**No se reutiliza `full_page_tiling`/`FullPageTiling`** (`src/core/image_processor.rs:150-201`).
+Emite una **malla fija 512 con solapamiento** — responde «cómo trocear la página», no
+«cómo recortar estas cajas de texto». Usarla para recortar regiones **cortaría líneas por
+la mitad** y dispararía el nº de pasadas de rec (una malla 512x512 con `overlap=64` sobre 7000x5000 son 192 (16x12)
+mosaicos frente a un puñado por línea). Sigue siendo la utilidad opt-in de ADR-009, sin
+cambios.
+
+**Se reutiliza:** el primitivo de recorte `image::imageops::crop_imm` (ya usado por el
+tiling, `src/core/image_processor.rs:197`); el `TextDetectionPredictor` y el
+`TextRecognitionPredictor` ya envueltos en `src/tasks/mod.rs`; y `BoundingBox`/`OcrResult`
+como tipos de cruce. Lo único nuevo en Rust es el cableado de los knobs y el bucle
+recorte→rec; **ninguna** estructura de datos nueva.
+
+Alternativa evaluada y rechazada: **un recorte por caja como función pura nueva en
+`image_processor.rs`**. Es la ruta que «reutiliza» el módulo de preprocesamiento, pero
+`crop_imm` ya es una línea y el módulo se declara «sin conocer `oar-ocr`»
+(`src/core/image_processor.rs:10-12`); un helper propio sólo añade superficie. Se usa
+`crop_imm` en línea.
+
+### 11.4 Relación con `TaskPredictor("text_detection")` y con «no reescalar» (`t_ad3760e5`)
+
+* **Con `TaskPredictor("text_detection"): no es lo mismo; lo sustituye para páginas
+  grandes.** `TaskPredictor("text_detection")` está **clavado al det `tiny`**
+  (`src/storage/registry.rs:187`), con umbrales genéricos (`src/tasks/mod.rs:123-129`) y
+  **sin** knobs de reescalado → sobre una página grande reescala a 960 y pierde texto
+  fino. `detect_regions` es el **mismo predictor** con (a) el modelo de detección del
+  preset y (b) los knobs. Decisión: `TaskPredictor("text_detection")` **no se elimina**
+  (compatibilidad); queda como «det suelto a resolución de pipeline», y `detect_regions`
+  es la superficie soportada para detección a resolución elegida. Recomendado: añadir a
+  `TaskPredictor("text_detection")` los mismos tres knobs para que ambos compartan el
+  helper de 11.2 y no haya dos caminos de la misma cosa.
+* **Con «no reescalar» (`t_ad3760e5`): complementarios, no sustitutos.** Esa tarjeta
+  arregla la etapa de det **dentro de la página completa** (`VeloceOCR.recognize`); y como
+  el pipeline **ya recorta por región a resolución nativa** (11.1.1), con los knobs
+  `recognize` **ya entrega el objetivo end-to-end** (texto fino recuperado, recortes
+  nativos) sin API nueva. Lo que aporta el SDK de regiones es distinto: (1) **las cajas**
+  y (2) **rec sobre cajas ajenas** (regiones de layout, otro detector) — cosa que `OAROCR`
+  no puede hacer porque siempre detecta sus propias cajas.
+  **Regla de uso:** página completa a resolución nativa → `recognize(**text_det_*)` (una
+  sesión, una llamada, menos pasadas); necesitas las cajas o das las tuyas →
+  `detect_regions` + `recognize_regions`. Ninguna reemplaza a la otra, y ambas comparten
+  el **mismo** `TextDetectionConfig`.
+
+### 11.5 Coste: nº de regiones → rec; memoria 7000x5000 nativa; tiempo
+
+**Nº de pasadas de rec.** `ceil(N / region_batch_size)`, con `N` = nº de cajas. Defaults
+CPU: 16 (`tiny`) / 4 (resto); acelerador: default del adaptador o `clamp(12g-28,4,64)`
+(`oar-ocr-0.10.1/src/oarocr/builder_utils.rs:87-114,160-174`). Ej.: 2000 regiones → 500
+pasadas (batch 4), 125 (16), 32 (64). Los recortes se agrupan; **no** hay N *forward*
+sueltos.
+
+**Memoria — página 7000x5000 (procedencia: aritmética sobre las fórmulas del crate).**
+
+| Concepto | Tamaño | Base |
+| :--- | ---: | :--- |
+| Página RGB8 nativa (7000x5000) | **100,1 MiB** (105 000 000 B) | 7000·5000·3 |
+| Copia interna del det con `max_side_len=4000` | **32,6 MiB** (4000x2848) | `resize_detection.rs:287-302` |
+| Copia interna del det a resolución nativa (`max_side_len>=7000`) | **100,1 MiB** | idem, sin recorte |
+| Recortes en vuelo, caja media 800x40, por lote 4/16/64 | 0,37 / 1,46 / 5,86 MiB | 800·40·3·batch |
+| Tensor de entrada de rec por lote 4/16/64 | 0,70 / 2,81 / 11,25 MiB | [b,3,48,320]·f32 (`constants.rs:21`) |
+
+Pico ≈ página + mayor copia del det + recortes en vuelo + arena de ORT. Con la página a
+resolución nativa: **~200 MiB** sobre CPU (página + copia nativa del det) + arena; con
+`max_side_len=4000`: **~133 MiB** + arena. Todo cabe de sobra en cualquier
+`max_runtime_seconds` de este proyecto. *No medido en proceso aquí* (el envelope de esta
+tarjeta es sólo docs); la medida de pico pertenece a `t_3664c9a8`.
+
+**Tiempo (huella).** El SDK hace det **una** vez + rec sobre `N` regiones = **el mismo
+trabajo** que ya hace `recognize` en la misma página. Base **medida** de `recognize` en
+`text`/FUNSD, CPU: `pp_ocrv6 tiny 318`, `small 823`, `medium 2138` ms/img
+(`benchmarks/reports/text/REPORT.md:21-23`); GPU tiny 419 ms/img (`:54`). **Caveat de
+procedencia:** FUNSD son páginas pequeñas (~1k px); para 7000x5000 ese número **no**
+aplica. La huella para la página grande es **estimada** (crece ~lineal con los píxeles en
+det y con `N` en rec), **no medida**; la medición es de `t_c5468198`/`t_3664c9a8`, y este
+bloque no la inventa.
+
+**Cuadre con `max_runtime_seconds`.** Esta tarjeta (diseño) consume 0 cómputo. Las de
+implementación/verificación tienen 2400 s / 1800 s: un build incremental + **una** página
+7000x5000, `device="cpu"`, una llamada → segundos-a-minutos bajos, dentro del envelope.
+
+### 11.6 Gaps abiertos (no defectos de este diseño)
+
+* El criterio de `t_ad3760e5` no distingue «no reescalar» de «reescalar menos»: conviene
+  añadir `text_det_max_side_len>=7000` al caso de aceptación para que la página se vea a
+  resolución **nativa** de verdad (11.1.3).
+* La medición de pico de memoria y de tiempo de una página 7000x5000 real **no existe
+  todavía**; queda para las tarjetas hijas. Este bloque declara su envelope como
+  aritmética + estimación, y lo etiqueta como tal.
+
+## 12. Router automático de estructura: layout / tabla / fórmula (`RAUTO`, 2026-11-17)
+
+> **Bloque nuevo; no reescribe §1-§11.** Fija las reglas de disparo que puede implementar
+> una tarjeta hija, sobre las piezas que ya existen: `pipeline_profiles()`, `multifeature.recognize`,
+> `resolve_pipeline`, los presets de `VeloceOCR` y la composición de `t_17009adc` (en curso).
+>
+> **Procedencia de citas.** Las de `oar-ocr*` son de primera mano, leídas en
+> `C:\Users\vquilon\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\oar-ocr-0.10.1\` y
+> `oar-ocr-core-0.10.1\`; las `src/...`, `pyocrust/...`, `tests/...` y `benchmarks/...` son del repo.
+
+### 12.1 Hecho que decide la forma: la cadena layout→tabla→fórmula **ya existe** dentro del preset de estructura
+
+`OARStructure::predict_image` corre, en un solo pipeline y en este orden: `prepare_page` →
+`detect_layout_and_regions` (modelo de layout) y luego `complete_page`, que ejecuta el
+`TableAnalyzer` **sobre las regiones de layout** y `recognize_formulas` filtrando
+`element_type.is_formula()`, y ordena la lectura con `sort_layout_elements_enhanced`.
+Evidencia: `oar-ocr-0.10.1/src/oarocr/structure.rs:2728-2737` (`prepare_page`), `:2739-2800`
+(`complete_page`: analyzer + sort), `:2085-2100` (`recognize_formulas`:
+`.filter(|e| e.element_type.is_formula())`).
+
+**Regla de diseño (la que evita duplicar todo lo demás):** el router **no** vuelve a decidir
+«si hay tabla, corre tabla» ni «si hay fórmula, corre fórmula»; eso ya está gateado aguas
+arriba por la salida de layout. El router decide **una sola cosa**: si se enciende el preset
+de estructura (`pp_structurev3`) o no. Encendido, layout es incondicional (es su primera
+etapa) y tabla/fórmula disparan **por región** según su clase, dentro del mismo pipeline.
+
+**Corolario de coste:** la cadena se satisface cargando `pp_structurev3` **una vez**, nunca
+encadenando `TaskPredictor("layout_detection")` + `("table_structure_recognition")` +
+`("formula_recognition")`.
+
+* Alternativa evaluada —*encadenar los tres `TaskPredictor`*— y por qué pierde: (1) obliga a
+  implementar en Python el gate y el pegado layout→región que el preset ya hace (§12.1);
+  (2) pierde la salida rica: la tarea suelta `table_structure_recognition` devuelve tokens y
+  geometría, **no HTML** (§3.1.2), mientras `StructureResult.to_markdown()` sí (§3.1.4, ADR-003);
+  (3) pierde clases que el preset ya trae (clasificación wired/wireless, detección de celdas).
+  En sesiones ORT sí sería más barato (3 frentes: layout 1 artefacto, tabla 1, fórmula 1;
+  `src/storage/registry.rs:185-206`) frente a los 8 del preset, pero no existe hoy una carga
+  perezosa por etapa en `pyocrust` y el coste medido por página (§12.5) no es el cuello en
+  este host. Rechazada por código y por contrato, no por aritmética de sesiones.
+* Toda esta cadena es ortogonal al SDK de regiones de §11: si el llamante aporta sus propias
+  cajas, `recognize_regions` sustituye la detección propia del pipeline y no se toca layout.
+
+### 12.2 Cuatro decisiones; el router es la que **falta** (no duplicar)
+
+| Decisión | Dueño hoy | Entrada | Fuente |
+| :--- | :--- | :--- | :--- |
+| Intención declarada → preset/tareas | `resolve_pipeline` | `TaskSpec` | `pyocrust/resolver.py:67-117` |
+| Features explícitas → ejecuciones | `multifeature.recognize` | `features=[...]` | `pyocrust/multifeature.py:106-143` |
+| Flags de **etapa** (orientación doc, unwarping, orientación de línea, `text_type`) | constructor de `VeloceOCR` | bools / `str` | tarjeta `t_17009adc` (en curso) |
+| **Imagen → ¿hace falta estructura?** | **nadie** | señal de la imagen | — ← **el router** |
+
+Reglas de no-duplicación (precedencia estricta):
+
+1. **Lo declarado gana.** Si el llamante dio un `TaskSpec` o una lista `features`, el router
+   **delega** (a `resolve_pipeline` / a `multifeature`) y no re-deriva nada. Así no hay dos
+   implementaciones del mismo mapeo intención→preset.
+2. **El router produce, no ejecuta.** Su salida es la lista `features=[...]` que consume el
+   **único** ejecutor `multifeature.recognize`. No añade un segundo motor de ejecución.
+3. **Los flags de composición viven en un solo sitio** (el constructor de `VeloceOCR`,
+   `t_17009adc`). El router **no** los fija; los pasa tal cual. Frontera a cerrar con esa
+   tarjeta: `text_type="table"` decide «esta página es una tabla» a nivel de etapa, que
+   solaparía con el router — si ese flag llega a existir, la decisión «¿tabla?» pertenece al
+   router y `text_type` debe quedar como mero ajuste de preprocesado (gap §12.6).
+
+### 12.3 Reglas de disparo (explícitas y testeables)
+
+La política es una **función pura, sin inferencia**: `route(declared, signals) -> RouteDecision`.
+Primera regla que casa, gana. Constantes nombradas (defaults de política, no medidos; §12.6):
+
+```
+GEOM_MIN_SIDE_PX   = 64      # lado menor por debajo del cual no cabe estructura
+ROUTE_MIN_REGIONS  = 24      # nº de regiones de la sonda que justifica estructura
+ROUTE_MIN_DENSITY  = 0.12    # Σ área(cajas) / área(imagen)
+```
+
+| # | Condición | Decisión | `reason` |
+| :--- | :--- | :--- | :--- |
+| `R0` | `declared` es `TaskSpec` o `features` | delegar a `resolve_pipeline` / `multifeature`; el router no decide | `declared` |
+| `R1` | `min(W,H) < GEOM_MIN_SIDE_PX` | texto (`pp_ocrv6_tiny`), **sin** estructura (gratis, sin modelos) | `geometry` |
+| `R2` | `probe=True` y `n_regions >= 24` **o** `ink_ratio >= 0.12` | estructura (`pp_structurev3`) | `probe` |
+| `R2'` | `probe=True` y no cumple `R2` | texto | `probe` |
+| `R3` | nada declarado, sin sonda, geometría OK | texto del tamaño que elija `resolve_pipeline(TaskSpec())` (tiny por defecto) | `default-text` |
+
+Notas que hacen las reglas testeables:
+
+* **¿Layout «siempre»? No.** Layout solo existe dentro del preset de estructura; el preset de
+  texto nunca lo corre. Con la salida de `R3`/`R1` el contrato imagen→OCR queda **idéntico** (§12.4).
+* **¿Tabla/fórmula «a partir de la salida de layout»? Ya gateado aguas arriba** (§12.1). El
+  router **no** devuelve un flag «tabla=on/fórmula=on»: para saber si dispararon, se lee el
+  propio `StructureResult` (tabla HTML en el Markdown / LaTeX de la fórmula). Añadir un flag
+  paralelo sería la segunda copia del mismo concepto que el router debe evitar.
+* **La sonda es opt-in, no por defecto.** Un det obligatorio añadiría una sesión al caso común
+  y, si la decisión sale «texto», el pipeline de texto **volvería a detectar** (det dos veces);
+  además la señal es débil en esquemáticos vectorizados (pocas cajas de texto). Por eso el
+  default es `R3` (YAGNI). Alternativa rechazada: sonda obligatoria; pierde porque no se paga
+  sola y duplica detección en el camino barato.
+* **Lectura de la señal de densidad.** Se toma `ink_ratio` **alto** como indicio de página con
+  contenido (no «densidad baja», como enunciaba la tarjeta): una página densa necesita
+  estructura; y el OR con `n_regions` cubre también el caso de muchos fragmentos. Lectura
+  «densidad baja ⇒ estructura» rechazada por un solo-signal débil.
+
+Ejemplos de aceptación (entrada → salida), los que debe cubrir el test de la tarjeta hija:
+
+| `declared` | `signals` | `features` devueltas | `reason` |
+| :--- | :--- | :--- | :--- |
+| `TaskSpec(tables=True)` | — | `("pp_structurev3",)` | `declared` |
+| `features=["layout"]` | — | `("layout_detection",)` (delegado) | `declared` |
+| `None` | `{W:40,H:40}` | `("pp_ocrv6_tiny",)` | `geometry` |
+| `None` (probe) | `{n_regions:5, ink_ratio:0.05}` | `("pp_ocrv6_tiny",)` | `probe` |
+| `None` (probe) | `{n_regions:31, ink_ratio:0.90}` | `("pp_structurev3",)` | `probe` |
+| `None` | — | `("pp_ocrv6_tiny",)` | `default-text` |
+
+> El camino de texto (R1/R2'/R3) devuelve el **id del preset resuelto** (`pp_ocrv6_tiny`), no la
+> tarea `text_recognition`: `text_recognition` es tarea (`family=task`) y devuelve `{text, score}`
+> (§3.1.2), lo que incumpliría el `OcrResult` sin cambios que exige §12.4 y perdería el tamaño que
+> fija R3 (`resolve_pipeline(TaskSpec())`).
+
+Donde vive (sin módulo nuevo): `route()` en `pyocrust/resolver.py` —que ya se documenta como
+«pure pipeline recommendations»— y un driver de una línea en `pyocrust/multifeature.py`:
+`auto_recognize(image, ...)` = (`probe` opcional) + `route(...)` +
+`multifeature.recognize(image, features=decision.features)`.
+
+### 12.4 Qué se añade al resultado y cómo se conserva el contrato actual
+
+* **Router → texto** (R1/R2'/R3): devuelve `OcrResult` **sin cambios**, exactamente el de hoy
+  (§3.1.2/§3.1.4). Cero claves nuevas.
+* **Router → estructura** (R0/R2): devuelve `StructureResult` con `to_markdown()` (tablas HTML,
+  fórmulas LaTeX), `elements` (layout) y `regions` — **tipo que ya existe** (ADR-003,
+  §3.1.4). No se crea ni un `#[pyclass]` ni un esquema nuevo.
+* **La estructura por región y el orden de lectura ya vienen incluidos**: `StructureResult`
+  ordena en `sort_layout_elements_enhanced` (§12.1); la tarea suelta de layout expone
+  `is_reading_order_sorted` (`src/tasks/mod.rs:336`, `pyocrust/__init__.pyi:149`). El router no
+  añade nada aquí.
+* **Explicabilidad fuera del resultado.** El «porqué» no se mezcla en la salida OCR: va en un
+  objeto separado `RouteDecision` (`preset`, `size`, `features`, `reason`, `artifacts` leídos de
+  `pipeline_profiles()[id]`). Así un consumidor existente ve el **mismo tipo y las mismas claves**
+  con router o sin él. Los tiempos **no** se incrustan en el código (envejecerían): viven en la
+  tabla de §12.5.
+
+### 12.5 Coste por modelo encendido
+
+Sesiones ORT = nº de `.onnx` del perfil (los `.txt`/`.json` de diccionario/tokenizer no abren
+sesión). Artefactos por `pipeline_profiles()`/`registry`: `pp_ocrv6` = 3 (2 sesiones);
+`pp_structurev3` = 11 (8 sesiones: det, rec, layout, table_cls, wired/wireless, cell_det,
+formulanet — `src/storage/registry.rs:161-173`).
+
+| Se enciende | Artefactos (sesiones) | ms/página medidos (CPU) | Medido en |
+| :--- | :--- | ---: | :--- |
+| Texto `tiny` / `small` / `medium` | 3 (2) | 318 / 823 / 2138 | `benchmarks/reports/text/REPORT.md:21-23` |
+| **Preset estructura** (`pp_structurev3`) | **11 (8)** | layout 2926 · tabla 1128 · fórmula 1028 | `layout/REPORT.md:62`, `table/REPORT.md:22`, `formula/REPORT.md:24` |
+| Etapa: orientación de documento | 1 (1) | 4 | `orientation/REPORT.md:21` |
+| Etapa: rectificación (unwarping) | 1 (1) | 74 | `rectification/REPORT.md:21` |
+| Etapa: orientación de línea | 1 (1) | 2 | `text_line/REPORT.md:21` |
+| Etapa: detección de sello | 1 (1) | 217 | `seal/REPORT.md:20` |
+
+* **Caveats de procedencia (no inventados):** las cifras de layout/tabla/fórmula son del
+  **mismo preset** `pp_structurev3` sobre **datasets distintos** (`n` = 40/8/10) — se dan por
+  feature, **no** son aditivas ni aíslan un modelo. No existe medida de una sonda de detección
+  suelta (el banco `text` mide el pipeline det+rec completo) ni de `ram_bytes` (`None` en el
+  catálogo). No se extrapolan (§12.6).
+* **Cómo el router explica el coste:** por encender estructura pasa de 2 a 8 sesiones residentes;
+  el disparo de tabla/fórmula **por región** es el que gatea su *forward*, no su carga. El router
+  reporta qué perfil se carga (`artifacts`) y con qué `reason`, y el `reason` apunta a esta tabla.
+
+### 12.6 Gaps abiertos (no defectos de este diseño)
+
+* `GEOM_MIN_SIDE_PX`, `ROUTE_MIN_REGIONS` y `ROUTE_MIN_DENSITY` son **defaults de política**, no
+  umbrales medidos: no hay barrido que los calibre. Son el mando de calibración; el barrido que
+  los fije es tarjeta hija.
+* La frontera router ↔ `text_type` de `t_17009adc` (§12.2) queda sin cerrar hasta que esa tarjeta
+  aterrice su semántica.
+* La sonda opt-in no tiene coste medido (det aislado) ni prueba de que su señal discrimine
+  esquemáticos vectorizados; por eso no es el default.
+* El router no cubre el caso PDF con text-layer: ahí la decisión «¿rasterizar y pasar por OCR?»
+  es de la tarjeta `t_3d36077e` (API de documentos), que es quien mejor discrimina. Este bloque
+  es la política para una **imagen ya rasterizada**.
+
+
+## 13. API de alto nivel para documentos PDF (text-layer vs render por página) (`PDFDOC`, 2026-11-17)
+
+> **Bloque nuevo; no reescribe §1-§12.** Fija la forma que implementa la tarjeta hija
+> `t_a7f78bfa` (hefesto). Se apoya en §3.1.4 (tres superficies), ADR-011 (núcleo Rust +
+> fachada Python fina) y §11 (reglas de reuso de tipos).
+>
+> **Procedencia de citas.** Las de `pdfium-render` 0.9.5 son de **primera mano** (documentación
+> oficial, docs.rs, leída hoy). Las de PDFium/`pypdfium2` son de la copia instalada en
+> `.venv/Lib/site-packages/pypdfium2*`. Las rutas `src/...`, `Cargo.toml`, `pyocrust/...` son
+> del repo.
+
+### 13.1 Hechos verificados hoy (leídos, no inferidos)
+
+1. **No hay ninguna dependencia PDF en el árbol Rust.** `Cargo.toml` declara `pyo3`,
+   `oar-ocr`, `oar-ocr-vl` (opt), `image = "0.25"`, `rayon`, `reqwest`, `sha2`; ninguna parsea
+   PDF. `image = "0.25"` **ya** está: la usan el preprocesamiento y el *tiling*
+   (`src/core/image_processor.rs:14-15`).
+2. **El punto de entrada OCR acepta sólo bytes codificados, no un raster crudo.**
+   `VeloceOCR.recognize` extrae `str`/`bytes`/`PathLike` y lee bytes (`src/lib.rs:189-201`);
+   los motores decodifican con `image::load_from_memory(bytes).into_rgb8()`
+   (`src/engines/oar_text.rs:234-239`; igual en `oar_indra.rs:48`, `oar_structure.rs:189`,
+   `vlm.rs:415`). Corolario: un raster producido **fuera** del núcleo debe entregarse
+   codificado (PNG) y se vuelve a decodificar dentro.
+3. **No existe rasterizador PDF pure-Rust; PDFium ya está en el host.** El wheel de
+   `pypdfium2` 5.14.0 (BSD-3-Clause / Apache-2.0, metadatos del `dist-info`) trae el binario
+   nativo en `.venv/Lib/site-packages/pypdfium2_raw/pdfium.dll` = **7 381 504 B (7,04 MiB,
+   Windows x64)**.
+4. **PDFium da, por página y en una sola biblioteca, texto con cajas, tamaño y render.** En
+   `pypdfium2` (`_helpers/textpage.py:149,160,196,224`; `_helpers/page.py:53-67,190,353`):
+   `count_chars`, `get_charbox`, `count_rects`/`get_rect`, `get_text_range`, `get_size`,
+   `render(scale=…)`. El bitmap de PDFium es **BGRA/BGRx por defecto** (4 B/px)
+   (`_helpers/bitmap.py:211,218`).
+5. **`pdfium-render` 0.9.5 es un binding de alto nivel a PDFium y NO incluye PDFium.**
+   Licencia **MIT OR Apache-2.0**; enlaza la librería nativa en *runtime* (`libloading` entre
+   sus dependencias) o en *build* (`PDFIUM_DYNAMIC_LIB_PATH` / `PDFIUM_STATIC_LIB_PATH`).
+   PDFium, al instalarlo, va bajo sus propias licencias (**Apache-2.0 / BSD-3-Clause**).
+   Soporta `image` 0.25 (feature), la misma versión que el repo. MSRV ≥ 1.61 sin esa feature.
+6. **La API de `pdfium-render` cubre exactamente lo que pide el contrato** (docs.rs 0.9.5):
+   `PdfPage::text() -> Result<PdfPageText, PdfiumError>`; `PdfPageText::len() -> i32` (cuenta
+   caracteres, incluidos espacios y saltos); `PdfPageText::segments() -> PdfPageTextSegments`;
+   `PdfPageTextSegment::text() -> String` y `PdfPageTextSegment::bounds() -> PdfRect` (el
+   propio crate documenta que PDFium **fusiona cajas pequeñas en segmentos** con la misma
+   línea base y fuente); `PdfPage::width()/height() -> PdfPoints`;
+   `PdfPage::render(width: Pixels, height: Pixels, rotation) -> Result<PdfBitmap, PdfiumError>`
+   y `render_with_config(&PdfRenderConfig)`;
+   `PdfPage::points_to_pixels/pixels_to_points(…, &PdfRenderConfig)` para convertir puntos↔píxeles.
+7. **`lopdf`/`pdf-extract` extraen texto SIN cajas y no rasterizan.** El ejemplo propio de
+   `lopdf` 0.44 (`extract_text.rs`) hace `doc.extract_text(&[page]) -> Result<String>`:
+   devuelve una cadena, no regiones ni coordenadas.
+
+### 13.2 Forma exacta del API
+
+**Python (superficie nueva, fachada fina sobre el núcleo).** Dos funciones libres y una clase:
+
+```python
+from pyocrust import parse_document, render_page, PageInfo, TextRegion
+
+pages = parse_document("plano.pdf")                 # todas las páginas
+pages = parse_document("plano.pdf", pages=[2, 5])   # sólo las 1-indexadas [2, 5]
+png   = render_page("plano.pdf", index=5, dpi=200)  # bytes PNG de UNA página
+```
+
+```python
+def parse_document(
+    path: str | PathLike[str],
+    pages: Sequence[int] | None = None,   # None = todas; si no, 1-indexadas
+    dpi: int = 200,                        # sólo fija width_px/height_px
+    *,
+    text_min_chars: int = 64,              # umbral de la regla 13.3
+) -> list[PageInfo]: ...
+
+def render_page(
+    path: str | PathLike[str],
+    index: int,                            # 1-indexada
+    dpi: int = 200,
+) -> bytes: ...                            # PNG, una página, listo para recognize()
+```
+
+`PageInfo` (nueva `#[pyclass]`, atributos de sólo lectura) — es el **único** tipo nuevo:
+
+```python
+class PageInfo:
+    index: int                        # 1-indexado, como el usuario ve el PDF
+    has_text_layer: bool              # regla 13.3
+    needs_ocr: bool                   # == not has_text_layer
+    width_px: int                     # round(width_pt  * dpi / 72)
+    height_px: int                    # round(height_pt * dpi / 72)
+    text_regions: list[TextRegion]    # [] si needs_ocr
+```
+
+Reglas fijas (contrato, no implementación):
+
+* **Tipos reutilizados, ninguno nuevo salvo `PageInfo`.** `text_regions` usa el `TextRegion`
+  existente (texto, confianza y caja, `src/core/types.rs:265-343`): `box` = el AABB del
+  segmento, `text` = `segment.text()`, y `confidence = 1.0` porque es extracción **exacta** del
+  text-layer, no una puntuación de modelo (se documenta como tal). Mismo espíritu que §11.2.
+* **`box` es un AABB en puntos PDF, origen arriba-izquierda, `y` hacia abajo.** Con
+  `h = page.height()`: `x1 = rect.left`, `y1 = h − rect.top`, `x2 = rect.right`,
+  `y2 = h − rect.bottom`. Es el **único** sistema de coordenadas del API (13.3). Así una caja
+  de text-layer y una caja de OCR (ya AABB) son directamente comparables.
+* **`dpi` no cambia las cajas.** `parse_document` es *dpi-independiente* en todo salvo
+  `width_px`/`height_px`; re-renderizar a otro `dpi` no obliga a re-parsear. *Alternativa
+  rechazada:* cajas en píxeles al `dpi` del render — haría que `box` dependiera en silencio de
+  `dpi` (dos `dpi` ⇒ dos marcos) y acoplaría el texto (que no se rasteriza) a una resolución
+  que no le afecta.
+* **Errores tipados, sin *fallback* silencioso.** Índice fuera de rango, `dpi < 1`,
+  `text_min_chars < 1`, `pages` con duplicados o no enteros → `PyOcrValueError` antes de abrir
+  el documento. Si la librería PDFium no se puede cargar → `PyOcrRuntimeError` (nunca una lista
+  vacía ni una página «sin texto» fingida). Misma política que la whitelist de
+  `src/tasks/mod.rs:73-90`.
+* **Funciones libres, no métodos:** son sin estado (no hay modelo que cargar). Consistente con
+  `models_status`/`pipeline_profiles`.
+
+### 13.3 Regla text-layer vs render (la decisión)
+
+```python
+n = page.text().len()                     # nº de caracteres que PDFium ve en la capa de texto
+has_text_layer = n >= text_min_chars      # text_min_chars por defecto 64
+needs_ocr      = not has_text_layer
+```
+
+* **`has_text_layer == True` → extraer, sin OCR.** `text_regions` = una `TextRegion` por
+  `PdfPageTextSegment` (`segment.text()` + `segment.bounds()`): es **exacto** —el texto sale
+  del *content stream*, no de un modelo— y trae coordenadas. `needs_ocr = False`.
+* **`has_text_layer == False` → marcar y rasterizar.** `text_regions = []`, `needs_ocr = True`;
+  el raster se produce con `render_page(index, dpi)` y entra al OCR (13.5). Es el caso de los
+  **escaneos** y del **texto vectorizado como trazos** (esquemáticos): ambos dan `n = 0`.
+* **Por qué un umbral y no `n > 0`.** Una página escaneada con un sello de texto (unas decenas
+  de caracteres) tiene `n > 0` pero NO es una página de texto; tratarla como text-layer perdería
+  el contenido del escaneo. `text_min_chars = 64` es un valor **documentado y sustituible**
+  (kwarg), pensado para el corpus objetivo: un esquemático con text-layer tiene miles de
+  caracteres y uno vectorizado, 0. **Es heurística, no umbral medido** (ver 13.7).
+* **Un solo marco de coordenadas.** Ambas ramas producen AABB en puntos PDF con el mismo origen
+  (13.2). PDFium es **una** biblioteca: texto y render salen del mismo modelo de página, así que
+  no hay dos convenciones de eje que casar (ese era el riesgo de mezclar un parser pure-Rust de
+  texto con un rasterizador aparte).
+
+### 13.4 Crate elegido y su coste (alternativa rechazada)
+
+**Elegido: `pdfium-render` 0.9.x (MIT OR Apache-2.0) + una librería dinámica PDFium
+(Apache-2.0 / BSD-3-Clause).** Es **una** dependencia nueva y resuelve las **tres** cosas que el
+contrato necesita con **un solo** modelo de página: (1) texto con cajas, (2) tamaño de página,
+(3) rasterizado. Mantiene el raster **dentro del proceso** del núcleo, sin viaje a Python ni
+codificar/decodificar PNG de por medio. Nada de modelos ni red: es parseo y render.
+
+**Coste, explícito:**
+
+| Concepto | Valor | Base |
+| :--- | :--- | :--- |
+| Dependencia nueva en `Cargo.toml` | 1 (`pdfium-render`) | — |
+| Binario nativo que hay que aportar | PDFium dinámico, **7,04 MiB** en Windows x64 | `pypdfium2_raw/pdfium.dll` medido en el host |
+| Enlace | runtime (`libloading`) o build (`PDFIUM_DYNAMIC_LIB_PATH`/`PDFIUM_STATIC_LIB_PATH`) | docs `pdfium-render` 0.9.5 |
+| Licencias | `pdfium-render` MIT/Apache-2.0; PDFium Apache-2.0/BSD-3-Clause | docs + metadatos `pypdfium2` |
+| Compatibilidad `image` | feature `image` 0.25 = la del repo | `Cargo.toml:34` vs deps de `pdfium-render` |
+
+Que el binario ya exista en `.venv` (por `pypdfium2`) **no** lo convierte en dependencia del
+crate: para el *dev loop* se puede apuntar `PDFIUM_DYNAMIC_LIB_PATH` a esa carpeta sin bajar
+nada, pero el wheel distribuido debe llevar su propio PDFium por plataforma (un segundo binario
+junto a `_pyocrust_core.pyd`).
+
+**Alternativa rechazada: text-layer pure-Rust (`lopdf`/`pdf-extract`/`pdf-inspector`) + render
+en Python (`pypdfium2`).** *Motivo real, no de gusto:* `lopdf`/`pdf-extract` dan texto **sin
+cajas** (13.1.7) y **no rasterizan**, así que la rama `needs_ocr` seguiría necesitando PDFium
+**en Python** de todos modos → dos bibliotecas, y el raster cruzaría a Python y volvería al
+núcleo como PNG (13.1.2), con su codifica/decodifica extra. `pdf-inspector` (pure Rust,
+`extract_text_with_positions` + `detect_pdf`) sí cubre la rama de texto —clasifica
+texto/escaneado y da posiciones— pero **tampoco rasteriza**, y su propia documentación avisa de
+que los `TextItem` van con origen abajo-izquierda y `y` hacia arriba mientras las cajas de
+región/render van con origen arriba-izquierda: mezclar dos bibliotecas obliga a casar dos
+marcos. Con `pdfium-render`, **una** biblioteca da texto, cajas y render en el mismo marco.
+
+También evaluada: **fachada Python pura sobre `pypdfium2`** (0 dependencias nuevas; el mismo
+PDFium por debajo; funciona hoy). Se rechaza **sólo** porque contradice el requisito explícito
+«API en Rust» y paga el mismo PNG de ida y vuelta; queda como salida si esa exigencia se
+revierte.
+
+### 13.5 Dónde vive y composición con el pipeline OCR
+
+**Dentro de pyocrust, en el núcleo Rust.** Módulo nuevo `src/documents.rs` con la `#[pyclass]`
+`PageInfo` y las funciones `parse_document`/`render_page`; registrado en `_pyocrust_core`
+(`src/lib.rs:349-368`) y re-exportado en `pyocrust/__init__.py` (+`__all__`) y
+`pyocrust/__init__.pyi`. Es la forma «núcleo Rust + fachada Python fina»
+(`pyocrust/__init__.py:1-11`, ADR-011) y una superficie más junto a las tres de §3.1.4. **No**
+es un *entry*, módulo ni servidor aparte: el raster tiene que nacer en el **mismo proceso** que
+el OCR.
+
+**Composición (objetivo del encargo).** Para una página `needs_ocr`:
+
+```python
+png = render_page("plano.pdf", index=5, dpi=200)
+res = VeloceOCR("pp_ocrv6").recognize(png)     # entra al OCR como cualquier imagen
+```
+
+La página rasterizada entra **al mismo `recognize`** que hoy; los indicadores de composición
+(orientación / desinclinado / **unwarping**) los resuelve el preprocesamiento de `oar-ocr`
+**sin cambios** — este diseño **no** añade una etapa de composición nueva. `pp_structurev3`,
+`indra` y el VLM usan el mismo `render_page`; sólo cambia el preset de `recognize`. Cuando el
+raster nace en el núcleo no hay que codificar a PNG ni re-decodificar: se entrega el `RgbImage`
+directamente al motor. (La superficie pública mínima `render_page -> PNG -> recognize` reutiliza
+el decodificador existente; el atajo en proceso es implementación de `t_a7f78bfa`.)
+
+### 13.6 Envelope de memoria y tiempo (con procedencia)
+
+**Memoria por página (procedencia: aritmética sobre los formatos documentados).** Página de
+ejemplo 7000×5000, como en §11.5:
+
+| Concepto | Tamaño | Base |
+| :--- | ---: | :--- |
+| Text-layer (rama sin OCR) | despreciable | nº de caracteres + nº de segmentos (miles × decenas de B) |
+| Bitmap de PDFium (BGRA/BGRx, 4 B/px) | **133,5 MiB** (140 000 000 B) | 7000·5000·4; formato por defecto (13.1.4) |
+| Copia RGB8 para el OCR (3 B/px) | **100,1 MiB** (105 000 000 B) | 7000·5000·3; `into_rgb8()` (13.1.2) |
+| PNG intermedio (si se usa `render_page`) | +buffer de codificación | encoder de `image` |
+
+Pico de la rama OCR ≈ bitmap BGRA + copia RGB ≈ **~234 MiB** (+ la arena de ORT del OCR). La
+cifra del encargo («~105 MB») es **sólo** la copia RGB; el pico honesto es ~2,2× ese valor
+porque el bitmap nativo de PDFium es de 4 B/px, no 3. **Una página a la vez, nunca todas**: el
+envelope no se multiplica por el nº de páginas (de ahí que `parse_document` sea
+metadatos-only y el raster salga de `render_page` página a página).
+
+**Tiempo.** Text-layer: **~ms/página** (construir la *text page* de PDFium y recorrer sus
+segmentos). Render a `dpi`: rasterización de PDFium, **estimada, no medida** —este bloque es
+sólo docs—: para una página grande es del orden de décimas de segundo a `dpi` moderado, pero
+**este documento no lo inventa**; la medición pertenece a `t_a7f78bfa`. La huella de `recognize`
+sobre páginas pequeñas de FUNSD está medida en `benchmarks/reports/text/REPORT.md` y **no**
+aplica a 7000×5000 (§11.5).
+
+**Cuadre con `max_runtime_seconds`.** Esta tarjeta (diseño) consume 0 cómputo. La hija tiene
+2400 s: un build incremental (`maturin develop`, una vez) + parsear y rasterizar **una** página
++ un `recognize` caben de sobra.
+
+### 13.7 Gaps abiertos (no defectos de este diseño)
+
+* **El gate de licencias no clasifica binarios nativos.** `src/storage/license.rs` es por
+  artefacto del registro de **pesos**; PDFium (Apache-2.0/BSD-3-Clause, permisiva) no tiene
+  entrada ahí. La hija debe declararla en el gate en vez de dejarla fuera de la contabilidad.
+* **`text_min_chars = 64` es heurística**, no un umbral ajustado contra el corpus real del
+  usuario; conviene revisarlo con un PDF mixto de verdad (la hija ya prueba ese caso).
+* **No hay medición** de pico de memoria ni de tiempo de render de una página grande; queda
+  para `t_a7f78bfa`. Este bloque declara su envelope como aritmética + estimación, y lo etiqueta.
+
+## 14. Estado implementado: parametrización de detección y modo de regiones (2026-11-17)
+
+> **Bloque nuevo; no reescribe §1-§13.** Reconciliación de los bloques de diseño `RDET`
+> (§11) y de los knobs de detección/composición contra el **árbol real**, tras las tarjetas
+> `t_ad3760e5` (knobs en el constructor) y `t_3664c9a8` (SDK de regiones). Documenta **lo
+> implementado**, no lo planeado. Procedencia: rutas `src/...`, `pyocrust/...`, `tests/...`
+> de este repo, leídas hoy; las de `oar-ocr*` donde §11 las fija.
+
+### 14.1 Superficie real (firmas leídas del árbol, no inferidas)
+
+Constructor `VeloceOCR.__new__` (`src/lib.rs:61-98`). Los siete `text_det_*` son `None` por
+defecto; los tres flags de composición y `text_type` vienen de `t_17009adc`:
+
+| kwargs Python | default real | efecto | dónde |
+| :--- | :--- | :--- | :--- |
+| `text_det_limit_side_len` | `None` → `960` | lado objetivo del reescalado | `src/lib.rs:67`; `src/engines/oar_text.rs:91-93` |
+| `text_det_limit_type` | `None` → `"max"` | limita lado corto (`"min"`) o largo (`"max"`) | `src/lib.rs:68`; `src/engines/oar_text.rs:94-96` |
+| `text_det_max_side_len` | `None` → `4000` | tope **incondicional** del lado largo | `src/lib.rs:69`; `src/engines/oar_text.rs:97-99` |
+| `text_det_thresh` | `None` → `0.2` | umbral de score de detección | `src/lib.rs:70`; `src/engines/oar_text.rs:100-102` |
+| `text_det_box_thresh` | `None` → `0.45` (`0.4` en `tiny`) | umbral de caja | `src/lib.rs:71`; `src/engines/oar_text.rs:83-86,103-105` |
+| `text_det_unclip_ratio` | `None` → `1.4` | expansión del cuadrilátero | `src/lib.rs:72`; `src/engines/oar_text.rs:106-108` |
+| `text_det_max_candidates` | `None` → `3000` | nº máx. de cajas | `src/lib.rs:73`; `src/engines/oar_text.rs:109-111` |
+| `use_doc_orientation` | `True` | endereza 90/180/270 antes de detectar | `src/lib.rs:74,117-118` |
+| `use_doc_unwarping` | `True` | rectificación UVDoc (páginas curvadas) | `src/lib.rs:75,119` |
+| `use_textline_orientation` | `True` | gira el recorte de línea boca abajo | `src/lib.rs:76,120` |
+| `text_type` | `"general"` | `"general"`\|`"table"`\|`"seal"` (preprocesado y tipo de caja) | `src/lib.rs:77,121-128` |
+| `rec_score_threshold` (method) | `None` → `0.0` | filtro de confianza del rec | `src/lib.rs:318-326` |
+| `region_batch_size` (method) | `None` → `16` (`tiny`) / `4` resto | recortes por pasada de rec | `src/lib.rs:327-335`; `src/regions.rs:62-65` |
+
+Métodos nuevos:
+
+* `VeloceOCR.detect_regions(image, *, text_det_*) -> list[BoundingBox]` (`src/lib.rs:260-298`).
+  Los mismos siete kwargs; `None` hereda el valor del constructor vía
+  `TextDetectionOptions::or` (`src/engines/oar_text.rs:65-75`, usado en `src/regions.rs:74`).
+  Usa el modelo de detección **del preset** y devuelve el AABB de cada detección
+  (`src/regions.rs:83-87`).
+* `VeloceOCR.recognize_regions(image, boxes, *, rec_score_threshold=None, region_batch_size=None)
+  -> OcrResult` (`src/lib.rs:308-339`). Recorta la imagen nativa con `crop_imm` y devuelve
+  **una `TextRegion` por caja de entrada, en el mismo orden** (`src/regions.rs:92-142`;
+  recorte con clamp a la página en `src/regions.rs:194-204`).
+
+En la ruta del constructor, los `text_det_*` y los flags de composición **sólo los consume
+`PpOcrV6`** (`src/lib.rs:99-116`); en los demás presets el pipeline se construye sin ellos.
+En cambio `detect_regions` **sí** aplica sus `text_det_*` al detector del preset, también en
+`pp_structurev3` (que usa su `tiny` de detección; `src/regions.rs:145-161`). El SDK de
+regiones existe sólo para presets con par det+rec propio (`pp_ocrv6*`, `pp_structurev3`;
+`src/regions.rs:47-51`).
+
+### 14.2 Defaults reales = comportamiento de hoy (cero cambio)
+
+`TextDetectionOptions::default()` es todos-`None` (`src/engines/oar_text.rs:41-57`); `to_config`
+parte del histórico (**0.2 / 0.4 tiny / 0.45 resto / 1.4 / 3000**, `:80-90`) y sólo pisa los
+campos `Some` (`:91-111`). `limit_side_len`/`limit_type`/`max_side_len` quedan `None`, así que el
+adaptador de detección de `oar-ocr` pone `960/Max/4000` (§11.1.3) — **idéntico** a lo que hacía
+`recognize` antes de estos knobs. Fijado por los tests unitarios de `src/engines/oar_text.rs:394-445`
+(`detection_options_default_is_todays_behaviour`, `detection_options_or_pisa_solo_los_campos_no_none`).
+
+### 14.3 Errores tipados (sin fallback mudo)
+
+Un solo helper `detection_options` (`src/lib.rs:404-478`) valida antes de decodificar o cargar
+modelos: `limit_type∉{min,max}`, umbrales ∉ `[0,1]`, `unclip_ratio<0`, `max_candidates<1`, lados
+fuera de `1..u32::MAX` → `PyOcrValueError`. Es el **mismo** helper en el constructor (`:101-109`)
+y en `detect_regions` (`:287-295`): el significado de `text_det_*` no puede diferir entre
+`recognize` y `detect_regions` (§11.2). `rec_score_threshold∉[0,1]` y `region_batch_size<1` →
+`PyOcrValueError` (`:318-335`); un preset sin par det+rec → `PyOcrValueError` con la lista de
+presets soportados (`:344-353`).
+
+El contrato está en `pyocrust/__init__.pyi:320-442` (stubs): cada parámetro con su default real
+y la validación. Verificado contra el `.pyd` instalado por introspección
+(`inspect.signature(VeloceOCR.detect_regions)` coincide con el stub).
+
+### 14.4 Ejemplo: página grande / PDF vectorial a alta resolución (copiar y ejecutar)
+
+```python
+from pyocrust import VeloceOCR, render_page
+
+# PDF vectorial (o escaneado) -> raster grande. render_page necesita PDFium (§13):
+# un pdfium.dll junto al módulo nativo, o PYOCRUST_PDFIUM_LIB apuntando al suyo.
+png = render_page("plano.pdf", index=1, dpi=600)      # ~5000x7000 px para un A4
+
+RECETA = dict(text_det_limit_type="min", text_det_limit_side_len=64,
+              text_det_max_side_len=7000)             # los TRES; con min/64 solo, el tope de 4000 recorta
+engine = VeloceOCR("pp_ocrv6_medium", **RECETA)
+
+boxes = engine.detect_regions(png, **RECETA)          # cajas AABB a resolución nativa
+result = engine.recognize_regions(png, boxes)         # una TextRegion por caja, mismo orden
+print(len(boxes), [r.text for r in result.regions[:3]])
+```
+
+Si no se necesitan las cajas, `VeloceOCR("pp_ocrv6_medium", **RECETA).recognize(png)` entrega el
+objetivo end-to-end de una sola vez (el pipeline ya recorta por región a resolución nativa, §11.1.1).
+
+### 14.5 Verificación y divergencias
+
+| Qué | Evidencia (corrida real) |
+| :--- | :--- |
+| Defaults = histórico | tests unitarios `src/engines/oar_text.rs:394-445`; verdes en el handoff de `t_ad3760e5`/`t_3664c9a8` |
+| Validación tipada del constructor | `tests/test_text_det_options.py` — 10/10 valores inválidos → `PyOcrValueError` |
+| Criterio de aceptación del SDK de regiones | `tests/test_regions_sdk.py:140-174` — ≥40 cajas, 1:1 por caja, paridad ≥90%, ≥40 líneas del espectro; 6 passed |
+| Rechazo de valores inválidos en los métodos | `tests/test_regions_sdk.py:177-201`; `tests/test_text_det_options.py` |
+| El ejemplo de 14.4 corre | sonda directa en este host sobre `tests/data/mixed_text_and_scan.pdf` (2 páginas, `needs_ocr=[False,True]`) y sobre una página sintética: `render_page(dpi=600)` → `detect_regions` 6 cajas → `recognize_regions` 6 regiones con texto real |
+
+* **Gap cerrado de §11.6.** «Añadir `text_det_max_side_len>=7000` al caso de aceptación» está
+  hecho: `tests/test_regions_sdk.py:39-43` fija los tres knobs (`RECETA_NATIVA`) y `:145-146`
+  los usa.
+* **Nota ajena, no verificada.** `tests/test_text_det_parity.py` (fichero **no rastreado**, de
+  otra tarjeta) falla hoy con 0 regiones tanto en default como en nativo. Hipótesis: se escribió
+  contra los defaults anteriores al flip de composición (`use_doc_orientation/unwarping/
+  textline_orientation = True`, `src/lib.rs:74-76`, cambio de `t_17009adc`). No comprobado;
+  referencia: comentario 593 de `t_3664c9a8`. No es defecto de los knobs ni del SDK de regiones
+  (cambios aditivos).
+* **Sin medir.** Pico de memoria y tiempo de una página 7000x5000 reales siguen siendo estimación
+  (§11.5); la pata GPU **no** se ha ejercitado (el `.pyd` instalado es release sin providers
+  aceleradores), así que el gate «medir pico antes de GPU» no se ha disparado.
+* Documentado además en `README.md` / `README.es.md` (sección «Detection options and region mode
+  (`RDET`)» / «Opciones de detección y modo de regiones») y en `pyocrust/__init__.pyi`.
+
+
+## 15. Contrato de entrada multi-flujo: imagen, PDF y sesión (`ENTRY`, 2026-11-17)
+
+> **Bloque nuevo; no reescribe §§1–14. Diseño propuesto, no implementación.** Cierra la costura
+> entre las entradas Python de imagen/PDF, el router y los motores Rust. Las firmas de abajo
+> son normativas para la implementación posterior; las citas describen sólo el árbol observado.
+>
+> **Aclaración de revisión (2026-11-17):** sólo `PipelineChoice.id` es ejecutable (`tasks` es
+> informativo); `tiled` delega el flujo completo en la entrada Rust normativa
+> `VeloceOCR.recognize_tiled(...)`, pendiente de implementación (`pyocrust/__init__.pyi:403-417,435-442`; `src/lib.rs:230-243,272-339`).
+
+### 15.1 Base observada y límites de compatibilidad
+
+- `TaskSpec` expresa intención declarativa; `resolve_pipeline` la resuelve sin ejecutar modelos,
+  y `route` devuelve un `RouteDecision` con preset/features y motivo (`pyocrust/resolver.py:12-37,68-89,132-147,169-207`).
+- `multifeature.recognize` recibe una imagen y una secuencia de features; una feature devuelve
+  su salida sin envoltorio y varias producen un `dict` etiquetado. `_run_features` construye
+  `VeloceOCR`/`TaskPredictor` por llamada si no se le pasa una caché
+  (`pyocrust/multifeature.py:117-173,176-204`). `auto_recognize` también recibe imagen y devuelve
+  `(salida, RouteDecision)` (`pyocrust/multifeature.py:255-286`).
+- `parse_document(path, pages=None, dpi=200, *, text_min_chars=64)` selecciona todas las
+  páginas si `pages` es `None`; `render_page(path, index, dpi=200)` rasteriza una página
+  (`src/documents.rs:176-199,221-276,279-343`).
+- El motor público de preset es `VeloceOCR`; el predictor de tarea es `TaskPredictor`.
+  Ambos aceptan `license_commercial_use` y `license_acknowledge`; sus constructores verifican
+  el gate antes de crear el motor (`src/lib.rs:60-98,151-158`; `src/tasks/mod.rs:39-69`).
+- `OcrResult` es la salida de texto y `StructureResult` conserva la estructura sin aplanar
+  (`src/core/types.rs:391-419,482-509`). La extracción PDF ya produce `TextRegion` exactas
+  (`src/documents.rs:241-273`).
+- El default histórico de detección es 960/Max/4000 cuando los knobs son `None`
+  (`DESIGN.md:1844-1851`; `pyocrust/__init__.pyi:320-342`). `full_page_tiling_boxes` genera
+  geometría y `Tile::global_x/global_y` traslada coordenadas; ADR-009 mantiene el mosaico
+  opt-in para no romper la geometría del pipeline general (`src/core/image_processor.rs:3-12,26-54,150-182`).
+
+`VeloceOCR` y `TaskPredictor` conservan sus firmas y defaults actuales. La política nueva de
+resolución sólo rige estas entradas nuevas y `Session`; no cambia el comportamiento de llamadas
+existentes (`src/lib.rs:61-78`; `DESIGN.md:1844-1851`).
+
+### 15.2 Firmas públicas nuevas
+
+Tipos de apoyo (dataclasses congeladas, exportadas desde `pyocrust`; no modifican las salidas
+nativas existentes):
+
+```python
+Resolution = Literal["default", "balanced", "native", "tiled"]
+ImageOutput = OcrResult | StructureResult
+
+@dataclass(frozen=True)
+class PageRun:
+    index: int                                  # 1-indexado
+    source: Literal["text_layer", "ocr"]
+    output: ImageOutput
+    route_decision: RouteDecision | None        # sólo si auto_route y se ejecutó OCR
+    warnings: tuple[str, ...] = ()
+
+@dataclass(frozen=True)
+class DocumentResult:
+    pages: tuple[PageRun, ...]                  # orden de `pages` o del PDF
+```
+
+La firma completa del bloque de detección —idéntica en las entradas de imagen, documento y
+sesión— es: `resolution: Resolution = "balanced"`, `tile_size: int | None = None`,
+`tile_overlap: int | None = None` y estos escapes explícitos, todos `None` por defecto:
+
+```python
+text_det_limit_side_len: int | None = None,
+text_det_limit_type: Literal["min", "max"] | None = None,
+text_det_max_side_len: int | None = None,
+text_det_thresh: float | None = None,
+text_det_box_thresh: float | None = None,
+text_det_unclip_ratio: float | None = None,
+text_det_max_candidates: int | None = None,
+```
+
+Son los siete knobs que ya acepta `VeloceOCR`; los parámetros y sus límites existentes están en
+`pyocrust/__init__.pyi:320-442` y `src/lib.rs:61-98,404-478`.
+
+```python
+def recognize_image(
+    image: str | bytes | PathLike[str],
+    *,
+    task: TaskSpec | None = None,
+    resolution: Resolution = "balanced",
+    tile_size: int | None = None,
+    tile_overlap: int | None = None,
+    text_det_limit_side_len: int | None = None,
+    text_det_limit_type: Literal["min", "max"] | None = None,
+    text_det_max_side_len: int | None = None,
+    text_det_thresh: float | None = None,
+    text_det_box_thresh: float | None = None,
+    text_det_unclip_ratio: float | None = None,
+    text_det_max_candidates: int | None = None,
+    device: str = "cpu",
+    custom_path: str | None = None,
+    license_commercial_use: bool | None = None,
+    license_acknowledge: bool | None = None,
+) -> ImageOutput: ...
+
+def recognize_document(
+    path: str | PathLike[str],
+    pages: Sequence[int] | None = None,
+    *,
+    task: TaskSpec | None = None,
+    page_tasks: Mapping[int, TaskSpec] | None = None,
+    auto_route: bool = False,
+    probe: bool = False,
+    dpi: int = 600,
+    text_min_chars: int = 64,
+    resolution: Resolution = "balanced",
+    tile_size: int | None = None,
+    tile_overlap: int | None = None,
+    text_det_limit_side_len: int | None = None,
+    text_det_limit_type: Literal["min", "max"] | None = None,
+    text_det_max_side_len: int | None = None,
+    text_det_thresh: float | None = None,
+    text_det_box_thresh: float | None = None,
+    text_det_unclip_ratio: float | None = None,
+    text_det_max_candidates: int | None = None,
+    device: str = "cpu",
+    custom_path: str | None = None,
+    license_commercial_use: bool | None = None,
+    license_acknowledge: bool | None = None,
+) -> DocumentResult: ...
+
+class Session:
+    def __init__(
+        self,
+        *,
+        device: str = "cpu",
+        custom_path: str | None = None,
+        resolution: Resolution = "balanced",
+        tile_size: int | None = None,
+        tile_overlap: int | None = None,
+        text_det_limit_side_len: int | None = None,
+        text_det_limit_type: Literal["min", "max"] | None = None,
+        text_det_max_side_len: int | None = None,
+        text_det_thresh: float | None = None,
+        text_det_box_thresh: float | None = None,
+        text_det_unclip_ratio: float | None = None,
+        text_det_max_candidates: int | None = None,
+        license_commercial_use: bool = True,
+        license_acknowledge: bool = False,
+    ) -> None: ...
+
+    def __enter__(self) -> Session: ...
+    def __exit__(self, exc_type, exc, traceback) -> None: ...
+    def recognize_image(self, image: str | bytes | PathLike[str], *, task: TaskSpec | None = None) -> ImageOutput: ...
+    def iter_document_pages(
+        self,
+        path: str | PathLike[str],
+        pages: Sequence[int] | None = None,
+        *,
+        task: TaskSpec | None = None,
+        page_tasks: Mapping[int, TaskSpec] | None = None,
+        auto_route: bool = False,
+        probe: bool = False,
+        dpi: int = 600,
+        text_min_chars: int = 64,
+    ) -> Iterator[PageRun]: ...
+    def purge(self) -> None: ...
+
+def available_features(
+    *, license_commercial_use: bool = True, license_acknowledge: bool = False,
+) -> list[str]: ...
+```
+
+`task` es intención estructurada (`TaskSpec`), no una cadena de features. `page_tasks` permite
+asignar un flujo explícito distinto a cada índice 1-indexado. `auto_route=True` es excluyente
+con `task` y `page_tasks`; sin `task`, se usa `TaskSpec()`. Si hay `page_tasks`, sus claves deben ser
+páginas seleccionadas. `auto_route=True` calcula una decisión por cada página que necesita OCR;
+`probe=True` añade la sonda de detección sólo en ese modo. `recognize_image` devuelve únicamente
+la salida. La API existente `auto_recognize(image, ...)` conserva su retorno
+`(salida, RouteDecision)` y sus flags de licencia (`pyocrust/multifeature.py:255-286`).
+
+Los flags superiores de licencia `None` heredan los valores de `task` (o `TaskSpec()` si no se
+pasa); un bool explícito sustituye ese campo. En `page_tasks`, la misma política superior se
+aplica a cada `TaskSpec`. No se ignora ningún flag. `Session` fija ambos valores en su constructor;
+los `TaskSpec` usados dentro deben declarar la misma política, o se rechazan con
+`PyOcrValueError`. `available_features` devuelve IDs canónicos, ordenados, tomados de
+`pipeline_profiles()` y filtrados con la misma regla declarada (`src/storage/catalog.rs:199-221`).
+
+Errores observables:
+
+| Condición | Error/aviso |
+| :--- | :--- |
+| Contenido no aceptado como PDF / imagen | `IncompatiblePdfError(PyOcrValueError)` / `IncompatibleImageError(PyOcrValueError)`; mensaje literal empieza «el contenido no es un PDF compatible» / «el contenido no es una imagen compatible». Son tipos nuevos, distintos entre sí. |
+| Ruta inaccesible, PDFium/backend/modelo no disponible | `PyOcrRuntimeError` con causa; no se disfraza de incompatibilidad de contenido (`src/core/error.rs:176-199`; `src/documents.rs:163-174`). |
+| `pages`, `page_tasks`, `dpi`, `text_min_chars`, enum/knobs inválidos; `tiled` con un flujo de estructura; `page_tasks` junto a `auto_route` | `PyOcrValueError`. `pages=None` conserva «todas» y los índices explícitos son 1-indexados, únicos y dentro de rango (`src/documents.rs:176-199`). |
+| Licencia no permite cualquiera de las features requeridas por la corrida | `PyOcrValueError` antes de probe, raster, primera página o construcción de motor. |
+| La asignación/reserva necesaria para cumplir la resolución solicitada falla | `ResolutionError(PyOcrRuntimeError)`; nunca degradación automática. El mensaje incluye dimensiones y opciones para recuperar (`resolution="balanced"`, `resolution="tiled"` o el `text_det_*` pertinente). |
+| La detección reduce dimensiones respecto de la imagen de entrada | `warnings.warn(..., RuntimeWarning, stacklevel=2)` antes de inferir; el texto indica dimensiones antes/después y el flag exacto que evita/eleva el tope. En PDF se conserva además en `PageRun.warnings`. |
+
+El tipo de origen se decide por contenido, no por sufijo: `recognize_image` valida los bytes con el
+decodificador de imagen (`src/lib.rs:356-379`); `recognize_document` entrega el path al lector
+PDFium (`src/documents.rs:163-174,221-233`). La extensión no participa. La superficie de PDF
+acepta `str | PathLike[str]` (no bytes), acorde a las primitivas existentes (`src/documents.rs:325-343`).
+Un PDF con nombre `.png` sigue siendo PDF para `recognize_document`; el mismo contenido pasado a
+`recognize_image` produce `IncompatibleImageError`. Un PNG con nombre `.pdf` produce
+`IncompatiblePdfError` en `recognize_document`. Fallos de lectura se mantienen como errores de
+runtime, separados de «formato no compatible».
+
+### 15.3 Resultado por entrada y recorrido por página
+
+- Imagen: una salida de preset, nunca una lista de páginas ni un contenedor adicional. El tipo es
+  `OcrResult` para `pp_ocrv6_<size>` (también con `resolution="tiled"`) o `StructureResult`
+  para `pp_structurev3`; las recomendaciones de `PipelineChoice.tasks` no agregan salidas
+  (`src/core/types.rs:391-419,482-509`; §15.7).
+- PDF: `DocumentResult.pages` contiene un `PageRun` por página seleccionada, en orden de selección
+  (`pages=None` equivale a todas). `source="text_layer"` lleva `OcrResult` con las regiones
+  extraídas exactamente y no llama al OCR; ocurre incluso si el `TaskSpec` pide estructura. Para
+  forzar el pipeline completo sobre esa página se usa `render_page` + `recognize_image`
+  (`src/documents.rs:176-199,241-273`; §13.3 y §13.5).
+- `source="ocr"` lleva `OcrResult` o `StructureResult`, según el único `choice.id` resuelto
+  para esa página; en modo automático, `route_decision` de ese `PageRun` es la decisión de esa
+  página, y en modo explícito es `None`. Una página no hereda la decisión de su vecina.
+- `recognize_document` consume el iterador de `Session.iter_document_pages` y materializa el
+  `DocumentResult`; la variante con estado deja que la persona consumidora obtenga cada `PageRun`
+  sincrónicamente, llame otras utilidades de `pyocrust` entre páginas y luego solicite la siguiente.
+  El iterador mantiene como máximo la página/raster activo; ni PDF, imágenes ni resultados se
+  retienen en la caché del estado.
+
+### 15.4 Política de resolución, aviso y mosaicos
+
+`resolution="balanced"` es el default nuevo: una pasada de detección con `limit_type="min"`,
+`limit_side_len=64` y `max_side_len=4000`, el comportamiento de pipeline declarado para Paddle.
+No se activa tiling por defecto. El PDF usa `dpi=600` por defecto: `dpi` es el único mando de
+render; la política de detección es independiente. A 600 dpi una A4 ronda 4960×7016 px
+(§14.4); el render a alta resolución cuesta memoria, pero evita el default de 200 dpi
+(§13.2, §13.6 y `src/documents.rs:306-319`).
+
+| Valor | Semántica efectiva |
+| :--- | :--- |
+| `"default"` | Compatibilidad histórica: `960/Max/4000`; no es el default nuevo. |
+| `"balanced"` | `min/64/4000`, compatible con el pipeline Paddle; puede reducir un lado mayor que 4000 y por ello avisa. |
+| `"native"` | `min/64`; el `text_det_max_side_len` efectivo se fija al lado mayor real de la imagen/página. Sin tope artificial ni reducción automática; expone el coste de memoria/tiempo. |
+| `"tiled"` | Opt-in, sólo OCR de texto: 2048 px por mosaico, solape 256 px (12,5%). Parámetros de calibración pendientes de medirse con el fixture de esquemáticos; 512/64 de ADR-009 no es el tamaño de contexto para detección. |
+
+Los `text_det_*` explícitos sustituyen el valor correspondiente del modo elegido; no se aceptan
+knobs reconocidos pero ignorados. Toda reducción efectiva, incluida una impuesta por un escape
+`text_det_*`, emite `RuntimeWarning` con el nombre y valor del flag. En `balanced` sobre una página
+mayor de 4000 se recomienda `resolution="native"` o un `text_det_max_side_len` suficiente; en
+`default` la advertencia recomienda `resolution="balanced"` o `"native"`. `native` junto a un
+`text_det_max_side_len` menor que el lado de entrada es contradictorio y se rechaza, no se
+interpreta como permiso para recortar. La API no inventa un presupuesto global de memoria: valida
+el cálculo de dimensiones y reserva los buffers requeridos antes de inferir; si no puede hacerlo,
+lanza `ResolutionError` con el modo y los flags alternativos. No baja la resolución para evitar
+ese error. El caso 7000×5000 necesita aproximadamente 100,1 MiB para una copia RGB8 de página,
+antes de buffers del detector/ORT; el render PDF añade el bitmap y conversión descritos en
+§13.6. Es un default deliberadamente más lento/costoso que 960.
+
+En `"tiled"` se reutiliza la geometría de `full_page_tiling_boxes` y los offsets de
+`Tile::global_x/global_y` (`src/core/image_processor.rs:26-53,150-182`). La ejecución de
+extremo a extremo pertenece a Rust: la entrada normativa `VeloceOCR.recognize_tiled(...)`
+recibe la imagen, `tile_size`, `tile_overlap` y los `text_det_*`; trocea, detecta con el
+preset seleccionado, traslada las cajas a coordenadas globales, aplica la propiedad por
+centro y reconoce los recortes nativos para recomponer un `OcrResult` global. `_run` delega
+en esa entrada cuando `resolution="tiled"`; Python no recorre los mosaicos (§15.7). Este
+símbolo es un contrato de diseño pendiente de implementación: el binding actual expone por
+separado `recognize`, `detect_regions` y `recognize_regions`, sin una entrada tiled
+(`pyocrust/__init__.pyi:403-417,435-442`; `src/lib.rs:230-243,272-339`).
+La recomposición deduplica con una regla determinista de **propiedad por centro**: cada
+detección global se conserva sólo si su centro cae en la zona de propiedad no solapada de
+ese mosaico; los límites de propiedad particionan los solapes entre vecinos, con desempate
+estable por índice de mosaico. No se usa IoU como decisión ambigua. El modo se rechaza para
+`pp_structurev3`/salidas de layout, tabla o fórmula: ADR-009 mantiene el mosaico fuera del
+pipeline general porque rompe la coherencia geométrica (`src/core/image_processor.rs:3-12`).
+`tile_size` y `tile_overlap` sólo son válidos con `resolution="tiled"`; si se omiten, sus
+efectivos son 2048/256, y se valida `0 <= tile_overlap < tile_size`.
+
+### 15.5 Estado Python y vida de los modelos
+
+`Session` sólo cachea runners/modelos. El constructor fija de manera inmutable `device`,
+`custom_path`, política de resolución/knobs y flags de licencia. `__enter__` activa una sesión con
+caché vacía; los motores se cargan perezosamente al primer uso. `iter_document_pages` procesa una
+página por vez. La caché no incluye documentos, rasteres ni salidas; su clave separa al menos la
+feature y los knobs efectivos. Así se elimina la reconstrucción por feature/llamada que hace hoy
+`_run_features` sin caché (`pyocrust/multifeature.py:117-165`).
+
+`purge()` libera todos los runners/modelos ya residentes y devuelve `None`; mantiene la sesión
+abierta y reutilizable, de modo que la próxima operación vuelve a cargarlos. `__exit__` purga y
+cierra aun si el bloque `with` sale con excepción. Usar métodos después de `__exit__` da
+`PyOcrRuntimeError`. La sesión no es thread-safe; `purge()` y lecturas son síncronos y sólo se
+invocan entre operaciones. Es el estado de modelos pedido, no un estado de documento o de cursor
+compartido.
+
+### 15.6 Licencia: preflight agregado y catálogo disponible
+
+Antes de la primera sonda, raster o construcción de predictor, `_run` resuelve el plan
+ejecutable completo. Para cada página que necesita OCR, la especificación efectiva es
+`page_tasks[i]` si existe; en otro caso `task`, o `TaskSpec()` si tampoco se pasó `task`.
+`resolve_pipeline` convierte esa especificación en un único perfil ejecutable, `choice.id`;
+`PipelineChoice.tasks` son recomendaciones informativas y no se ejecutan ni se incluyen en el
+preflight (`pyocrust/resolver.py:68-89,115-118`; §15.7). Con `auto_route=True`, el conjunto
+incluye los perfiles candidatos del router y sólo incluye `text_detection` si se solicita
+`probe=True`. Se valida el conjunto completo de páginas/candidatos antes de la primera sonda,
+raster o construcción de predictor; si una licencia no permite un perfil ejecutable, la
+corrida falla antes de cargar modelos. El contrato exige pasar los flags efectivos a cada
+`VeloceOCR`/`TaskPredictor` que se ejecute, incluida la sonda; la ruta heredada `_probe` actual
+no los recibe y su integración debe propagarlos (`pyocrust/multifeature.py:84-115,246-252`).
+Sigue vigente el gate de licencia del constructor individual (`src/lib.rs:151-158`;
+`src/tasks/mod.rs:52-69`). La licencia agregada mantiene *default-deny*: `Unknown` nunca permite
+uso, el uso comercial requiere permiso y la atribución requerida exige aceptación
+(`src/storage/license.rs:148-176,193-223`).
+
+`available_features(license_commercial_use=True, license_acknowledge=False)` devuelve, sin
+cargar modelos ni inferir, la lista ordenada de IDs de `pipeline_profiles()` cuyas filas permiten
+la política declarada. Las filas ya exponen licencia, permiso comercial y aceptación de
+atribución (`src/storage/catalog.rs:199-221`). El helper es informativo, no reemplaza el preflight:
+si la política cambia entre consulta y corrida, la corrida vuelve a validar.
+
+### 15.7 Convergencia: función Python → `run` → primitiva Rust
+
+`_run` es el único núcleo privado: valida el plan completo/licencia, normaliza una página raster,
+resuelve el runner y usa la caché opcional de `Session`. No se publica `run(source, ...)` ni una
+firma polimórfica PDF/imagen.
+
+La conversión normativa por página es: `page_tasks[i]` si la página tiene override; si no,
+`task`; si tampoco existe, `TaskSpec()`. `resolve_pipeline` produce `PipelineChoice` y su
+`id` es el único preset ejecutable de ese `TaskSpec`; `PipelineChoice.tasks` son recomendaciones
+informativas, no una secuencia de `TaskPredictor`. `pp_ocrv6_<size>` produce `OcrResult` y
+`pp_structurev3` produce `StructureResult`; `output_format` orienta la selección del perfil,
+pero no transforma su salida (`pyocrust/resolver.py:40-50,97-118`; `src/lib.rs:230-243`).
+`TaskPredictor.predict` no ejecuta `PipelineChoice.tasks`: la sonda opt-in de `auto_route` y las
+features que la ruta heredada devuelve como tareas siguen siendo caminos de ejecución distintos
+(`pyocrust/multifeature.py:246-286`; `pyocrust/resolver.py:68-89`).
+
+| Función Python | Plan ejecutable | Núcleo `_run` | Primitiva Rust |
+| :--- | :--- | :--- | :--- |
+| `recognize_image(image, task=...)` | resuelve `task` (o `TaskSpec()`) a `choice.id`; excluye `choice.tasks` | `_run(image, plan, settings, cache=None)` | `VeloceOCR.recognize` para `balanced`/`native`; `VeloceOCR.recognize_tiled` para `tiled` (entrada Rust de diseño; devuelve `OcrResult`). (`src/lib.rs:230-243`; tiled: §15.4). |
+| `auto_recognize(image, ...)` existente | conserva su plan/decisión del router | preflight → sonda opcional → `route` → `_run` | `TaskPredictor.predict` para la sonda solicitada; `VeloceOCR.recognize`/`TaskPredictor.predict` según la ruta existente (`pyocrust/multifeature.py:246-286`; `src/tasks/mod.rs:240-245`). |
+| `recognize_document(path, ...)` | si `auto_route`: perfiles candidatos/ruta por página; si no: `page_tasks[i]` > `task` > `TaskSpec()`; text-layer no ejecuta pipeline | parsea/preflight; crea `PageRun` para cada página | `parse_document`; páginas OCR: `render_page` → `_run` → `VeloceOCR.recognize` o, en tiled, `VeloceOCR.recognize_tiled`; resultado por preset (`src/documents.rs:221-343`; §15.3). |
+| `Session.recognize_image` | mismo `choice.id` que la llamada sin estado | `_run(..., cache=session._runners)` | mismas entradas Rust; en tiled, `VeloceOCR.recognize_tiled`. |
+| `Session.iter_document_pages` | mismo override por página y exclusión de recomendaciones | preflight una vez; avanza `_run` por página con `cache=session._runners` | mismas primitivas PDF/imagen; en tiled, entrada Rust end-to-end con geometría reutilizada. |
+| `available_features(...)` | no crea plan ni carga modelo | consulta pura del catálogo y filtro de licencia | `pipeline_profiles()` (sin `VeloceOCR`, `TaskPredictor`, render ni inferencia; `src/storage/catalog.rs:199-221`). |
+
+El flujo PDF no comparte una salida universal: el documento agrega `PageRun`, pero cada `output`
+conserva el esquema del pipeline elegido para esa página. Así el contrato público impone tipo de
+origen, cardinalidad y errores distinguibles, mientras imagen y PDF convergen únicamente después
+de validar su contenido.
